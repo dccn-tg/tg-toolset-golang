@@ -1,6 +1,6 @@
 # Tools for managing project data access
 
-This package is rewriting the existing python scripts of `prj_getacl`, `prj_setacl`, and `prj_delacl`, with the following aims:
+This package is rewriting the existing python scripts of `prj_getacl`, `prj_setacl`, and `prj_delacl`, with the following objectives:
 
 * supporting role setting and deletion on individual file/directory level so that there will be no permission "overwriting" issue when managing different access roles on sub-directories in a project storage.
 
