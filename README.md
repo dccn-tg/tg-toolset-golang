@@ -6,7 +6,7 @@ This package is rewriting the existing python scripts of `prj_getacl`, `prj_seta
 
   In this context, the program should be fast enought to walk through all the files in a project (in an order of 10^7 - 10^9). This requirement drives the idea of writing the program with the Go language given that the concurrency model in the language can potentially be used to boost the speed of the massive setacl and getacl operations.
 
-* supporting intellegent traverse role setting while following a link referring to a path that is outside of the current project storage.
+* supporting intellegent traverse role setting while following a link referring to a path that is outside the current project storage.
 
   Traverse role setting becomes non-trivial when the following symbolic link happens:
   
