@@ -4,7 +4,7 @@ This package is rewriting the existing python scripts of `prj_getacl`, `prj_seta
 
 * supporting role setting and deletion on individual file/directory level so that there will be no permission "overwriting" issue when managing different access roles on sub-directories in a project storage.
 
-  In this context, the program should be fast enought to walk through all (in an order of 10^7 - 10^9) the files.  This requirement drives the idea to implement the program using the Go language as the language builds in a concurrency model that can potentially be used to boost the speed of setacl and getacl operations.
+  In this context, the program should be fast enought to walk through all the files in a project (in an order of 10^7 - 10^9). This requirement drives the idea of writing the program with the Go language given that the concurrency model in the language can potentially be used to boost the speed of the massive setacl and getacl operations.
 
 * supporting intellegent traverse role setting while following a link referring to a path that is outside of the current project storage.
 
