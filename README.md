@@ -34,4 +34,4 @@ After the build, the executable binaries are located in the `bin` directory.
 make doc
 ```
 
-and visit [](http://localhost:6060/pkg/dccn.nl).
+and visit [http://localhost:6060/pkg/dccn.nl](http://localhost:6060/pkg/dccn.nl).
