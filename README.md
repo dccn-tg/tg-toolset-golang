@@ -1,2 +1,9 @@
-# project_acl
-Tools for project manager to access control the data in the project storage
+# Tools for managing project data access
+
+## Build
+
+```bash
+make
+```
+
+After the build, the executable binaries are located in the `bin` directory.
