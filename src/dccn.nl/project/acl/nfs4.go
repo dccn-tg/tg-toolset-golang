@@ -123,13 +123,15 @@ func getACL(path string) ([]ACE, error) {
     }
     var aces []ACE
     for _, line := range strings.Split(string(out), "\n") {
+        if line == "" {
+            // an empty line is ok to ignore
+            continue
+        }
         ace, err := parseAce(line)
         if err != nil {
-            // an empty line is ok to ignore
-            if line == "" {
-                continue
-            }
+            // print a warning and continue
             logger.Warn(fmt.Sprintf("%s", err))
+            continue
         }
         aces = append(aces, *ace)
     }
