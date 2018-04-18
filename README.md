@@ -14,7 +14,7 @@ This package is rewriting the existing python scripts of `prj_getacl`, `prj_seta
   /project/3010000.01/symlink --> /project_ext/3010000.04/referent
   ```
   
-  In this situation, the traverse role setting should be applied not only on path `/project/3010000.01`, but also `/project_ext/3010000.04`.  Also note that the two root directories (`/project` and `/project_ext`) are mount points to two different storage systems.  It also requires the program to switch between two ACL-setting implementations that fit well with the logic exposed by the storage systems.
+  In this situation, the traverse role setting should be applied not only on path `/project/3010000.01`, but also `/project_ext/3010000.04`.  Also note that the two root directories (`/project` and `/project_ext`) are mount points to two different storage systems.  It also requires the program to switch to an ACL-setting implementation following the logic exposed by the storage system in question.
   
 * facilitating possibility of extending the code for different storage system supporting NFSv4 ACL.
 
