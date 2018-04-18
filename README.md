@@ -27,3 +27,11 @@ make
 ```
 
 After the build, the executable binaries are located in the `bin` directory.
+
+## Documentation of reusable functions
+
+```bash
+make doc
+```
+
+and visit [http://localhost:6060/pkg/dccn.nl]().
