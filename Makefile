@@ -12,7 +12,7 @@ build: external
 doc:
 	@GOPATH=$(GOPATH) GOOS=linux godoc -http=:6060
 
-test:
+test: external
 	@GOPATH=$(GOPATH) GOOS=linux GOCACHE=off go test -v dccn.nl/project/...
 
 clean:

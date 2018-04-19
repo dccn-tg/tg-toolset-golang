@@ -185,9 +185,9 @@ func setACL(path string, aces []ACE, recursive bool, followLink bool) error {
 // getPrincipleName transforms the ACE's Principle into the valid system user or group name.
 func getPrincipleName(ace ACE) (string) {
     if strings.Index(ace.Flag, "g") >= 0 {
-        return "g:" + strings.TrimRight(ace.Principle, "@" + userDomain)
+        return "g:" + strings.TrimSuffix(ace.Principle, "@" + userDomain)
     } else {
-        return strings.TrimRight(ace.Principle, "@" + userDomain)
+        return strings.TrimSuffix(ace.Principle, "@" + userDomain)
     }
 }
 
