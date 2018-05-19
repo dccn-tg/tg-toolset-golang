@@ -20,3 +20,11 @@ func TestGetPrincipleName(t *testing.T) {
         t.Errorf("Expected principle name %s but got %s", "kelvdun", pn)
     }
 }
+
+func TestIsValidPrinciple(t *testing.T) {
+    ace_str := "A:fd:rendbru@dccn.nl:rwaDdxtTnNcy"
+    ace, _ := parseAce(ace_str)
+    if ! ace.IsValidPrinciple() {
+        t.Errorf("principle not valid: %s", ace.Principle)
+    }
+}
