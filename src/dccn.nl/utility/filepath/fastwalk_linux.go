@@ -41,7 +41,7 @@ func clen(n []byte) int {
 // If mode is provided, both root and mode are respected. Otherwise, the root is stated to
 // retrieve its FileMode.  If the root is a symbolic link, the returned FilePathInfo contains
 // information and path referring to the referent of the link.
-func fastWalk(root string, mode *os.FileMode, chan_p *chan FilePathMode) {
+func fastWalk(root string, mode *os.FileMode, chanP *chan FilePathMode) {
 
 	if mode == nil {
 		// retrieve FileMode when it is not provided by the caller
@@ -51,9 +51,9 @@ func fastWalk(root string, mode *os.FileMode, chan_p *chan FilePathMode) {
 		}
 		// respect the path returned so that symlink can be followed on the referent's path.
 		root = filepath.Clean(fpm.Path)
-		*chan_p <- *fpm
+		*chanP <- *fpm
 	} else {
-		*chan_p <- FilePathMode{Path: root, Mode: *mode}
+		*chanP <- FilePathMode{Path: root, Mode: *mode}
 	}
 
 	dir, err := os.Open(root)
@@ -100,18 +100,18 @@ func fastWalk(root string, mode *os.FileMode, chan_p *chan FilePathMode) {
 
 			switch dirent.Type {
 			case 0:
-				*chan_p <- FilePathMode{Path: vpath, Mode: 0}
+				*chanP <- FilePathMode{Path: vpath, Mode: 0}
 			case syscall.DT_REG:
-				*chan_p <- FilePathMode{Path: vpath, Mode: 0}
+				*chanP <- FilePathMode{Path: vpath, Mode: 0}
 			case syscall.DT_DIR:
 				m := os.ModeDir
-				fastWalk(vpath, &m, chan_p)
+				fastWalk(vpath, &m, chanP)
 			case syscall.DT_LNK:
 				referent, _ := os.Readlink(vpath)
 				if []rune(referent)[0] != os.PathSeparator {
 					referent = filepath.Join(root, referent)
 				}
-				fastWalk(referent, nil, chan_p)
+				fastWalk(referent, nil, chanP)
 			}
 		}
 	}
@@ -130,12 +130,12 @@ func fastWalk(root string, mode *os.FileMode, chan_p *chan FilePathMode) {
 // of getting directory content.  Thus it can only be used with $GOOS=linux.
 func GoFastWalk(root string, buffer int) chan FilePathMode {
 
-	chan_p := make(chan FilePathMode, buffer)
+	chanP := make(chan FilePathMode, buffer)
 
 	go func() {
-		fastWalk(root, nil, &chan_p)
-		defer close(chan_p)
+		fastWalk(root, nil, &chanP)
+		defer close(chanP)
 	}()
 
-	return chan_p
+	return chanP
 }

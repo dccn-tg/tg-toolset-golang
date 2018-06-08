@@ -101,18 +101,18 @@ func GetFilePathMode(path string) (*FilePathMode, error) {
 // in the FilePathMode structure and pushed to the returned channel with a specified
 // buffer size.  The channel is closed after the walk visited the last file/directory.
 func GoWalk(root string, filter FileFilter, buffer int) chan FilePathMode {
-	chan_f := make(chan FilePathMode, buffer)
+	chanF := make(chan FilePathMode, buffer)
 	go func() {
 		filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
 			if filter(fi) {
 				// convert path p into FilePathInfo
 				if fpm, err := makeFilePathMode(p, fi.Mode()); err == nil {
-					chan_f <- *fpm
+					chanF <- *fpm
 				}
 			}
 			return nil
 		})
-		defer close(chan_f)
+		defer close(chanF)
 	}()
-	return chan_f
+	return chanF
 }
