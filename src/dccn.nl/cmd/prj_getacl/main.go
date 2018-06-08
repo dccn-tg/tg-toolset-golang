@@ -74,6 +74,9 @@ func main() {
 		ppath, _ = filepath.Abs(ppath)
 	}
 
+	// resolve any symlinks on ppath
+	ppath, _ = filepath.EvalSymlinks(ppath)
+
 	fpinfo, err := ufp.GetFilePathMode(ppath)
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("path not found or unaccessible: %s", ppath))

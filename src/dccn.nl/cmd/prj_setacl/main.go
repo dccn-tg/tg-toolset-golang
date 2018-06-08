@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"dccn.nl/project/acl"
@@ -103,9 +104,16 @@ func main() {
 
 	// constructing the input path from arguments
 	ppath := args[0]
-	if []rune(ppath)[0] != os.PathSeparator {
+
+	// the input argument starts with 7 digits (considered as project number)
+	if matched, _ := regexp.MatchString("^[0-9]{7,}", ppath); matched {
 		ppath = filepath.Join(*optsBase, ppath, *optsPath)
+	} else {
+		ppath, _ = filepath.Abs(ppath)
 	}
+
+	// resolve any symlinks on ppath
+	ppath, _ = filepath.EvalSymlinks(ppath)
 
 	// copy over the constructed ppath to ppathUser
 	ppathUser = ppath
