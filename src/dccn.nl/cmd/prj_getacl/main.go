@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"dccn.nl/project/acl"
@@ -66,8 +67,11 @@ func main() {
 	}
 
 	ppath := args[0]
-	if []rune(ppath)[0] != os.PathSeparator {
+	// the input argument starts with 7 digits (considered as project number)
+	if matched, _ := regexp.MatchString("^[0-9]{7,}", ppath); matched {
 		ppath = filepath.Join(*path, ppath)
+	} else {
+		ppath, _ = filepath.Abs(ppath)
 	}
 
 	fpinfo, err := ufp.GetFilePathMode(ppath)
