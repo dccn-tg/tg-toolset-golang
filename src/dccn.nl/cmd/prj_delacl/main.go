@@ -26,8 +26,6 @@ var optsNthreads *int
 var optsForce *bool
 var optsVerbose *bool
 
-var logger *log.Entry
-
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users to be removed from the manager role")
 	optsContributor = flag.String("c", "", "specify a comma-separated-list of users to be removed from the contributor role")
@@ -45,15 +43,12 @@ func init() {
 
 	// set logging
 	log.SetOutput(os.Stderr)
-
 	// set logging level
 	llevel := log.InfoLevel
 	if *optsVerbose {
 		llevel = log.DebugLevel
 	}
 	log.SetLevel(llevel)
-
-	logger = log.WithFields(log.Fields{"source": filepath.Base(os.Args[0])})
 }
 
 func usage() {
@@ -80,12 +75,12 @@ func main() {
 
 	if len(args) < 1 {
 		flag.Usage()
-		logger.Fatal(fmt.Sprintf("unknown project number: %v", args))
+		log.Fatal(fmt.Sprintf("unknown project number: %v", args))
 	}
 
 	if len(args) >= 2 && *optsManager+*optsContributor+*optsViewer != "" {
 		flag.Usage()
-		logger.Fatal("use only one way to specify users: with or without role options (-m|-c|-u), not both.")
+		log.Fatal("use only one way to specify users: with or without role options (-m|-c|-u), not both.")
 	}
 
 	// map for role specification inputs (commad options)
@@ -109,7 +104,7 @@ func main() {
 	roles, usersT, err := parseRoles(roleSpec)
 
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("%s", err))
+		log.Fatal(fmt.Sprintf("%s", err))
 	}
 
 	doLock := false
@@ -126,18 +121,18 @@ func main() {
 
 	fpinfo, err := ufp.GetFilePathMode(ppath)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("path not found or unaccessible: %s", ppath))
+		log.Fatal(fmt.Sprintf("path not found or unaccessible: %s", ppath))
 	}
 
 	roler := acl.GetRoler(*fpinfo)
 	if roler == nil {
-		logger.Fatal(fmt.Sprintf("roler not found: %s", fpinfo.Path))
+		log.Fatal(fmt.Sprintf("roler not found: %s", fpinfo.Path))
 	}
 
-	logger.Debug(fmt.Sprintf("+%v", fpinfo))
+	log.Debug(fmt.Sprintf("+%v", fpinfo))
 	rolesNow, err := roler.GetRoles(*fpinfo)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("%s: %s", err, fpinfo.Path))
+		log.Fatal(fmt.Sprintf("%s: %s", err, fpinfo.Path))
 	}
 
 	// check the top-level directory to see if there are actual work to do.
@@ -166,7 +161,7 @@ func main() {
 	}
 
 	if n == 0 && !*optsForce {
-		logger.Warn("All roles in place, I have nothing to do.")
+		log.Warn("All roles in place, I have nothing to do.")
 		os.Exit(0)
 	}
 
@@ -174,7 +169,7 @@ func main() {
 		// acquire lock for the current process
 		flock := filepath.Join(ppath, ".prj_setacl.lock")
 		if err := ufp.AcquireLock(flock); err != nil {
-			logger.Fatal(fmt.Sprintf("%s", err))
+			log.Fatal(fmt.Sprintf("%s", err))
 		}
 		defer os.Remove(flock)
 	}
@@ -195,9 +190,9 @@ func main() {
 	// on which the traverse role should be removed, using a go routine.
 	go func() {
 		for o := range chanOut {
-			logger.Info(fmt.Sprintf("%s", o.Path))
+			log.Info(fmt.Sprintf("%s", o.Path))
 			for r, users := range o.RoleMap {
-				logger.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
+				log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
 			}
 			// examine the path to see if it is deviated from the ppath from
 			// the project storage perspective.  If so, it should be considered for the
@@ -218,9 +213,9 @@ func main() {
 
 	// loops over results of removing the traverse role.
 	for o := range chanOutt {
-		logger.Info(fmt.Sprintf("%s", o.Path))
+		log.Info(fmt.Sprintf("%s", o.Path))
 		for r, users := range o.RoleMap {
-			logger.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
+			log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
 		}
 	}
 }
@@ -262,14 +257,14 @@ func goDelRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) ch
 		roler := acl.GetRoler(f)
 
 		if roler == nil {
-			logger.Warn(fmt.Sprintf("roler not found: %s", f.Path))
+			log.Warn(fmt.Sprintf("roler not found: %s", f.Path))
 			return
 		}
 
 		if rolesNew, err := roler.DelRoles(f, roles, false, false); err == nil {
 			chanOut <- acl.RolePathMap{Path: f.Path, RoleMap: rolesNew}
 		} else {
-			logger.Error(fmt.Sprintf("%s: %s", err, f.Path))
+			log.Error(fmt.Sprintf("%s: %s", err, f.Path))
 		}
 	}
 
@@ -278,7 +273,7 @@ func goDelRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) ch
 	for i := 0; i < nthreads; i++ {
 		go func() {
 			for f := range chanF {
-				logger.Debug("processing file: " + f.Path)
+				log.Debug("processing file: " + f.Path)
 				updateACL(f)
 			}
 			chanSync <- 1

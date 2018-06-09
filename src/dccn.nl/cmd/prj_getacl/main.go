@@ -19,7 +19,6 @@ var path *string
 var recursion *bool
 var nthreads *int
 var verbose *bool
-var logger *log.Entry
 
 func init() {
 	path = flag.String("d", "/project", "root path of project storage")
@@ -30,9 +29,7 @@ func init() {
 	flag.Parse()
 
 	// set logging
-	logger = log.WithFields(log.Fields{"source": filepath.Base(os.Args[0])})
 	log.SetOutput(os.Stderr)
-
 	// set logging level
 	llevel := log.InfoLevel
 	if *verbose {
@@ -63,7 +60,7 @@ func main() {
 
 	if len(args) < 1 {
 		flag.Usage()
-		logger.Fatal(fmt.Sprintf("unknown project number: %v", args))
+		log.Fatal(fmt.Sprintf("unknown project number: %v", args))
 	}
 
 	ppath := args[0]
@@ -79,7 +76,7 @@ func main() {
 
 	fpinfo, err := ufp.GetFilePathMode(ppath)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("path not found or unaccessible: %s", ppath))
+		log.Fatal(fmt.Sprintf("path not found or unaccessible: %s", ppath))
 	} else {
 		// disable recursion if ppath is not a directory
 		if !fpinfo.Mode.IsDir() {
@@ -126,14 +123,14 @@ func goGetACL(chanD chan ufp.FilePathMode, nthreads int) chan acl.RolePathMap {
 
 				roler := acl.GetRoler(p)
 				if roler == nil {
-					logger.Warn(fmt.Sprintf("roler not found: %s", p.Path))
+					log.Warn(fmt.Sprintf("roler not found: %s", p.Path))
 					continue
 				}
-				logger.Debug(fmt.Sprintf("path: %s %s", p.Path, reflect.TypeOf(roler)))
+				log.Debug(fmt.Sprintf("path: %s %s", p.Path, reflect.TypeOf(roler)))
 				if roles, err := roler.GetRoles(p); err == nil {
 					chanOut <- acl.RolePathMap{Path: p.Path, RoleMap: roles}
 				} else {
-					logger.Error(fmt.Sprintf("%s: %s", err, p.Path))
+					log.Error(fmt.Sprintf("%s: %s", err, p.Path))
 				}
 			}
 			chanSync <- 1
