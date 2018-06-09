@@ -52,8 +52,8 @@ func init() {
 }
 
 func usage() {
-	fmt.Printf("\n%s removes users' access permission on a given project or a path.\n", filepath.Base(os.Args[0]))
-	fmt.Printf("\nUsage: %s [OPTIONS] projectId|path\n", os.Args[0])
+	fmt.Printf("\nRemoving users' access permission on a given project or a path.\n")
+	fmt.Printf("\nUSAGE: %s [OPTIONS] projectId|path\n", os.Args[0])
 	fmt.Printf("\nOPTIONS:\n")
 	flag.PrintDefaults()
 	fmt.Printf("\nEXAMPLES:\n")
