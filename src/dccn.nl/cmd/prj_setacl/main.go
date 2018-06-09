@@ -35,7 +35,7 @@ var logger *log.Entry
 // In this case, the base directory of the referent (i.e. "/project/30440220.10") should be taken
 // into account for setting up traverse role in addition to the base of the ppathUser
 // (i.e. "/project/3010000.01").
-var ppathUser string
+//var ppathUser string
 
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users for the manager role")
@@ -102,21 +102,15 @@ func main() {
 		logger.Fatal(fmt.Sprintf("%s", err))
 	}
 
-	// constructing the input path from arguments
-	ppath := args[0]
-
 	// the input argument starts with 7 digits (considered as project number)
-	if matched, _ := regexp.MatchString("^[0-9]{7,}", ppath); matched {
-		ppath = filepath.Join(*optsBase, ppath, *optsPath)
+	ppathSym := args[0]
+	if matched, _ := regexp.MatchString("^[0-9]{7,}", ppathSym); matched {
+		ppathSym = filepath.Join(*optsBase, ppathSym, *optsPath)
 	} else {
-		ppath, _ = filepath.Abs(ppath)
+		ppathSym, _ = filepath.Abs(ppathSym)
 	}
-
-	// resolve any symlinks on ppath
-	ppath, _ = filepath.EvalSymlinks(ppath)
-
-	// copy over the constructed ppath to ppathUser
-	ppathUser = ppath
+	// resolve any symlinks on ppathSym to actual path this program should work on.
+	ppath, _ := filepath.EvalSymlinks(ppathSym)
 
 	fpinfo, err := ufp.GetFilePathMode(ppath)
 	if err != nil {
@@ -178,33 +172,25 @@ func main() {
 	// loops over results of setting specified user roles and resolves paths
 	// on which the traverse role should be set, using a go routine.
 	go func() {
-		n := 0
 		for o := range chanOut {
 			// the role has been set to the path
 			logger.Info(fmt.Sprintf("%s", o.Path))
 			for r, users := range o.RoleMap {
 				logger.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
 			}
-			// examine the path to see if the path is derived from the ppathUser from
+			// examine the path to see if it is deviated from the ppath from
 			// the project storage perspective.  If so, it should be considered for the
 			// traverse role settings.
-			if *optsTraverse && !acl.IsSameProjectPath(o.Path, ppathUser) {
-				n++
-				go func() {
-					acl.GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
-					n--
-				}()
-			}
-		}
-		// wait until all go routines for acl.GetPathsForSetTraverse to finish
-		for {
-			if n == 0 {
-				break
+			if *optsTraverse && !acl.IsSameProjectPath(o.Path, ppath) {
+				acl.GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
 			}
 		}
 		// go over ppath for traverse role synchronously
 		if *optsTraverse {
 			acl.GetPathsForSetTraverse(ppath, rolesT, &chanFt)
+			if ppath != ppathSym {
+				acl.GetPathsForSetTraverse(ppathSym, rolesT, &chanFt)
+			}
 		}
 		defer close(chanFt)
 	}()
