@@ -25,7 +25,6 @@ var optsTraverse *bool
 var optsNthreads *int
 var optsForce *bool
 var optsVerbose *bool
-var ppathUser string
 
 var logger *log.Entry
 
@@ -92,14 +91,14 @@ func main() {
 	// map for role specification inputs (commad options)
 	roleSpec := make(map[acl.Role]string)
 
-	ppath := args[0]
+	ppathSym := args[0]
 
 	if len(args) >= 2 {
 		roleSpec[acl.Manager] = args[0]
 		roleSpec[acl.Contributor] = args[0]
 		roleSpec[acl.Viewer] = args[0]
 		roleSpec[acl.Traverse] = args[0]
-		ppath = args[1]
+		ppathSym = args[1]
 	} else {
 		roleSpec[acl.Manager] = *optsManager
 		roleSpec[acl.Contributor] = *optsContributor
@@ -116,17 +115,14 @@ func main() {
 	doLock := false
 
 	// the input argument starts with 7 digits (considered as project number)
-	if matched, _ := regexp.MatchString("^[0-9]{7,}", ppath); matched {
-		ppath = filepath.Join(*optsBase, ppath, *optsPath)
+	if matched, _ := regexp.MatchString("^[0-9]{7,}", ppathSym); matched {
+		ppathSym = filepath.Join(*optsBase, ppathSym, *optsPath)
 	} else {
-		ppath, _ = filepath.Abs(ppath)
+		ppathSym, _ = filepath.Abs(ppathSym)
 	}
 
 	// resolve any symlinks on ppath
-	ppath, _ = filepath.EvalSymlinks(ppath)
-
-	// copy over the constructed ppath to ppathUser
-	ppathUser = ppath
+	ppath, _ := filepath.EvalSymlinks(ppathSym)
 
 	fpinfo, err := ufp.GetFilePathMode(ppath)
 	if err != nil {
@@ -198,32 +194,24 @@ func main() {
 	// loops over results of removing specified user roles and resolves paths
 	// on which the traverse role should be removed, using a go routine.
 	go func() {
-		n := 0
 		for o := range chanOut {
 			logger.Info(fmt.Sprintf("%s", o.Path))
 			for r, users := range o.RoleMap {
 				logger.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
 			}
-			// examine the path to see if the path is derived from the ppathUser from
+			// examine the path to see if it is deviated from the ppath from
 			// the project storage perspective.  If so, it should be considered for the
 			// traverse role settings.
-			if *optsTraverse && !acl.IsSameProjectPath(o.Path, ppathUser) {
-				n++
-				go func() {
-					acl.GetPathsForDelTraverse(o.Path, rolesT, &chanFt)
-					n--
-				}()
-			}
-		}
-		// wait until all go routines for acl.GetPathsForDelTraverse to finish
-		for {
-			if n == 0 {
-				break
+			if *optsTraverse && !acl.IsSameProjectPath(o.Path, ppath) {
+				acl.GetPathsForDelTraverse(o.Path, rolesT, &chanFt)
 			}
 		}
 		// go over ppath for traverse role synchronously
 		if *optsTraverse {
 			acl.GetPathsForDelTraverse(ppath, rolesT, &chanFt)
+			if ppath != ppathSym {
+				acl.GetPathsForDelTraverse(ppathSym, rolesT, &chanFt)
+			}
 		}
 		defer close(chanFt)
 	}()
