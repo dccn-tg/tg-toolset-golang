@@ -2,19 +2,39 @@ package pdb
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"dccn.nl/config"
 	"github.com/go-sql-driver/mysql"
+	"github.com/spf13/viper"
 )
+
+var conf config.Configuration
+
+func init() {
+	// load configuration
+	cfg := filepath.Join(os.Getenv("GOPATH"), "etc/config_test.yml")
+	viper.SetConfigFile(cfg)
+	if err := viper.ReadInConfig(); err != nil {
+		panic(fmt.Sprintf("Error reading config file, %s", err))
+	}
+	err := viper.Unmarshal(&conf)
+	if err != nil {
+		panic(fmt.Sprintf("unable to decode into struct, %s", err))
+	}
+}
 
 func TestSelectPendingRoleMap(t *testing.T) {
 
 	config := mysql.Config{
 		Net:                  "tcp",
-		Addr:                 "mysql-intranet.dccn.nl:3306",
-		DBName:               "fcdc",
-		User:                 "acl",
-		Passwd:               "test",
+		Addr:                 fmt.Sprintf("%s:%d", conf.PDB.HostSQL, conf.PDB.PortSQL),
+		DBName:               conf.PDB.DatabaseSQL,
+		User:                 conf.PDB.UserSQL,
+		Passwd:               conf.PDB.PassSQL,
 		AllowNativePasswords: true,
 		ParseTime:            true,
 	}
@@ -41,10 +61,10 @@ func TestSelectPdbUser(t *testing.T) {
 
 	config := mysql.Config{
 		Net:                  "tcp",
-		Addr:                 "mysql-intranet.dccn.nl:3306",
-		DBName:               "fcdc",
-		User:                 "acl",
-		Passwd:               "test",
+		Addr:                 fmt.Sprintf("%s:%d", conf.PDB.HostSQL, conf.PDB.PortSQL),
+		DBName:               conf.PDB.DatabaseSQL,
+		User:                 conf.PDB.UserSQL,
+		Passwd:               conf.PDB.PassSQL,
 		AllowNativePasswords: true,
 		ParseTime:            true,
 	}

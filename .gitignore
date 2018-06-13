@@ -1,4 +1,5 @@
 bin
 pkg
+etc/config_test.yml
 src/*
 !src/dccn.nl

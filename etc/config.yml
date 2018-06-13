@@ -1,0 +1,6 @@
+pdb:
+  hostSQL: "db.intranet.dccn.nl"
+  portSQL: 3306
+  userSQL: "acl"
+  passSQL: ""
+  databaseSQL: "fcdc"

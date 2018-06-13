@@ -11,21 +11,25 @@ import (
 	"reflect"
 	"sync"
 
+	"dccn.nl/config"
 	"dccn.nl/project"
 	"dccn.nl/project/acl"
 	ufp "dccn.nl/utility/filepath"
 	"github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 var (
 	optsBase     *string
+	optsConfig   *string
 	optsNthreads *int
 	optsVerbose  *bool
 )
 
 func init() {
 	optsBase = flag.String("d", "/project", "set the root path of project storage")
+	optsConfig = flag.String("c", "config.yml", "set the path of the configuration file")
 	optsNthreads = flag.Int("n", 2, "set number of concurrent processing threads")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 
@@ -53,6 +57,27 @@ func usage() {
 
 func main() {
 
+	// load configuration
+	cfg, err := filepath.Abs(*optsConfig)
+	if err != nil {
+		log.Fatalf("cannot resolve config path: %s", *optsConfig)
+	}
+
+	if _, err := os.Stat(cfg); err != nil {
+		log.Fatalf("cannot load config: %s", cfg)
+	}
+
+	viper.SetConfigFile(cfg)
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file, %s", err)
+	}
+	var conf config.Configuration
+	err = viper.Unmarshal(&conf)
+	if err != nil {
+		log.Fatalf("unable to decode into struct, %v", err)
+	}
+	log.Debugf("loaded configuration: %+v", conf)
+
 	// channel of passing project's absolute path
 	chanPrj := make(chan os.FileInfo)
 
@@ -70,15 +95,19 @@ func main() {
 
 	// loop over projects with parallel workers.
 	// The number of workers is defined by the input option *optsNthreads
-	config := mysql.Config{
-		Net:    "tcp",
-		Addr:   "mysql-intranet.dccn.nl:3306",
-		DBName: "fcdc",
-		User:   "acl",
-		Passwd: "test",
+	dbConfig := mysql.Config{
+		Net:                  "tcp",
+		Addr:                 fmt.Sprintf("%s:%d", conf.PDB.HostSQL, conf.PDB.PortSQL),
+		DBName:               conf.PDB.DatabaseSQL,
+		User:                 conf.PDB.UserSQL,
+		Passwd:               conf.PDB.PassSQL,
+		AllowNativePasswords: true,
+		ParseTime:            true,
 	}
 
-	db, err := sql.Open("mysql", config.FormatDSN())
+	log.Debugf("db configuration: %+v", dbConfig)
+
+	db, err := sql.Open("mysql", dbConfig.FormatDSN())
 	if err != nil {
 		log.Errorf("Fail connecting SQL database: %+v", err)
 	}
