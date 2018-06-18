@@ -141,51 +141,64 @@ func UpdateProjectRoles(db *sql.DB, project string, roles acl.RoleMap) error {
 		return errors.New("PDB not connected")
 	}
 
+	// variables for transaction statements
+	var (
+		delStmt *sql.Stmt
+		setStmt *sql.Stmt
+	)
+
 	// start db transaction
 	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 
-	// delete all acls from the project
-	if delStmt, err := db.Prepare("DELETE FROM acls WHERE project=?"); err != nil {
-		tx.Rollback()
-		return err
-	} else {
-		// perform deletion
-		_, err := delStmt.Exec(project)
+	// defer function to ensure statements and transactions are closed properly
+	defer func() {
+		if delStmt != nil {
+			delStmt.Close()
+		}
+		if setStmt != nil {
+			setStmt.Close()
+		}
 		if err != nil {
 			tx.Rollback()
-			return err
 		}
+		err = tx.Commit()
+	}()
+
+	// delete all acls from the project
+	delStmt, err = tx.Prepare("DELETE FROM acls WHERE project=?")
+	if err != nil {
+		return err
+	}
+	_, err = delStmt.Exec(project)
+	if err != nil {
+		return err
 	}
 
 	// insert new roles into the project
-	if setStmt, err := db.Prepare("INSERT INTO acls (project, user, projectRole) VALUES (?,?,?)"); err != nil {
-		tx.Rollback()
+	setStmt, err = tx.Prepare("INSERT INTO acls (project, user, projectRole) VALUES (?,?,?)")
+	if err != nil {
 		return err
-	} else {
-		for r, users := range roles {
-			for _, u := range users {
-				// check if the user in question is available in the project database.
-				if _, err := SelectPdbUser(db, u); err != nil {
-					// ignore user cannot be found in the project database.
-					log.Errorf("cannot found users in pdb: %s, reason: %+v", u, err)
-					continue
-				}
-				_, err := setStmt.Exec(project, u, r)
-				if err != nil {
-					tx.Rollback()
-					return err
-				}
+	}
+	for r, users := range roles {
+		for _, u := range users {
+			// check if the user in question is available in the project database.
+			if _, err := SelectPdbUser(db, u); err != nil {
+				// ignore user cannot be found in the project database.
+				log.Warnf("cannot found users in pdb: %s, reason: %+v", u, err)
+				continue
+			}
+			log.Debugf("Updating project %s, %s: %s", project, r, u)
+			_, err := setStmt.Exec(project, u, fmt.Sprintf("%s", r))
+			if err != nil {
+				return err
 			}
 		}
 	}
 
-	// everything is fine at this point, commit the transaction
-	tx.Commit()
-
-	return nil
+	return err
 }
 
 // SelectPdbUser gets the user identified by the given uid in the project database.
