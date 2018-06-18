@@ -48,8 +48,8 @@ func init() {
 }
 
 func usage() {
-	fmt.Printf("\nUpdating projects' data-access roles into the project database.\n")
-	fmt.Printf("\nUSAGE: %s [OPTIONS]\n", os.Args[0])
+	fmt.Printf("\nUpdating data-access roles of all projects (or a specific project) into the project database.\n")
+	fmt.Printf("\nUSAGE: %s [OPTIONS] [projectId]\n", os.Args[0])
 	fmt.Printf("\nOPTIONS:\n")
 	flag.PrintDefaults()
 	fmt.Printf("\n")
@@ -81,14 +81,30 @@ func main() {
 	// channel of passing project's absolute path
 	chanPrj := make(chan os.FileInfo)
 
+	args := flag.Args()
+
 	// go routine populating the absolute paths of all projects found under *optsBase.
 	go func() {
 		defer close(chanPrj)
-		projects, err := ioutil.ReadDir(*optsBase)
-		if err != nil {
-			log.Fatal(err)
+
+		// loop over subdirectories within the *optsBase
+		if len(args) < 1 {
+			projects, err := ioutil.ReadDir(*optsBase)
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, info := range projects {
+				chanPrj <- info
+			}
+			return
 		}
-		for _, info := range projects {
+
+		// resolve each args into os.FileInfo
+		for _, pid := range args {
+			info, err := os.Stat(filepath.Join(*optsBase, pid))
+			if err != nil {
+				log.Fatal(err)
+			}
 			chanPrj <- info
 		}
 	}()
