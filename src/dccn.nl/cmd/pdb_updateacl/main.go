@@ -101,10 +101,11 @@ func main() {
 
 		// resolve each args into os.FileInfo
 		for _, pid := range args {
-			info, err := os.Stat(filepath.Join(*optsBase, pid))
+			info, err := os.Lstat(filepath.Join(*optsBase, pid))
 			if err != nil {
 				log.Fatal(err)
 			}
+
 			chanPrj <- info
 		}
 	}()
@@ -188,6 +189,8 @@ func resolveAndCheckProjectPath(pinfo os.FileInfo) (*ufp.FilePathMode, error) {
 		}
 		if []rune(referent)[0] != os.PathSeparator {
 			p = filepath.Join(p, referent)
+		} else {
+			p = referent
 		}
 	}
 
