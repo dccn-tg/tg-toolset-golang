@@ -4,3 +4,9 @@ pdb:
   userSQL: "acl"
   passSQL: ""
   databaseSQL: "fcdc"
+cdb:
+  hostSQL: "db.intranet.dccn.nl"
+  portSQL: 3306
+  userSQL: "df"
+  passSQL: ""
+  databaseSQL: "fcdc"

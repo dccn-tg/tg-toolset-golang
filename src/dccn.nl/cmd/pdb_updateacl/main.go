@@ -12,8 +12,8 @@ import (
 	"sync"
 
 	"dccn.nl/config"
-	"dccn.nl/project"
 	"dccn.nl/project/acl"
+	"dccn.nl/project/pdb"
 	ufp "dccn.nl/utility/filepath"
 	"github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"

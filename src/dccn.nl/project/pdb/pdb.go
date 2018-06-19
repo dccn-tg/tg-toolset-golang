@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"dccn.nl/project/acl"
-	_ "github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
 )
 
