@@ -1,8 +1,8 @@
 package config
 
-// SqlConfiguration is the data structure for marshaling the
-// pdb section of the config.yml file using the viper
-// configuration framework.
+// DBConfiguration is the data structure for marshaling the
+// SQL database configuration sessions of the config.yml file
+// using the viper configuration framework.
 type DBConfiguration struct {
 	HostSQL     string
 	PortSQL     int
