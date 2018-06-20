@@ -18,20 +18,31 @@ func init() {
 	logger = log.WithFields(log.Fields{"source": "cdb"})
 }
 
+// LabBooking defines the data structure of a booking event in the lab calendar.
 type LabBooking struct {
-	Project      string
-	Subject      string
-	Session      string
-	Modality     string
-	Operator     pdb.PdbUser
+	// Project is the id of the project to which the experiment belongs.
+	Project string
+	// Subject is the subject id of the participant.
+	Subject string
+	// Session is the session id of the participant.
+	Session string
+	// Modality is the experiment modality name.
+	Modality string
+	// Operator is the user operating the experiment.
+	Operator pdb.PdbUser
+	// ProjectTitle is the title of the project.
 	ProjectTitle string
-	StartTime    time.Time
+	// StartTime is the time the experiment starts.
+	StartTime time.Time
 }
 
+// Lab defines an enumerator for the lab categories.
 type Lab int
 
 const (
+	// MEG is a lab category of the MEG labs.
 	MEG Lab = iota
+	// MRI is a lab category of the MRI labs.
 	MRI
 )
 
