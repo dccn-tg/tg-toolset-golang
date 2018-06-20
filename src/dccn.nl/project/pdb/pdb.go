@@ -1,3 +1,4 @@
+// Package pdb provides functions for interacting with the database of the project database.
 package pdb
 
 import (

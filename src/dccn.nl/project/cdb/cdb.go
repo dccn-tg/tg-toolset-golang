@@ -1,3 +1,4 @@
+// Package cdb provides functions for interacting with the database of the lab booking calendar.
 package cdb
 
 import (
