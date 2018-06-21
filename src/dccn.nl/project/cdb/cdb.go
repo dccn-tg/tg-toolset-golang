@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"dccn.nl/project/pdb"
@@ -40,10 +41,57 @@ type LabBooking struct {
 // Lab defines an enumerator for the lab categories.
 type Lab int
 
+// Set implements the interface for flag.Var().
+func (l *Lab) Set(v string) error {
+	switch v {
+	case "EEG":
+		*l = EEG
+	case "MEG":
+		*l = MEG
+	case "MRI":
+		*l = MRI
+	default:
+		return errors.New(fmt.Sprintf("unknown modality: %s", v))
+	}
+	return nil
+}
+
+// String implements the interface for flag.Var().  It returns the
+// name of the lab modality.
+func (l *Lab) String() string {
+	s := "unknown"
+	switch *l {
+	case EEG:
+		s = "EEG"
+	case MEG:
+		s = "MEG"
+	case MRI:
+		s = "MRI"
+	}
+	return s
+}
+
+// GetDescriptionRegex returns a regular expression pattern for the description of
+// a modality.
+func (l *Lab) GetDescriptionRegex() (*regexp.Regexp, error) {
+	switch *l {
+	case EEG:
+		return regexp.MustCompile(".*(EEG).*"), nil
+	case MEG:
+		return regexp.MustCompile(".*(MEG).*"), nil
+	case MRI:
+		return regexp.MustCompile(".*(SKYRA|PRISMA(FIT)).*"), nil
+	default:
+		return nil, errors.New(fmt.Sprintf("unknown modality: %s", l.String()))
+	}
+}
+
 const (
-	// MEG is a lab category of the MEG labs.
-	MEG Lab = iota
-	// MRI is a lab category of the MRI labs.
+	// EEG is a lab modality of the EEG labs.
+	EEG Lab = iota
+	// MEG is a lab modality of the MEG labs.
+	MEG
+	// MRI is a lab modality of the MRI labs.
 	MRI
 )
 
@@ -53,6 +101,8 @@ func SelectLabBookings(db *sql.DB, lab Lab, date string) ([]LabBooking, error) {
 	if err := db.Ping(); err != nil {
 		return nil, errors.New(fmt.Sprintf("PDB not connected: %+v", err))
 	}
+
+	log.Debugf("lab modality: %s", lab)
 
 	query := `
 	SELECT
@@ -81,14 +131,9 @@ func SelectLabBookings(db *sql.DB, lab Lab, date string) ([]LabBooking, error) {
 	bookings := []LabBooking{}
 
 	// regular expression for matching lab description
-	var labPat *regexp.Regexp
-	switch lab {
-	case MEG:
-		labPat = regexp.MustCompile(".*(MEG).*")
-	case MRI:
-		labPat = regexp.MustCompile(".*(SKYRA|PRASMA(FIT)).*")
-	default:
-		return nil, errors.New("Unknown lab category")
+	labPat, err := lab.GetDescriptionRegex()
+	if err != nil {
+		return nil, err
 	}
 
 	// regular expression for spliting subject and session identifiers
@@ -111,7 +156,9 @@ func SelectLabBookings(db *sql.DB, lab Lab, date string) ([]LabBooking, error) {
 			return nil, err
 		}
 
-		if m := labPat.FindStringSubmatch(labdesc); len(m) >= 2 {
+		log.Debugf("%s %s %s %s", id, pid, subj_ses, labdesc)
+
+		if m := labPat.FindStringSubmatch(strings.ToUpper(labdesc)); len(m) >= 2 {
 			var (
 				subj string
 				sess string

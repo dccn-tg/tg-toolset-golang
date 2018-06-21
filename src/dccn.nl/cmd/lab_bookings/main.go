@@ -18,12 +18,14 @@ import (
 var (
 	optsDate    *string
 	optsConfig  *string
+	optsLabMod  cdb.Lab
 	optsVerbose *bool
 )
 
 func init() {
-	optsDate = flag.String("d", time.Now().Format(time.RFC3339[:10]), "set the root path of project storage")
-	optsConfig = flag.String("c", "config.yml", "set the path of the configuration file")
+	optsDate = flag.String("d", time.Now().Format(time.RFC3339[:10]), "set the `date` of the bookings")
+	optsConfig = flag.String("c", "config.yml", "set the `path` of the configuration file")
+	flag.Var(&optsLabMod, "l", "set the `modality` for the bookings")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 
 	flag.Usage = usage
@@ -41,7 +43,7 @@ func init() {
 }
 
 func usage() {
-	fmt.Printf("\nGetting bookings of the MEG lab on a given date.\n")
+	fmt.Printf("\nGetting bookings of a modality on a given date.\n")
 	fmt.Printf("\nUSAGE: %s [OPTIONS]\n", os.Args[0])
 	fmt.Printf("\nOPTIONS:\n")
 	flag.PrintDefaults()
@@ -90,7 +92,7 @@ func main() {
 	}
 	defer db.Close()
 
-	bookings, err := cdb.SelectLabBookings(db, cdb.MEG, *optsDate)
+	bookings, err := cdb.SelectLabBookings(db, optsLabMod, *optsDate)
 	if err != nil {
 		log.Errorf("cannot retrieve labbookings, reason: %+v", err)
 		os.Exit(100)
@@ -102,10 +104,10 @@ func main() {
 		} else {
 			name = fmt.Sprintf("%s %s", lb.Operator.Firstname, lb.Operator.Lastname)
 		}
-		fmt.Printf("%02d:%02d:%02d|%s|%9s-%s|%s\n",
+		fmt.Printf("%02d:%02d:%02d|%s|%9s-%s|%9s|%s\n",
 			lb.StartTime.Hour(), lb.StartTime.Minute(), lb.StartTime.Second(),
 			lb.Project, lb.Subject,
-			lb.Session, name)
+			lb.Session, lb.Modality, name)
 	}
 	os.Exit(0)
 }
