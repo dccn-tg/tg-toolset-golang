@@ -13,7 +13,7 @@ doc:
 	@GOPATH=$(GOPATH) GOOS=linux godoc -http=:6060
 
 test: external
-	@GOPATH=$(GOPATH) GOOS=linux GOCACHE=off go test -v dccn.nl/project/...
+	@GOPATH=$(GOPATH) GOOS=linux GOCACHE=off go test -v dccn.nl/project/... dccn.nl/dataflow/...
 
 install: build
 	@install -D $(GOPATH)/bin/* $(PREFIX)/bin

@@ -10,3 +10,7 @@ cdb:
   userSQL: "df"
   passSQL: ""
   databaseSQL: "fcdc"
+pacs:
+  prefixURL: "http://pacs.dccn.nl:8042"
+  username: ""
+  password: ""
