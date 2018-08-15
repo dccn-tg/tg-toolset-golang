@@ -80,7 +80,7 @@ func (l *Lab) GetDescriptionRegex() (*regexp.Regexp, error) {
 	case MEG:
 		return regexp.MustCompile(".*(MEG).*"), nil
 	case MRI:
-		return regexp.MustCompile(".*(SKYRA|PRISMA(FIT)).*"), nil
+		return regexp.MustCompile(".*(SKYRA|PRISMA(FIT){0,1}).*"), nil
 	default:
 		return nil, errors.New(fmt.Sprintf("unknown modality: %s", l.String()))
 	}
