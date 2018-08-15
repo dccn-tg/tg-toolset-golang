@@ -5,12 +5,18 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
-func init() {}
-
+var logger *log.Entry
 var nilTime = (time.Time{}).UnixNano()
+
+func init() {
+	logger = log.WithFields(log.Fields{"source": "orthanc"})
+}
 
 // OrthancDateTime defines the datetime structure of Orthanc.
 type OrthancDateTime struct {
@@ -19,7 +25,7 @@ type OrthancDateTime struct {
 
 func (ot *OrthancDateTime) UnmarshalJSON(b []byte) (err error) {
 	s := strings.Trim(string(b), "\"")
-	if s == "null" {
+	if s == "null" || len(s) == 0 {
 		ot.Time = time.Time{}
 		return
 	}
@@ -49,7 +55,7 @@ type OrthancDate struct {
 
 func (ot *OrthancDate) UnmarshalJSON(b []byte) (err error) {
 	s := strings.Trim(string(b), "\"")
-	if s == "null" {
+	if s == "null" || len(s) == 0 {
 		ot.Time = time.Time{}
 		return
 	}
@@ -79,7 +85,7 @@ type OrthancTime struct {
 
 func (ot *OrthancTime) UnmarshalJSON(b []byte) (err error) {
 	s := strings.Trim(string(b), "\"")
-	if s == "null" {
+	if s == "null" || len(s) == 0 {
 		ot.Time = time.Time{}
 		return
 	}
@@ -106,7 +112,7 @@ func (ot *OrthancTime) IsSet() bool {
 type Patient struct {
 	ID            string
 	IsStable      bool
-	LastUPdate    OrthancDateTime
+	LastUpdate    OrthancDateTime
 	MainDicomTags DicomTagsPatient
 	Studies       []string
 	Type          string
@@ -123,7 +129,7 @@ type DicomTagsPatient struct {
 type Study struct {
 	ID                   string
 	IsStable             bool
-	LastUPdate           OrthancDateTime
+	LastUpdate           OrthancDateTime
 	MainDicomTags        DicomTagsStudy
 	PatientMainDicomTags DicomTagsPatient
 	Series               []string
@@ -158,6 +164,7 @@ type Series struct {
 
 type DicomTagsSeries struct {
 	BodyPartExamined                  string
+	CardiacNumberOfImages             string
 	ImageOrientationPatient           string
 	Manufacturer                      string
 	Modality                          string
@@ -179,6 +186,8 @@ type Orthanc struct {
 	Password  string
 }
 
+// getJson decodes the JSON output from getting the suffixURL, and converts
+// the output to the destination target structure.
 func (o Orthanc) getJson(suffixURL string, target interface{}) error {
 
 	// set connection timeout
@@ -226,29 +235,117 @@ func (o Orthanc) GetSeries(id string) (series Series, err error) {
 	return
 }
 
-// GetPatients retrieves the DICOM patients involved in the experiments conducted
-// in between a time range.  It returns a channel in which the Patient data objects
-// are pushed through.
-func GetPatients(from, to time.Time) chan Patient {
-	patients := make(chan Patient)
-
-	return patients
-}
-
 // GetStudies retrieves the DICOM studies involved in the experiments conducted
 // in between a time range.  It returns a channel in which the Study data objects
 // are pushed through.
-func GetStudies(from, to time.Time) chan Study {
-	studies := make(chan Study)
+func (o Orthanc) GetStudies(from, to time.Time) (studies []Study, err error) {
+	ids := []string{}
+	err = o.getJson("studies", &ids)
+	if err != nil {
+		return
+	}
+	// filling up the internal work channel for retrieving study details
+	nworkers := 4
+	wchan := make(chan string, 2*nworkers)
+	go func() {
+		for _, id := range ids {
+			wchan <- id
+		}
+		close(wchan)
+	}()
 
-	return studies
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+
+	// go routines to retrieve series details in parallel
+	for i := 0; i < nworkers; i++ {
+		go func() {
+			for {
+				_id, opened := <-wchan
+				if !opened {
+					break
+				}
+
+				s, err := o.GetStudy(_id)
+				if err != nil {
+					logger.Errorf("cannot get study: %s, error: %+v\n", _id, err)
+					continue
+				}
+				// check if the series's datetime is between the requested time range.
+				d_s := s.MainDicomTags.StudyDate
+				t_s := s.MainDicomTags.StudyTime
+				dt_s := time.Date(d_s.Year(), d_s.Month(), d_s.Day(), t_s.Hour(), t_s.Minute(), t_s.Second(), 0, from.Location())
+				if !dt_s.After(from) || !dt_s.Before(to) {
+					//logger.Errorf("study skipped due to time range: %s, time: %+v\n", _id, dt_s)
+					continue
+				}
+				logger.Debugf("id: %s, time: %+v\n", s.ID, dt_s)
+				studies = append(studies, s)
+			}
+			wg.Done()
+		}()
+	}
+
+	// wait for all workers to finish
+	wg.Wait()
+
+	return
 }
 
 // GetSerieses retrieves the DICOM serieses involved in the experiments conducted
 // in between a time range.  It returns a channel in which the Series data objects
 // are pushed through.
-func GetSerieses(from, to time.Time) chan Series {
-	serieses := make(chan Series)
+func (o Orthanc) GetSerieses(from, to time.Time) (serieses []Series, err error) {
+	ids := []string{}
+	err = o.getJson("series", &ids)
+	if err != nil {
+		return
+	}
 
-	return serieses
+	// filling up the internal work channel for retrieving series details
+	nworkers := 4
+	wchan := make(chan string, 2*nworkers)
+	go func() {
+		for _, id := range ids {
+			wchan <- id
+		}
+		close(wchan)
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+
+	// go routines to retrieve series details in parallel
+	for i := 0; i < nworkers; i++ {
+		go func() {
+			for {
+				_id, opened := <-wchan
+				if !opened {
+					break
+				}
+
+				s, err := o.GetSeries(_id)
+				if err != nil {
+					logger.Errorf("cannot get series: %s, error: %+v\n", _id, err)
+					continue
+				}
+				// check if the series's datetime is between the requested time range.
+				d_s := s.MainDicomTags.SeriesDate
+				t_s := s.MainDicomTags.SeriesTime
+				dt_s := time.Date(d_s.Year(), d_s.Month(), d_s.Day(), t_s.Hour(), t_s.Minute(), t_s.Second(), 0, from.Location())
+				if !dt_s.After(from) || !dt_s.Before(to) {
+					//logger.Errorf("series skipped due to time range: %s, time: %+v\n", _id, dt_s)
+					continue
+				}
+				logger.Debugf("id: %s, time: %+v\n", s.ID, dt_s)
+				serieses = append(serieses, s)
+			}
+			wg.Done()
+		}()
+	}
+
+	// wait for all workers to finish
+	wg.Wait()
+
+	return
 }
