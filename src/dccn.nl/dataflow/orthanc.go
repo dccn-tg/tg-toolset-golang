@@ -108,7 +108,9 @@ func (ot *OrthancTime) IsSet() bool {
 	return ot.UnixNano() != nilTime
 }
 
-// Patient is the data structure of the DICOM patient information.
+// Patient is the data structure of the Orthanc attributes for a DICOM patient.
+//
+// Note that the LastUpdate is in UTC.
 type Patient struct {
 	ID            string
 	IsStable      bool
@@ -118,6 +120,7 @@ type Patient struct {
 	Type          string
 }
 
+// DicomTagsPatient is the data structure of a few DICOM-header attributes extracted by Orthanc for a DICOM patient.
 type DicomTagsPatient struct {
 	PatientBirthDate OrthancDate
 	PatientID        string
@@ -125,7 +128,9 @@ type DicomTagsPatient struct {
 	PatientSex       string
 }
 
-// Study is the data structure of the DICOM study information.
+// Study is the data structure of the Orthanc attributes for a DICOM study.
+//
+// Note that the LastUpdate is in UTC.
 type Study struct {
 	ID                   string
 	IsStable             bool
@@ -136,6 +141,7 @@ type Study struct {
 	Type                 string
 }
 
+// DicomTagsStudy is the data structure of a few DICOM-header attributes extracted by Orthanc for a DICOM study.
 type DicomTagsStudy struct {
 	AccessionNumber               string
 	InstitutionNuame              string
@@ -149,7 +155,9 @@ type DicomTagsStudy struct {
 	StudyTime                     OrthancTime
 }
 
-// Series is the data structure of the DICOM series information.
+// Series is the data structure of the Orthanc attributes for a DICOM series.
+//
+// Note that the LastUpdate is in UTC.
 type Series struct {
 	ID                        string
 	ExpectedNumberOfInstances string
@@ -162,6 +170,7 @@ type Series struct {
 	Instances                 []string
 }
 
+// DicomTagsSeries is the data structure of a few DICOM-header attributes extracted by Orthanc for a DICOM series.
 type DicomTagsSeries struct {
 	BodyPartExamined                  string
 	CardiacNumberOfImages             string
