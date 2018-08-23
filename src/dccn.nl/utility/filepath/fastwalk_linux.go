@@ -107,9 +107,10 @@ func fastWalk(root string, mode *os.FileMode, chanP *chan FilePathMode) {
 				m := os.ModeDir
 				fastWalk(vpath, &m, chanP)
 			case syscall.DT_LNK:
-				referent, _ := os.Readlink(vpath)
-				if []rune(referent)[0] != os.PathSeparator {
-					referent = filepath.Join(root, referent)
+				referent, err := filepath.EvalSymlinks(vpath)
+				if err != nil {
+					logger.Errorf("cannot resolve symlink: %s error: %s\n", vpath, err)
+					continue
 				}
 				fastWalk(referent, nil, chanP)
 			}
