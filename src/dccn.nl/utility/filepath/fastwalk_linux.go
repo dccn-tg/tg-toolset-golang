@@ -112,6 +112,13 @@ func fastWalk(root string, mode *os.FileMode, chanP *chan FilePathMode) {
 					logger.Errorf("cannot resolve symlink: %s error: %s\n", vpath, err)
 					continue
 				}
+
+				// avoid the situation that the symlink refers to its parent, which
+				// can cause infinite filesystem walk loop.
+				if referent == root {
+					logger.Errorf("skip path to avoid symlink loop: %s\n", vpath)
+					continue
+				}
 				fastWalk(referent, nil, chanP)
 			}
 		}
