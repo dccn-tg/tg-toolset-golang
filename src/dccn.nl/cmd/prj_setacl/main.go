@@ -176,11 +176,12 @@ func main() {
 	// on which the traverse role should be set, using a go routine.
 	go func() {
 		counter := 0
+		spinner := ustr.NewSpinner()
 		for o := range chanOut {
 			counter++
 			if *optsSilence {
 				// print visited directory/path counter
-				log.Info(fmt.Sprintf("\r%d", counter))
+				fmt.Printf("\r %s %d", spinner.Next(), counter)
 			} else {
 				// the role has been set to the path
 				log.Info(fmt.Sprintf("%s", o.Path))
