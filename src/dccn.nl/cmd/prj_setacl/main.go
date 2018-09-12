@@ -29,6 +29,7 @@ var optsTraverse *bool
 var optsNthreads *int
 var optsForce *bool
 var optsVerbose *bool
+var optsSilence *bool
 
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users for the manager role")
@@ -39,7 +40,8 @@ func init() {
 	optsPath = flag.String("p", "", "set path of a sub-directory in the project folder")
 	optsNthreads = flag.Int("n", 4, "set number of concurrent processing threads")
 	optsForce = flag.Bool("f", false, "force role setting regardlessly")
-	optsVerbose = flag.Bool("v", false, "print debug messages")
+	optsVerbose = flag.Bool("v", false, "print `verbosed` messages")
+	optsSilence = flag.Bool("s", false, "set to `silence` mode")
 
 	flag.Usage = usage
 
@@ -173,9 +175,17 @@ func main() {
 	// loops over results of setting specified user roles and resolves paths
 	// on which the traverse role should be set, using a go routine.
 	go func() {
+		counter := 0
 		for o := range chanOut {
-			// the role has been set to the path
-			log.Info(fmt.Sprintf("%s", o.Path))
+			counter++
+			if *optsSilence {
+				// print visited directory/path counter
+				log.Info(fmt.Sprintf("\r%d", counter))
+			} else {
+				// the role has been set to the path
+				log.Info(fmt.Sprintf("%s", o.Path))
+			}
+
 			for r, users := range o.RoleMap {
 				log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
 			}
