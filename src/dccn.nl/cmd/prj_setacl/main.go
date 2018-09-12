@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
+	"syscall"
 
 	"dccn.nl/project/acl"
 	ufp "dccn.nl/utility/filepath"
@@ -132,7 +134,7 @@ func main() {
 		}
 	}
 	if n == 0 && !*optsForce {
-		log.Warn("All roles in place, I have nothing to do.")
+		log.Warnln("All roles in place, I have nothing to do.")
 		os.Exit(0)
 	}
 
@@ -147,11 +149,12 @@ func main() {
 
 		// remove the lock file upon receival of an interrupt signal
 		signalChan := make(chan os.Signal, 1)
-		signal.Notify(signalChan, os.Interrupt)
+		signal.Notify(signalChan, syscall.SIGINT, syscall.SIGABRT, syscall.SIGKILL)
 		go func() {
-			<-signalChan
-			log.Warn("Removing lock file upon interruption")
+			s := <-signalChan
+			log.Warnf("Removing lock file upon interruption: %s\n", s)
 			os.Remove(flock)
+			os.Exit(int(s.(syscall.Signal)))
 		}()
 	}
 
@@ -265,26 +268,19 @@ func goSetRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) ch
 	}
 
 	// launch parallel go routines for setting ACL
-	chanSync := make(chan int)
-	for i := 0; i < nthreads; i++ {
-		go func() {
-			for f := range chanF {
-				log.Debug("process file: " + f.Path)
-				updateACL(f)
-			}
-			chanSync <- 1
-		}()
-	}
-
-	// launch synchronise go routine
 	go func() {
-		i := 0
-		for {
-			i = i + <-chanSync
-			if i == nthreads {
-				break
-			}
+		var wg sync.WaitGroup
+		wg.Add(nthreads)
+		for i := 0; i < nthreads; i++ {
+			go func() {
+				for f := range chanF {
+					log.Debug("process file: " + f.Path)
+					updateACL(f)
+				}
+				wg.Done()
+			}()
 		}
+		wg.Wait()
 		close(chanOut)
 	}()
 
