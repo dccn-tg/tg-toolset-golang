@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"reflect"
@@ -143,6 +144,15 @@ func main() {
 			log.Fatal(fmt.Sprintf("%s", err))
 		}
 		defer os.Remove(flock)
+
+		// remove the lock file upon receival of an interrupt signal
+		signalChan := make(chan os.Signal, 1)
+		signal.Notify(signalChan, os.Interrupt)
+		go func() {
+			<-signalChan
+			log.Warn("Removing lock file upon interruption")
+			os.Remove(flock)
+		}()
 	}
 
 	// sets specified user roles
