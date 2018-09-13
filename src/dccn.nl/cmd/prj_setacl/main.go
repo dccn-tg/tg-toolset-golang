@@ -153,17 +153,10 @@ func main() {
 			log.Fatal(fmt.Sprintf("%s", err))
 		}
 		defer os.Remove(flock)
-
-		// remove the lock file upon receival of an interrupt signal
-		signalChan := make(chan os.Signal, 1)
-		signal.Notify(signalChan, syscall.SIGINT, syscall.SIGABRT, syscall.SIGKILL)
-		go func() {
-			s := <-signalChan
-			log.Warnf("Removing lock file upon interruption: %s\n", s)
-			os.Remove(flock)
-			os.Exit(int(s.(syscall.Signal)))
-		}()
 	}
+
+	chanS := make(chan os.Signal, 1)
+	signal.Notify(chanS, syscall.SIGINT, syscall.SIGABRT, syscall.SIGKILL)
 
 	// RoleMap for traverse role
 	rolesT := make(map[acl.Role][]string)
@@ -176,7 +169,15 @@ func main() {
 	// set traverse roles
 	chanFt := goPrintOut(chanOut, *optsTraverse, rolesT)
 	chanOutt := goSetRoles(rolesT, chanFt, *optsNthreads)
-	goPrintOut(chanOutt, false, nil)
+
+	// block main until the output is all printed, or a system signal is received
+	select {
+	case s := <-chanS:
+		log.Warnf("Received interruption: %s\n", s)
+		os.Exit(int(s.(syscall.Signal)))
+	case <-goPrintOut(chanOutt, false, nil):
+		os.Exit(0)
+	}
 }
 
 // parseRoles checks the role specification from the caller on the following two things:
@@ -270,6 +271,7 @@ func goSetRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) ch
 // The paths resolved for traverse role can be passed onto the goSetRoles function for
 // setting the traverse role.
 func goPrintOut(chanOut chan acl.RolePathMap, resolvePathForTraverse bool, rolesT map[acl.Role][]string) chan ufp.FilePathMode {
+
 	chanFt := make(chan ufp.FilePathMode, *optsNthreads*4)
 	go func() {
 		counter := 0
