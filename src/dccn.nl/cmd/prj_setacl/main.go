@@ -20,6 +20,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// global variables from command-line arguments
 var optsBase *string
 var optsPath *string
 var optsManager *string
@@ -30,6 +31,10 @@ var optsNthreads *int
 var optsForce *bool
 var optsVerbose *bool
 var optsSilence *bool
+
+// global variables derived in the program
+var ppathSym string // the absolute path from the input project number or path, it can be a symlink.
+var ppath string    // the referent resolved from ppathSym
 
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users for the manager role")
@@ -96,14 +101,14 @@ func main() {
 	}
 
 	// the input argument starts with 7 digits (considered as project number)
-	ppathSym := args[0]
+	ppathSym = args[0]
 	if matched, _ := regexp.MatchString("^[0-9]{7,}", ppathSym); matched {
 		ppathSym = filepath.Join(*optsBase, ppathSym, *optsPath)
 	} else {
 		ppathSym, _ = filepath.Abs(ppathSym)
 	}
 	// resolve any symlinks on ppathSym to actual path this program should work on.
-	ppath, _ := filepath.EvalSymlinks(ppathSym)
+	ppath, _ = filepath.EvalSymlinks(ppathSym)
 
 	fpinfo, err := ufp.GetFilePathMode(ppath)
 	if err != nil {
@@ -160,60 +165,18 @@ func main() {
 		}()
 	}
 
-	// sets specified user roles
-	chanF := ufp.GoFastWalk(ppath, *optsNthreads*4)
-	chanOut := goSetRoles(roles, chanF, *optsNthreads)
-
 	// RoleMap for traverse role
 	rolesT := make(map[acl.Role][]string)
 	rolesT[acl.Traverse] = usersT
 
-	// channels for setting traverse roles
-	chanFt := make(chan ufp.FilePathMode, *optsNthreads*4)
+	// set specified user roles
+	chanF := ufp.GoFastWalk(ppath, *optsNthreads*4)
+	chanOut := goSetRoles(roles, chanF, *optsNthreads)
+
+	// set traverse roles
+	chanFt := goPrintOut(chanOut, *optsTraverse, rolesT)
 	chanOutt := goSetRoles(rolesT, chanFt, *optsNthreads)
-
-	// loops over results of setting specified user roles and resolves paths
-	// on which the traverse role should be set, using a go routine.
-	go func() {
-		counter := 0
-		spinner := ustr.NewSpinner()
-		for o := range chanOut {
-			counter++
-			if *optsSilence {
-				// print visited directory/path counter
-				fmt.Printf("\r %s %d", spinner.Next(), counter)
-			} else {
-				// the role has been set to the path
-				log.Info(fmt.Sprintf("%s", o.Path))
-			}
-
-			for r, users := range o.RoleMap {
-				log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
-			}
-			// examine the path to see if it is deviated from the ppath from
-			// the project storage perspective.  If so, it should be considered for the
-			// traverse role settings.
-			if *optsTraverse && !acl.IsSameProjectPath(o.Path, ppath) {
-				acl.GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
-			}
-		}
-		// go over ppath for traverse role synchronously
-		if *optsTraverse {
-			acl.GetPathsForSetTraverse(ppath, rolesT, &chanFt)
-			if ppath != ppathSym {
-				acl.GetPathsForSetTraverse(ppathSym, rolesT, &chanFt)
-			}
-		}
-		defer close(chanFt)
-	}()
-
-	// loops over results of setting the traverse role.
-	for o := range chanOutt {
-		log.Info(fmt.Sprintf("%s", o.Path))
-		for r, users := range o.RoleMap {
-			log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
-		}
-	}
+	goPrintOut(chanOutt, false, nil)
 }
 
 // parseRoles checks the role specification from the caller on the following two things:
@@ -252,9 +215,12 @@ func parseRoles(roleSpec map[acl.Role]string) (map[acl.Role][]string, []string, 
 	return roles, usersT, nil
 }
 
-/*
-   performs actual setacl in a concurrent way.
-*/
+// goSetRoles performs actions for setting ACL (defined by roles) on paths provided
+// through the chanF channel, in a asynchronous manner. It returns a channel containing
+// ACL information of paths on which the ACL setting is correctly applied.
+//
+// The returned channel can be passed onto the goPrintOut function for displaying the
+// results asynchronously.
 func goSetRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) chan acl.RolePathMap {
 
 	// output channel
@@ -296,4 +262,48 @@ func goSetRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) ch
 	}()
 
 	return chanOut
+}
+
+// goPrintOut prints out information of paths on which the new ACL has been applied.
+//
+// Optionally, it also resolves the paths on which the traverse role has to be set.
+// The paths resolved for traverse role can be passed onto the goSetRoles function for
+// setting the traverse role.
+func goPrintOut(chanOut chan acl.RolePathMap, resolvePathForTraverse bool, rolesT map[acl.Role][]string) chan ufp.FilePathMode {
+	chanFt := make(chan ufp.FilePathMode, *optsNthreads*4)
+	go func() {
+		counter := 0
+		spinner := ustr.NewSpinner()
+		for o := range chanOut {
+			counter++
+			if *optsSilence {
+				// print visited directory/path counter
+				fmt.Printf("\r %s %d", spinner.Next(), counter)
+			} else {
+				// the role has been set to the path
+				log.Info(fmt.Sprintf("%s", o.Path))
+			}
+
+			for r, users := range o.RoleMap {
+				log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
+			}
+			// examine the path to see if it is deviated from the ppath from
+			// the project storage perspective.  If so, it should be considered for the
+			// traverse role settings.
+			if resolvePathForTraverse && !acl.IsSameProjectPath(o.Path, ppath) {
+				acl.GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
+			}
+		}
+		// examine ppath (and ppathSym if it's not the same as ppath) to resolve possible
+		// parents for setting the traverse role.
+		if resolvePathForTraverse {
+			acl.GetPathsForSetTraverse(ppath, rolesT, &chanFt)
+			if ppath != ppathSym {
+				acl.GetPathsForSetTraverse(ppathSym, rolesT, &chanFt)
+			}
+		}
+		defer close(chanFt)
+	}()
+
+	return chanFt
 }
