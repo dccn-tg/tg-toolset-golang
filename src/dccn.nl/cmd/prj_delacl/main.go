@@ -339,7 +339,7 @@ func goPrintOut(chanOut chan acl.RolePathMap, resolvePathForTraverse bool, roles
 			}
 		}
 		// enter a newline when using the silence mode
-		if *optsSilence {
+		if *optsSilence && counter != 0 {
 			fmt.Printf("\n")
 		}
 		// examine ppath (and ppathSym if it's not the same as ppath) to resolve possible
