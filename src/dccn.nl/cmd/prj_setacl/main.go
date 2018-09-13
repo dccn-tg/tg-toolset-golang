@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -36,6 +37,9 @@ var optsSilence *bool
 var ppathSym string // the absolute path from the input project number or path, it can be a symlink.
 var ppath string    // the referent resolved from ppathSym
 
+// global variable for exit code
+var exitcode int
+
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users for the manager role")
 	optsContributor = flag.String("c", "", "specify a comma-separated-list of users for the contributor role")
@@ -61,6 +65,8 @@ func init() {
 	}
 	log.SetLevel(llevel)
 
+	exitcode = 0
+
 }
 
 func usage() {
@@ -79,6 +85,8 @@ func usage() {
 }
 
 func main() {
+
+	defer os.Exit(exitcode)
 
 	// command-line options
 	args := flag.Args()
@@ -174,9 +182,11 @@ func main() {
 	select {
 	case s := <-chanS:
 		log.Warnf("Received interruption: %s\n", s)
-		os.Exit(int(s.(syscall.Signal)))
+		exitcode = int(s.(syscall.Signal))
+		runtime.Goexit()
 	case <-goPrintOut(chanOutt, false, nil):
-		os.Exit(0)
+		exitcode = 0
+		runtime.Goexit()
 	}
 }
 
@@ -295,6 +305,10 @@ func goPrintOut(chanOut chan acl.RolePathMap, resolvePathForTraverse bool, roles
 			if resolvePathForTraverse && !acl.IsSameProjectPath(o.Path, ppath) {
 				acl.GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
 			}
+		}
+		// enter a newline when using the silence mode
+		if *optsSilence {
+			fmt.Printf("\n")
 		}
 		// examine ppath (and ppathSym if it's not the same as ppath) to resolve possible
 		// parents for setting the traverse role.
