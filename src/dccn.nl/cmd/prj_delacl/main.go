@@ -319,9 +319,9 @@ func goPrintOut(chanOut chan acl.RolePathMap, resolvePathForTraverse bool, roles
 				// print visited directory/path counter
 				switch m := counter % 100; m {
 				case 1:
-					fmt.Printf("\r %s %d", spinner.Next(), counter)
+					fmt.Printf("\r %s path visited: %d", spinner.Next(), counter)
 				default:
-					fmt.Printf("\r %s %d", spinner.Current(), counter)
+					fmt.Printf("\r %s path visited: %d", spinner.Current(), counter)
 				}
 			} else {
 				// the role has been set to the path
