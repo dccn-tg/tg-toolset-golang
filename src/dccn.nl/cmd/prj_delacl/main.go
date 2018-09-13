@@ -64,7 +64,7 @@ func init() {
 	}
 	log.SetLevel(llevel)
 
-	*exitcode = 0
+	exitcode = new(int)
 }
 
 func usage() {
