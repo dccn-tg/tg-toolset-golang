@@ -38,7 +38,7 @@ var ppathSym string // the absolute path from the input project number or path, 
 var ppath string    // the referent resolved from ppathSym
 
 // global variable for exit code
-var exitcode int
+var exitcode *int
 
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users for the manager role")
@@ -65,7 +65,7 @@ func init() {
 	}
 	log.SetLevel(llevel)
 
-	exitcode = 0
+	*exitcode = 0
 
 }
 
@@ -86,7 +86,7 @@ func usage() {
 
 func main() {
 
-	defer os.Exit(exitcode)
+	defer os.Exit(*exitcode)
 
 	// command-line options
 	args := flag.Args()
@@ -175,17 +175,17 @@ func main() {
 	chanOut := goSetRoles(roles, chanF, *optsNthreads)
 
 	// set traverse roles
-	chanFt := goPrintOut(chanOut, *optsTraverse, rolesT)
+	chanFt := goPrintOut(chanOut, *optsTraverse, rolesT, *optsNthreads*4)
 	chanOutt := goSetRoles(rolesT, chanFt, *optsNthreads)
 
 	// block main until the output is all printed, or a system signal is received
 	select {
 	case s := <-chanS:
 		log.Warnf("Stopped due to received signal: %s\n", s)
-		exitcode = int(s.(syscall.Signal))
+		*exitcode = int(s.(syscall.Signal))
 		runtime.Goexit()
-	case <-goPrintOut(chanOutt, false, nil):
-		exitcode = 0
+	case <-goPrintOut(chanOutt, false, nil, 0):
+		*exitcode = 0
 		runtime.Goexit()
 	}
 }
@@ -280,9 +280,9 @@ func goSetRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) ch
 // Optionally, it also resolves the paths on which the traverse role has to be set.
 // The paths resolved for traverse role can be passed onto the goSetRoles function for
 // setting the traverse role.
-func goPrintOut(chanOut chan acl.RolePathMap, resolvePathForTraverse bool, rolesT map[acl.Role][]string) chan ufp.FilePathMode {
+func goPrintOut(chanOut chan acl.RolePathMap, resolvePathForTraverse bool, rolesT map[acl.Role][]string, bufferChanTraverse int) chan ufp.FilePathMode {
 
-	chanFt := make(chan ufp.FilePathMode, *optsNthreads*4)
+	chanFt := make(chan ufp.FilePathMode, bufferChanTraverse)
 	go func() {
 		counter := 0
 		spinner := ustr.NewSpinner()

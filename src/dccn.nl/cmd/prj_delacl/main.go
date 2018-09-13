@@ -5,10 +5,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
+	"syscall"
 
 	"dccn.nl/project/acl"
 	ufp "dccn.nl/utility/filepath"
@@ -16,6 +20,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// global variables from command-line arguments
 var optsBase *string
 var optsPath *string
 var optsManager *string
@@ -25,6 +30,14 @@ var optsTraverse *bool
 var optsNthreads *int
 var optsForce *bool
 var optsVerbose *bool
+var optsSilence *bool
+
+// global variables derived in the program
+var ppathSym string // the absolute path from the input project number or path, it can be a symlink.
+var ppath string    // the referent resolved from ppathSym
+
+// global variable for exit code
+var exitcode *int
 
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users to be removed from the manager role")
@@ -36,6 +49,7 @@ func init() {
 	optsNthreads = flag.Int("n", 2, "set number of concurrent processing threads")
 	optsForce = flag.Bool("f", false, "force the deletion regardlessly")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
+	optsSilence = flag.Bool("s", false, "set to `silence` mode")
 
 	flag.Usage = usage
 
@@ -49,6 +63,8 @@ func init() {
 		llevel = log.DebugLevel
 	}
 	log.SetLevel(llevel)
+
+	*exitcode = 0
 }
 
 func usage() {
@@ -70,6 +86,8 @@ func usage() {
 
 func main() {
 
+	defer os.Exit(*exitcode)
+
 	// command-line options
 	args := flag.Args()
 
@@ -86,7 +104,7 @@ func main() {
 	// map for role specification inputs (commad options)
 	roleSpec := make(map[acl.Role]string)
 
-	ppathSym := args[0]
+	ppathSym = args[0]
 
 	if len(args) >= 2 {
 		roleSpec[acl.Manager] = args[0]
@@ -107,8 +125,6 @@ func main() {
 		log.Fatal(fmt.Sprintf("%s", err))
 	}
 
-	doLock := false
-
 	// the input argument starts with 7 digits (considered as project number)
 	if matched, _ := regexp.MatchString("^[0-9]{7,}", ppathSym); matched {
 		ppathSym = filepath.Join(*optsBase, ppathSym, *optsPath)
@@ -117,7 +133,7 @@ func main() {
 	}
 
 	// resolve any symlinks on ppath
-	ppath, _ := filepath.EvalSymlinks(ppathSym)
+	ppath, _ = filepath.EvalSymlinks(ppathSym)
 
 	fpinfo, err := ufp.GetFilePathMode(ppath)
 	if err != nil {
@@ -165,7 +181,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	if doLock {
+	// acquiring operation lock file
+	if fpinfo.Mode.IsDir() {
 		// acquire lock for the current process
 		flock := filepath.Join(ppath, ".prj_setacl.lock")
 		if err := ufp.AcquireLock(flock); err != nil {
@@ -174,49 +191,31 @@ func main() {
 		defer os.Remove(flock)
 	}
 
-	// remove specified user roles
-	chanF := ufp.GoFastWalk(ppath, *optsNthreads*4)
-	chanOut := goDelRoles(roles, chanF, *optsNthreads)
+	chanS := make(chan os.Signal, 1)
+	signal.Notify(chanS, syscall.SIGINT, syscall.SIGABRT, syscall.SIGKILL)
 
 	// RoleMap for traverse role removal
 	rolesT := make(map[acl.Role][]string)
 	rolesT[acl.Traverse] = usersT
 
+	// remove specified user roles
+	chanF := ufp.GoFastWalk(ppath, *optsNthreads*4)
+	chanOut := goDelRoles(roles, chanF, *optsNthreads)
+
 	// channels for removing traverse roles
-	chanFt := make(chan ufp.FilePathMode, *optsNthreads*4)
+	// set traverse roles
+	chanFt := goPrintOut(chanOut, *optsTraverse, rolesT, *optsNthreads*4)
 	chanOutt := goDelRoles(rolesT, chanFt, *optsNthreads)
 
-	// loops over results of removing specified user roles and resolves paths
-	// on which the traverse role should be removed, using a go routine.
-	go func() {
-		for o := range chanOut {
-			log.Info(fmt.Sprintf("%s", o.Path))
-			for r, users := range o.RoleMap {
-				log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
-			}
-			// examine the path to see if it is deviated from the ppath from
-			// the project storage perspective.  If so, it should be considered for the
-			// traverse role settings.
-			if *optsTraverse && !acl.IsSameProjectPath(o.Path, ppath) {
-				acl.GetPathsForDelTraverse(o.Path, rolesT, &chanFt)
-			}
-		}
-		// go over ppath for traverse role synchronously
-		if *optsTraverse {
-			acl.GetPathsForDelTraverse(ppath, rolesT, &chanFt)
-			if ppath != ppathSym {
-				acl.GetPathsForDelTraverse(ppathSym, rolesT, &chanFt)
-			}
-		}
-		defer close(chanFt)
-	}()
-
-	// loops over results of removing the traverse role.
-	for o := range chanOutt {
-		log.Info(fmt.Sprintf("%s", o.Path))
-		for r, users := range o.RoleMap {
-			log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
-		}
+	// block main until the output is all printed, or a system signal is received
+	select {
+	case s := <-chanS:
+		log.Warnf("Stopped due to received signal: %s\n", s)
+		*exitcode = int(s.(syscall.Signal))
+		runtime.Goexit()
+	case <-goPrintOut(chanOutt, false, nil, 0):
+		*exitcode = 0
+		runtime.Goexit()
 	}
 }
 
@@ -243,9 +242,12 @@ func parseRoles(roleSpec map[acl.Role]string) (map[acl.Role][]string, []string, 
 	return roles, usersT, nil
 }
 
-/*
-   performs actual setacl in a concurrent way
-*/
+// goSetRoles performs actions for deleting ACL (defined by roles) on paths provided
+// through the chanF channel, in a asynchronous manner. It returns a channel containing
+// ACL information of paths on which the ACL deletion is correctly applied.
+//
+// The returned channel can be passed onto the goPrintOut function for displaying the
+// results asynchronously.
 func goDelRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) chan acl.RolePathMap {
 
 	// output channel
@@ -268,29 +270,71 @@ func goDelRoles(roles acl.RoleMap, chanF chan ufp.FilePathMode, nthreads int) ch
 		}
 	}
 
-	// launch parallel go routines for getting ACL
-	chanSync := make(chan int)
-	for i := 0; i < nthreads; i++ {
-		go func() {
-			for f := range chanF {
-				log.Debug("processing file: " + f.Path)
-				updateACL(f)
-			}
-			chanSync <- 1
-		}()
-	}
-
-	// launch synchronise go routine
+	// launch parallel go routines for deleting ACL
 	go func() {
-		i := 0
-		for {
-			i = i + <-chanSync
-			if i == nthreads {
-				break
-			}
+		var wg sync.WaitGroup
+		wg.Add(nthreads)
+		for i := 0; i < nthreads; i++ {
+			go func() {
+				for f := range chanF {
+					log.Debug("processing file: " + f.Path)
+					updateACL(f)
+				}
+				wg.Done()
+			}()
 		}
+		wg.Wait()
 		close(chanOut)
 	}()
 
 	return chanOut
+}
+
+// goPrintOut prints out information of paths on which the new ACL has been applied.
+//
+// Optionally, it also resolves the paths on which the traverse role has to be set.
+// The paths resolved for traverse role can be passed onto the goSetRoles function for
+// setting the traverse role.
+func goPrintOut(chanOut chan acl.RolePathMap, resolvePathForTraverse bool, rolesT map[acl.Role][]string, bufferChanTraverse int) chan ufp.FilePathMode {
+
+	chanFt := make(chan ufp.FilePathMode, bufferChanTraverse)
+	go func() {
+		counter := 0
+		spinner := ustr.NewSpinner()
+		for o := range chanOut {
+			counter++
+			if *optsSilence {
+				// print visited directory/path counter
+				fmt.Printf("\r %s %d", spinner.Next(), counter)
+			} else {
+				// the role has been set to the path
+				log.Info(fmt.Sprintf("%s", o.Path))
+			}
+
+			for r, users := range o.RoleMap {
+				log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
+			}
+			// examine the path to see if it is deviated from the ppath from
+			// the project storage perspective.  If so, it should be considered for the
+			// traverse role settings.
+			if resolvePathForTraverse && !acl.IsSameProjectPath(o.Path, ppath) {
+				acl.GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
+			}
+		}
+		// enter a newline when using the silence mode
+		if *optsSilence {
+			fmt.Printf("\n")
+		}
+		// examine ppath (and ppathSym if it's not the same as ppath) to resolve possible
+		// parents for setting the traverse role.
+		if resolvePathForTraverse {
+			acl.GetPathsForSetTraverse(ppath, rolesT, &chanFt)
+			if ppath != ppathSym {
+				acl.GetPathsForSetTraverse(ppathSym, rolesT, &chanFt)
+			}
+		}
+		defer close(chanFt)
+	}()
+
+	return chanFt
 }
