@@ -181,7 +181,7 @@ func main() {
 	// block main until the output is all printed, or a system signal is received
 	select {
 	case s := <-chanS:
-		log.Warnf("Received interruption: %s\n", s)
+		log.Warnf("Stopped due to received signal: %s\n", s)
 		exitcode = int(s.(syscall.Signal))
 		runtime.Goexit()
 	case <-goPrintOut(chanOutt, false, nil):
