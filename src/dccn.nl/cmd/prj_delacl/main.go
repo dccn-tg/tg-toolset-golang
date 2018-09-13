@@ -37,7 +37,14 @@ var ppathSym string // the absolute path from the input project number or path, 
 var ppath string    // the referent resolved from ppathSym
 
 // global variable for exit code
-var exitcode *int
+var exitcode int
+
+var signalHandled = []os.Signal{
+	syscall.SIGABRT,
+	syscall.SIGHUP,
+	syscall.SIGTERM,
+	syscall.SIGINT,
+}
 
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users to be removed from the manager role")
@@ -64,7 +71,7 @@ func init() {
 	}
 	log.SetLevel(llevel)
 
-	exitcode = new(int)
+	exitcode = 0
 }
 
 func usage() {
@@ -86,7 +93,11 @@ func usage() {
 
 func main() {
 
-	defer os.Exit(*exitcode)
+	// this defer function ensures that the os.Exit is called with a proper exitcode which is set
+	// before this defer operation is registered.
+	defer func() {
+		os.Exit(exitcode)
+	}()
 
 	// command-line options
 	args := flag.Args()
@@ -192,7 +203,7 @@ func main() {
 	}
 
 	chanS := make(chan os.Signal, 1)
-	signal.Notify(chanS, syscall.SIGINT, syscall.SIGABRT, syscall.SIGKILL)
+	signal.Notify(chanS, signalHandled...)
 
 	// RoleMap for traverse role removal
 	rolesT := make(map[acl.Role][]string)
@@ -211,10 +222,10 @@ func main() {
 	select {
 	case s := <-chanS:
 		log.Warnf("Stopped due to received signal: %s\n", s)
-		*exitcode = int(s.(syscall.Signal))
+		exitcode = int(s.(syscall.Signal))
 		runtime.Goexit()
 	case <-goPrintOut(chanOutt, false, nil, 0):
-		*exitcode = 0
+		exitcode = 0
 		runtime.Goexit()
 	}
 }
