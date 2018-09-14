@@ -31,6 +31,7 @@ var optsNthreads *int
 var optsForce *bool
 var optsVerbose *bool
 var optsSilence *bool
+var optsFollowLink *bool
 
 // global variables derived in the program
 var ppathSym string // the absolute path from the input project number or path, it can be a symlink.
@@ -57,6 +58,7 @@ func init() {
 	optsForce = flag.Bool("f", false, "force the deletion regardlessly")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 	optsSilence = flag.Bool("s", false, "set to `silence` mode")
+	optsFollowLink = flag.Bool("l", false, "`follow` symlinks to set roles on referents")
 
 	flag.Usage = usage
 
@@ -210,7 +212,7 @@ func main() {
 	rolesT[acl.Traverse] = usersT
 
 	// remove specified user roles
-	chanF := ufp.GoFastWalk(ppath, *optsNthreads*4)
+	chanF := ufp.GoFastWalk(ppath, *optsFollowLink, *optsNthreads*4)
 	chanOut := goDelRoles(roles, chanF, *optsNthreads)
 
 	// channels for removing traverse roles

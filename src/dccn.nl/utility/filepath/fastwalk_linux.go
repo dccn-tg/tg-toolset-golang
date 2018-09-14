@@ -41,7 +41,7 @@ func clen(n []byte) int {
 // If mode is provided, both root and mode are respected. Otherwise, the root is stated to
 // retrieve its FileMode.  If the root is a symbolic link, the returned FilePathInfo contains
 // information and path referring to the referent of the link.
-func fastWalk(root string, mode *os.FileMode, chanP *chan FilePathMode) {
+func fastWalk(root string, mode *os.FileMode, followLink bool, chanP *chan FilePathMode) {
 
 	if mode == nil {
 		// retrieve FileMode when it is not provided by the caller
@@ -105,8 +105,14 @@ func fastWalk(root string, mode *os.FileMode, chanP *chan FilePathMode) {
 				*chanP <- FilePathMode{Path: vpath, Mode: 0}
 			case syscall.DT_DIR:
 				m := os.ModeDir
-				fastWalk(vpath, &m, chanP)
+				fastWalk(vpath, &m, followLink, chanP)
 			case syscall.DT_LNK:
+
+				if !followLink {
+					logger.Warnf("skip symlink: %s\n", vpath)
+					continue
+				}
+
 				referent, err := filepath.EvalSymlinks(vpath)
 				if err != nil {
 					logger.Errorf("cannot resolve symlink: %s error: %s\n", vpath, err)
@@ -119,7 +125,9 @@ func fastWalk(root string, mode *os.FileMode, chanP *chan FilePathMode) {
 					logger.Warnf("skip path to avoid symlink loop: %s\n", vpath)
 					continue
 				}
-				fastWalk(referent, nil, chanP)
+			default:
+				logger.Warnf("skip unhandled file: %s (type: %s)", vpath, dirent.Type)
+				continue
 			}
 		}
 	}
@@ -136,12 +144,12 @@ func fastWalk(root string, mode *os.FileMode, chanP *chan FilePathMode) {
 //
 // Note: This method uses the linux specific way (i.e. syscall.SYS_GETDENT64)
 // of getting directory content.  Thus it can only be used with $GOOS=linux.
-func GoFastWalk(root string, buffer int) chan FilePathMode {
+func GoFastWalk(root string, followLink bool, buffer int) chan FilePathMode {
 
 	chanP := make(chan FilePathMode, buffer)
 
 	go func() {
-		fastWalk(root, nil, &chanP)
+		fastWalk(root, nil, followLink, &chanP)
 		defer close(chanP)
 	}()
 
