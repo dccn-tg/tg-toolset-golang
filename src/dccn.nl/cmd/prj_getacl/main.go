@@ -19,12 +19,15 @@ var path *string
 var recursion *bool
 var nthreads *int
 var verbose *bool
+var optsFollowLink *bool
 
 func init() {
 	path = flag.String("d", "/project", "root path of project storage")
 	recursion = flag.Bool("r", false, "get roles on files and directories recursively")
 	nthreads = flag.Int("n", 4, "number of concurrent processing threads")
 	verbose = flag.Bool("v", false, "print debug messages")
+	optsFollowLink = flag.Bool("l", false, "`follow` symlinks to set roles on referents")
+
 	flag.Usage = usage
 	flag.Parse()
 
@@ -86,7 +89,7 @@ func main() {
 
 	var chanD chan ufp.FilePathMode
 	if *recursion {
-		chanD = ufp.GoFastWalk(ppath, *nthreads)
+		chanD = ufp.GoFastWalk(ppath, *optsFollowLink, *nthreads)
 	} else {
 		*nthreads = 1
 		chanD = make(chan ufp.FilePathMode)
