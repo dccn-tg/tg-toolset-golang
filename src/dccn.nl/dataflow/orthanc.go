@@ -195,6 +195,48 @@ type Orthanc struct {
 	Password  string
 }
 
+// DicomObject is a enumeratable integer referring to one of DICOM objects.
+type DicomObject int
+
+// Valid DicomObjects are listed below:
+//
+// DicomPatient: a subject
+//
+// DicomStudy: a study on a subject
+//
+// DicomSeries: a series within a study
+//
+// DicomInstance: a image instance within a series
+const (
+	DicomPatient DicomObject = iota
+	DicomStudy
+	DicomSeries
+	DicomInstance
+)
+
+func (o DicomObject) String() string {
+	names := [...]string{
+		"Patient",
+		"Study",
+		"Series",
+		"Instance",
+	}
+	return names[o]
+}
+
+// DicomQuery defines the c-Find attributes for the finding
+// DICOM objects.
+type DicomQuery struct {
+	StudyDate string
+}
+
+// OrthancQuery defines the query data accepted by the Orthanc's
+// /tools/find interface.
+type OrthancQuery struct {
+	Level string
+	Query DicomQuery
+}
+
 // getJson decodes the JSON output from getting the suffixURL, and converts
 // the output to the destination target structure.
 func (o Orthanc) getJson(suffixURL string, target interface{}) error {
@@ -204,6 +246,28 @@ func (o Orthanc) getJson(suffixURL string, target interface{}) error {
 
 	// prepare request with username/password
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", o.PrefixURL, suffixURL), nil)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(o.Username, o.Password)
+
+	// send request and retrive response body
+	rsp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer rsp.Body.Close()
+
+	// decode response body into target object
+	return json.NewDecoder(rsp.Body).Decode(target)
+}
+
+func (o Orthanc) postJson(suffixURL string, data string, target interface{}) error {
+	// set connection timeout
+	c := &http.Client{Timeout: 10 * time.Second}
+
+	// prepare request with username/password
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", o.PrefixURL, suffixURL), strings.NewReader(data))
 	if err != nil {
 		return err
 	}
@@ -355,6 +419,44 @@ func (o Orthanc) GetSerieses(from, to time.Time) (serieses []Series, err error) 
 
 	// wait for all workers to finish
 	wg.Wait()
+
+	return
+}
+
+// ListObjectIDs uses Orthanc's /tools/find interface to retrieve a list of
+// DICOM object IDs between the given time range.
+func (o Orthanc) ListObjectIDs(level DicomObject, from, to time.Time) (ids []string, err error) {
+
+	levelStr := "Study"
+
+	switch level {
+	case DicomPatient:
+		levelStr = "Patient"
+	case DicomSeries:
+		levelStr = "Series"
+	case DicomInstance:
+		levelStr = "Instance"
+	}
+
+	qry := OrthancQuery{
+		Level: levelStr,
+		Query: DicomQuery{
+			StudyDate: fmt.Sprintf("%d%02d%02d-%d%02d%02d", from.Year(), from.Month(), from.Day(), to.Year(), to.Month(), to.Day()),
+		},
+	}
+
+	qryJson, err := json.Marshal(qry)
+
+	fmt.Println(string(qryJson))
+
+	if err != nil {
+		return
+	}
+
+	err = o.postJson("tools/find", string(qryJson), &ids)
+	if err != nil {
+		return
+	}
 
 	return
 }

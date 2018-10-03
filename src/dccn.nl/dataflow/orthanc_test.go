@@ -37,7 +37,7 @@ func TestGetStudies(t *testing.T) {
 	// get studies conducted in the last 24 hours
 	studies, err := o.GetStudies(time.Now().Add(time.Hour*-24), time.Now())
 	if err != nil {
-		t.Errorf("Fail getting serieses: %+v", err)
+		t.Errorf("Fail getting studies: %+v", err)
 	}
 
 	for _, s := range studies {
@@ -55,4 +55,26 @@ func TestGetStudies(t *testing.T) {
 			t.Logf("|- first series: %+v, last update: %s", se.ID, se.LastUpdate)
 		}
 	}
+}
+
+func TestListObjectIDs(t *testing.T) {
+
+	o := Orthanc{
+		PrefixURL: conf.PACS.PrefixURL,
+		Username:  conf.PACS.Username,
+		Password:  conf.PACS.Password,
+	}
+
+	// get objects acquired in the last 24 hours
+	for _, l := range []DicomObject{DicomPatient, DicomStudy, DicomSeries} {
+		objs, err := o.ListObjectIDs(l, time.Now().Add(time.Hour*-24), time.Now())
+		if err != nil {
+			t.Errorf("Fail getting %s: %+v", l, err)
+		}
+
+		for _, s := range objs {
+			t.Logf("%s id: %s", l, s)
+		}
+	}
+
 }
