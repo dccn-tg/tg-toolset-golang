@@ -215,7 +215,7 @@ const (
 )
 
 func (o DicomObject) String() string {
-	names := [...]string{
+	names := []string{
 		"Patient",
 		"Study",
 		"Series",
@@ -427,19 +427,8 @@ func (o Orthanc) GetSerieses(from, to time.Time) (serieses []Series, err error) 
 // DICOM object IDs between the given time range.
 func (o Orthanc) ListObjectIDs(level DicomObject, from, to time.Time) (ids []string, err error) {
 
-	levelStr := "Study"
-
-	switch level {
-	case DicomPatient:
-		levelStr = "Patient"
-	case DicomSeries:
-		levelStr = "Series"
-	case DicomInstance:
-		levelStr = "Instance"
-	}
-
 	qry := OrthancQuery{
-		Level: levelStr,
+		Level: fmt.Sprintf("%s", level),
 		Query: DicomQuery{
 			StudyDate: fmt.Sprintf("%d%02d%02d-%d%02d%02d", from.Year(), from.Month(), from.Day(), to.Year(), to.Month(), to.Day()),
 		},
