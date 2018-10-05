@@ -1,4 +1,10 @@
-# Tools for managing project data access
+# Golang toolset for the TG
+
+## Tools and libraries for managing data in the Orthanc DICOM PACS server
+
+## Tools and libraries for interfacing the Project and lab-booking databases
+
+## Tools and libraries for managing project data access
 
 This package is rewriting the existing python scripts of `prj_getacl`, `prj_setacl`, and `prj_delacl`, with the following objectives:
 
