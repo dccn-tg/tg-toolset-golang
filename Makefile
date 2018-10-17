@@ -3,11 +3,18 @@ PREFIX ?= "/opt/project"
 
 all: build
 
-external:
-	@GOPATH=$(GOPATH) GOOS=linux go get ./...
+$(GOPATH)/bin/dep:
+	mkdir -p $(GOPATH)/bin
+	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | GOPATH=$(GOPATH) GOOS=linux sh
 
-build: external
-	@GOPATH=$(GOPATH) GOOS=linux go install ./...
+build_dep: $(GOPATH)/bin/dep
+	cd src/dccn.nl; GOPATH=$(GOPATH) GOOS=linux $(GOPATH)/bin/dep ensure -update
+
+external:
+	GOPATH=$(GOPATH) GOOS=linux go get -d ./...
+
+build:
+	GOPATH=$(GOPATH) GOOS=linux go install dccn.nl/...
 
 doc:
 	@GOPATH=$(GOPATH) GOOS=linux godoc -http=:6060
