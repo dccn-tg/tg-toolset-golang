@@ -8,18 +8,18 @@ $(GOPATH)/bin/dep:
 	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | GOPATH=$(GOPATH) GOOS=linux sh
 
 build_dep: $(GOPATH)/bin/dep
-	cd src/dccn.nl; GOPATH=$(GOPATH) GOOS=linux $(GOPATH)/bin/dep ensure -update
+	cd src/dccn.nl; GOPATH=$(GOPATH) GOOS=linux $(GOPATH)/bin/dep ensure
 
-external:
-	GOPATH=$(GOPATH) GOOS=linux go get -d ./...
+update_dep: $(GOPATH)/bin/dep
+	cd src/dccn.nl; GOPATH=$(GOPATH) GOOS=linux $(GOPATH)/bin/dep ensure --update
 
-build:
+build: build_dep
 	GOPATH=$(GOPATH) GOOS=linux go install dccn.nl/...
 
 doc:
 	@GOPATH=$(GOPATH) GOOS=linux godoc -http=:6060
 
-test: external
+test: build_dep
 	@GOPATH=$(GOPATH) GOOS=linux GOCACHE=off go test -v dccn.nl/project/... dccn.nl/dataflow/...
 
 install: build
