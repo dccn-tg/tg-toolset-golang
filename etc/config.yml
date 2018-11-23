@@ -14,3 +14,7 @@ pacs:
   prefixURL: "http://pacs.dccn.nl:8042"
   username: ""
   password: ""
+streamer:
+  prefixURL: "http://pacs.dccn.nl:3001"
+  username: ""
+  password: ""

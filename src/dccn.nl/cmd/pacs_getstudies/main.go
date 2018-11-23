@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	optsPacsHost     *string
-	optsPacsPort     *int
-	optsPacsUsername *string
-	optsPacsPassword *string
+	// optsPacsHost     *string
+	// optsPacsPort     *int
+	// optsPacsUsername *string
+	// optsPacsPassword *string
 	optsPacsConfig   *string
 	optsOlderThan    *int
 	optsYoungerThan  *int
@@ -30,11 +30,11 @@ func init() {
 	optsYoungerThan = flag.Int("y", 2, "get the studies `younger than` the given hours.")
 	optsOlderThan = flag.Int("o", 1, "get the studies `older than` the given hours.")
 	optsPacsConfig = flag.String("c", "config.yml", "set the configuration path for connecting to the PACS server.")
-	optsPacsHost = flag.String("h", "pacs.dccn.nl", "set the PACS server hostname, overwriting value from the -c option.")
-	optsPacsPort = flag.Int("p", 8042, "set the PACS server network port, overwriting the value from the -c option.")
-	optsPacsUsername = flag.String("u", "", "set the PACS server connection user, overwriting the value from the -c option.")
-	optsPacsPassword = flag.String("s", "", "set the PACS server connection password, overwriting the value from the -c option.")
-
+	// optsPacsHost = flag.String("h", "pacs.dccn.nl", "set the PACS server hostname, overwriting value from the -c option.")
+	// optsPacsPort = flag.Int("p", 8042, "set the PACS server network port, overwriting the value from the -c option.")
+	// optsPacsUsername = flag.String("u", "", "set the PACS server connection user, overwriting the value from the -c option.")
+	// optsPacsPassword = flag.String("s", "", "set the PACS server connection password, overwriting the value from the -c option.")
+ 
 	optsNthreads = flag.Int("n", 2, "set number of concurrent processing threads")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 
@@ -107,20 +107,18 @@ func main() {
 		d_s := s.MainDicomTags.StudyDate
 		t_s := s.MainDicomTags.StudyTime
 		dt_s := time.Date(d_s.Year(), d_s.Month(), d_s.Day(), t_s.Hour(), t_s.Minute(), t_s.Second(), 0, time.Now().Location())
-		log.Infof("study %s, date: %s, nseries: %d", s.ID, dt_s, len(s.Series))
 
-		if b_s, err := json.MarshalIndent(s, "", "\t"); err == nil {
-			log.Debugf("\n----- Detail -----\n%s\n------------------\n", b_s)
+		// verbosed output
+		if *optsVerbose {
+			log.Infof("study %s, date: %s, nseries: %d", s.ID, dt_s, len(s.Series))
+			if b_s, err := json.MarshalIndent(s, "", "\t"); err == nil {
+				log.Debugf("\n----- Detail -----\n%s\n------------------\n", b_s)
+			}
+			continue
 		}
 
-		// get first series
-		// if len(s.Series) > 0 {
-		// 	se, err := o.GetSeries(s.Series[0])
-		// 	if err != nil {
-		// 		log.Errorf("Fail getting series: %+v", err)
-		// 	}
-		// 	log.Debugf("|- first series: %+v, last update: %s", se.ID, se.LastUpdate)
-		// }
+		// simple output for reusing it in another program.
+		fmt.Printf("%s,%s\n", s.ID, dt_s)
 	}
 
 }

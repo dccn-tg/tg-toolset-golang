@@ -6,4 +6,5 @@ type Configuration struct {
 	PDB  DBConfiguration
 	CDB  DBConfiguration
 	PACS OrthancConfiguration
+	Streamer StreamerConfiguration
 }
