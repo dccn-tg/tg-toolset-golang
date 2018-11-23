@@ -23,24 +23,27 @@ var (
 	// optsStreamerPassword *string
 	optsStreamerConfig   *string
 	optsPacsObject       *string
-	optsNthreads         *int
 	optsVerbose          *bool
 )
 
 func init() {
-	optsStreamerConfig = flag.String("c", "config.yml", "set the configuration path for connecting to the streamer server.")
+	optsStreamerConfig = flag.String("c", "config.yml", "set the configuration path for connecting to the streamer and the PACS servers.")
 	// optsStreamerHost = flag.String("h", "pacs.dccn.nl", "set the streamer server hostname, overwriting value from the -c option.")
 	// optsStreamerPort = flag.Int("p", 3001, "set the streamer server network port, overwriting the value from the -c option.")
 	// optsStreamerUsername = flag.String("u", "", "set the streamer server connection user, overwriting the value from the -c option.")
 	// optsStreamerPassword = flag.String("s", "", "set the streamer server connection password, overwriting the value from the -c option.")
 
-	optsPacsObject = flag.String("o", "study", "indicates the PACS object to be submitted to the streamer")
-	optsNthreads = flag.Int("n", 2, "set number of concurrent processing threads")
+	optsPacsObject = flag.String("o", "study", "indicate the PACS object `type` (study or series) of the provided object UUIDs.")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 
 	flag.Usage = usage
 
 	flag.Parse()
+
+	// check if provided object is supported
+	if *optsPacsObject != "series" && *optsPacsObject != "study" {
+		log.Fatalf("Unsupported PACS object: %s\n", *optsPacsObject)
+	}
 
 	// set logging
 	log.SetOutput(os.Stderr)
@@ -54,7 +57,7 @@ func init() {
 
 func usage() {
 	fmt.Printf("\nSubmitting a data streamer job for streaming a study or series from PACS to the project storage and (if applicable) the Donders Repository\n")
-	fmt.Printf("\nUSAGE: %s [OPTIONS] <object_uuid>\n", os.Args[0])
+	fmt.Printf("\nUSAGE: %s [OPTIONS] <UUID_1> <UUID_2>...\n", os.Args[0])
 	fmt.Printf("\nOPTIONS:\n")
 	flag.PrintDefaults()
 	fmt.Printf("\n")
