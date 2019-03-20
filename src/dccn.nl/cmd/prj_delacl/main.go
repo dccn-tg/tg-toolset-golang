@@ -25,6 +25,7 @@ var optsBase *string
 var optsPath *string
 var optsManager *string
 var optsContributor *string
+var optsWriter *string
 var optsViewer *string
 var optsTraverse *bool
 var optsNthreads *int
@@ -50,6 +51,7 @@ var signalHandled = []os.Signal{
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users to be removed from the manager role")
 	optsContributor = flag.String("c", "", "specify a comma-separated-list of users to be removed from the contributor role")
+	optsWriter = flag.String("w", "", "specify a comma-separated-list of users for the writer role")
 	optsViewer = flag.String("u", "", "specify a comma-separated-list of users to be removed from the viewer role")
 	optsTraverse = flag.Bool("t", false, "remove users' traverse permission from the parent directories")
 	optsBase = flag.String("d", "/project", "set the root path of project storage")
@@ -122,12 +124,14 @@ func main() {
 	if len(args) >= 2 {
 		roleSpec[acl.Manager] = args[0]
 		roleSpec[acl.Contributor] = args[0]
+		roleSpec[acl.Writer] = args[0]
 		roleSpec[acl.Viewer] = args[0]
 		roleSpec[acl.Traverse] = args[0]
 		ppathSym = args[1]
 	} else {
 		roleSpec[acl.Manager] = *optsManager
 		roleSpec[acl.Contributor] = *optsContributor
+		roleSpec[acl.Writer] = *optsWriter
 		roleSpec[acl.Viewer] = *optsViewer
 	}
 
