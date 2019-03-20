@@ -69,7 +69,7 @@ func (FreeNasRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
 	}
 	for _, ace := range aces {
 
-		if ace.Type == "D" { // ignore specific DENY
+		if isDenyAceForDeletion(ace) { // ignore specific DENY
 			logger.Debugf("ignore deny type ace: %s\n", ace.String())
 			continue
 		}
