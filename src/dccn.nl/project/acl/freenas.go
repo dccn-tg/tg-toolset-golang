@@ -101,7 +101,14 @@ func (FreeNasRoler) DelRoles(pinfo ufp.FilePathMode, roles RoleMap,
 	var acesNew []ACE
 	for _, ace := range acesNow {
 
-		users, ok := roles[ace.ToRole()]
+		var r Role
+		if isDenyAceForDeletion(ace) {
+			r = Writer
+		} else {
+			r = ace.ToRole()
+		}
+
+		users, ok := roles[r]
 		// the users to be removed not in the same role as this ace
 		if !ok {
 			acesNew = append(acesNew, ace)
@@ -133,6 +140,12 @@ func (FreeNasRoler) DelRoles(pinfo ufp.FilePathMode, roles RoleMap,
 	}
 
 	return rolesNew, nil
+}
+
+// isDenyAceForDeletion checks if the given ACE is the DENY ace specific for the
+// role that allows file writing and (sub-)directory creation; but not deletion.
+func isDenyAceForDeletion(ace ACE) bool {
+	return ace.Type == "D" && (ace.Mask == "dD" || ace.Mask == "d")
 }
 
 // newAcesFromRole constructs two ACEs from the given role for directory and file.
