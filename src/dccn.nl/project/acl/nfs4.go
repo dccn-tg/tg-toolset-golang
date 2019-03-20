@@ -34,6 +34,7 @@ var aceFlag = map[bool]string{
 var aceMask = map[Role]string{
 	Manager:     aceAlias["R"] + aceAlias["W"] + aceAlias["X"] + "dDoy",
 	Contributor: "rwaDdxnNtTcy",
+	Writer:      "rwaxnNtTcy",
 	Viewer:      aceAlias["R"] + aceAlias["X"] + "y",
 	Traverse:    "x",
 }

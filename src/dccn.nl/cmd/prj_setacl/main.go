@@ -26,6 +26,7 @@ var optsBase *string
 var optsPath *string
 var optsManager *string
 var optsContributor *string
+var optsWriter *string
 var optsViewer *string
 var optsTraverse *bool
 var optsNthreads *int
@@ -51,6 +52,7 @@ var signalHandled = []os.Signal{
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users for the manager role")
 	optsContributor = flag.String("c", "", "specify a comma-separated-list of users for the contributor role")
+	optsWriter = flag.String("w", "", "specify a comma-separated-list of users for the writer role")
 	optsViewer = flag.String("u", "", "specify a comma-separated-list of users for the viewer role")
 	optsTraverse = flag.Bool("t", true, "enable/disable role users to travel through parent directories")
 	optsBase = flag.String("d", "/project", "set the root path of project storage")
@@ -112,6 +114,7 @@ func main() {
 	// map for role specification inputs (commad options)
 	roleSpec := make(map[acl.Role]string)
 	roleSpec[acl.Manager] = *optsManager
+	roleSpec[acl.Writer] = *optsWriter
 	roleSpec[acl.Contributor] = *optsContributor
 	roleSpec[acl.Viewer] = *optsViewer
 

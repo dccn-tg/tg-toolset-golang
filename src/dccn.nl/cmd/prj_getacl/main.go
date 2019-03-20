@@ -103,7 +103,7 @@ func main() {
 
 	for o := range chanOut {
 		fmt.Printf("%s:\n", o.Path)
-		for _, r := range []acl.Role{acl.Manager, acl.Contributor, acl.Viewer, acl.Traverse} {
+		for _, r := range []acl.Role{acl.Manager, acl.Contributor, acl.Writer, acl.Viewer, acl.Traverse} {
 			if users, ok := o.RoleMap[r]; ok {
 				fmt.Printf("%12s: %s\n", r, strings.Join(users, ","))
 			}

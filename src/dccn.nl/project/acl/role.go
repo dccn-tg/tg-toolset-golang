@@ -12,6 +12,7 @@ import (
 var roleStrings = map[Role]string{
 	Manager:     "manager",
 	Contributor: "contributor",
+	Writer:      "writer",
 	Viewer:      "viewer",
 	Traverse:    "traverse",
 	System:      "system",
@@ -27,6 +28,8 @@ type Role int
 //
 // Contributor: the role with read/write permission
 //
+// Writer: the role with read/write permission but cannot delete files or (sub-)directories
+//
 // Viewer: the role with read permission
 //
 // Traverse: the role for passing through the directory
@@ -35,6 +38,7 @@ type Role int
 const (
 	Manager Role = iota
 	Contributor
+	Writer
 	Viewer
 	Traverse
 	System
