@@ -135,12 +135,6 @@ func getACL(path string) ([]ACE, error) {
 			logger.Warn(fmt.Sprintf("%s", err))
 			continue
 		}
-		if ace.Type == "D" {
-			// log the ace in debug mode, as it is normally an extra setting required for
-			// different NFSv4 ACL implementation in a specific storage system.
-			logger.Debugf("ignore ACE in deny type: %s\n", line)
-			continue
-		}
 		aces = append(aces, *ace)
 	}
 	return aces, nil

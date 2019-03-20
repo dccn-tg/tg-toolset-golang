@@ -68,6 +68,12 @@ func (FreeNasRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
 		return nil, err
 	}
 	for _, ace := range aces {
+
+		if ace.Type == "D" { // ignore specific DENY
+			logger.Debugf("ignore deny type ace: %s\n", ace.String())
+			continue
+		}
+
 		r := ace.ToRole()
 		// exclude the same user appearing twice: one for file and one for directory
 		uname := getPrincipleName(ace)
