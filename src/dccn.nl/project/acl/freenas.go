@@ -191,7 +191,7 @@ func newAcesFromRole(role Role, userOrGroupName string, p ufp.FilePathMode) []AC
 		acesDeny = []ACE{
 			ACE{
 				Type:      "D",
-				Flag:      flagF,
+				Flag:      strings.Replace(flagD, "d", "", 1),
 				Principle: fmt.Sprintf("%s@%s", userOrGroupName, userDomain),
 				Mask:      "d",
 			},
