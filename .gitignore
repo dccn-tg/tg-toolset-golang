@@ -1,6 +1,1 @@
-bin
-pkg
-etc/config_test.yml
-src/*
-!src/dccn.nl
-src/dccn.nl/vendor
+configs/config_test.yml
