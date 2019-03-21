@@ -1,34 +1,30 @@
-GOPATH := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-PREFIX ?= "/opt/project"
-
 ifndef GOOS
 	GOOS := linux
 endif
 
 all: build
 
-$(GOPATH)/bin/dep:
-	mkdir -p $(GOPATH)/bin
-	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | GOPATH=$(GOPATH) GOOS=$(GOOS) sh
+build_dataflow:
+	GOPATH=$(GOPATH) GOOS=$(GOOS) go install github.com/Donders-Institute/tg-toolset-golang/dataflow/...
 
-build_dep: $(GOPATH)/bin/dep
-	cd src/dccn.nl; GOPATH=$(GOPATH) GOOS=$(GOOS) $(GOPATH)/bin/dep ensure
+build_projectdb:
+	GOPATH=$(GOPATH) GOOS=$(GOOS) go install github.com/Donders-Institute/tg-toolset-golang/projectdb/...
 
-update_dep: $(GOPATH)/bin/dep
-	cd src/dccn.nl; GOPATH=$(GOPATH) GOOS=$(GOOS) $(GOPATH)/bin/dep ensure --update
-
-build: build_dep
-	GOPATH=$(GOPATH) GOOS=$(GOOS) go install dccn.nl/...
+build:
+	GOPATH=$(GOPATH) GOOS=$(GOOS) go install github.com/Donders-Institute/tg-toolset-golang/...
 
 doc:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) godoc -http=:6060
 
-test: build_dep
-	@GOPATH=$(GOPATH) GOOS=$(GOOS) GOCACHE=off go test -v dccn.nl/project/... dccn.nl/dataflow/...
+test_dataflow:
+	@GOPATH=$(GOPATH) GOOS=$(GOOS) go test -v github.com/Donders-Institute/tg-toolset-golang/dataflow/...
 
-install: build
-	@install -D $(GOPATH)/bin/* $(PREFIX)/bin
+test_projectdb:
+	@GOPATH=$(GOPATH) GOOS=$(GOOS) go test -v github.com/Donders-Institute/tg-toolset-golang/projectdb/...
+
+test:
+	@GOPATH=$(GOPATH) GOOS=$(GOOS) go test -v github.com/Donders-Institute/tg-toolset-golang/...
 
 clean:
-	@rm -rf bin
-	@rm -rf pkg
+	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb_*
+	@rm -rf $(GOPATH)/pkg
