@@ -1,3 +1,7 @@
+ifndef GOPATH
+	GOPATH := $(HOME)/go
+endif
+
 ifndef GOOS
 	GOOS := linux
 endif
@@ -27,4 +31,4 @@ test:
 
 clean:
 	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb_*
-	@rm -rf $(GOPATH)/pkg
+	@rm -rf $(GOPATH)/pkg/$(GOOS)*
