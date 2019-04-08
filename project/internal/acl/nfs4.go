@@ -125,8 +125,8 @@ func getACL(path string) ([]ACE, error) {
 	}
 	var aces []ACE
 	for _, line := range strings.Split(string(out), "\n") {
-		if line == "" {
-			// an empty line is ok to ignore
+		if line == "" || strings.HasPrefix(line, "#") {
+			// an empty line or a line stars with "#" is ok to ignore
 			continue
 		}
 		ace, err := parseAce(line)
