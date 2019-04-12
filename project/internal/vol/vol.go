@@ -1,13 +1,14 @@
 package vol
 
 import (
-	"bytes"
+	"bufio"
 	"io"
 	"io/ioutil"
 	"os/user"
 	"path"
 	"regexp"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
@@ -27,6 +28,13 @@ type NetAppVolumeManager struct {
 	MaxIOPS int32
 	// AddressFilerMI is the hostname or ip address of the filer's management interface.
 	AddressFilerMI string
+}
+
+// aggregateInfo is a data structure containing attributes of a NetApp ONTAP aggregate.
+type aggregateInfo struct {
+	name      string
+	freeSpace uint64
+	nvols     uint16
 }
 
 // connect makes a SSH connection to the NetApp filer management interface and
@@ -69,65 +77,118 @@ func (m NetAppVolumeManager) connect() (session *ssh.Session, err error) {
 	return
 }
 
-// Create provisions a project volume on the NetApp's ONTAP cluster filer.
-func (m NetAppVolumeManager) Create(projecID string, quotaGiB int64) error {
-	// TODO: create SSH command for the filer's management interface.
-
+// execFilerMI executes given filer command on the management interface remotely via SSH.
+// It returns stdout and stderr as slice of strings, each contains the data of a line.
+func (m NetAppVolumeManager) execFilerMI(cmd string) (stdout []string, stderr []string, err error) {
 	session, err := m.connect()
 	if err != nil {
-		return err
+		return
 	}
 	defer session.Close()
 
-	// filer manager command to list aggregates,
-	// storage aggregate show -fields availsize,volcount -stat online
-	var b bytes.Buffer
-	session.Stdout = &b
-	if err := session.Run("storage aggregate show -fields availsize,volcount -stat online"); err != nil {
-		return err
+	var outReader, errReader io.Reader
+	outReader, err = session.StdoutPipe()
+	if err != nil {
+		return
+	}
+	outScanner := bufio.NewScanner(outReader)
+
+	errReader, err = session.StdoutPipe()
+	if err != nil {
+		return
+	}
+	errScanner := bufio.NewScanner(errReader)
+
+	if err = session.Run(cmd); err != nil {
+		return
+	}
+
+	for outScanner.Scan() {
+		stdout = append(stdout, strings.TrimSpace(outScanner.Text()))
+	}
+	if err = outScanner.Err(); err != nil {
+		return
+	}
+
+	for errScanner.Scan() {
+		stderr = append(stderr, strings.TrimSpace(errScanner.Text()))
+	}
+	if err = errScanner.Err(); err != nil {
+		return
+	}
+
+	return
+
+}
+
+// getAgreegates queries NetApp filer and returns a list of aggregates.
+func (m NetAppVolumeManager) getAggregates() (aggregates []aggregateInfo, err error) {
+
+	var cmdOut, cmdErr []string
+	cmdOut, cmdErr, err = m.execFilerMI("storage aggregate show -fields availsize,volcount -stat online")
+
+	if err != nil {
+		return
 	}
 
 	// regex to parse output: regexp.Compile("^(aggr\S+)\s+(\S+[P,T,G,M,K]B)\s+([0-9]+)$")
 	// - field 1: aggregation name
 	// - field 2: free space
 	// - field 3: number of volumes in the aggregate
-	type aggregateInfo struct {
-		name      string
-		freeSpace uint64
-		nvols     uint16
-	}
-
-	var aggregates []aggregateInfo
 	reAggrInfo := regexp.MustCompile(`^(aggr\S+)\s+(\S+[P,T,G,M,K]B)\s+([0-9]+)$`)
-	for {
-		line, err := b.ReadString('\n')
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
+
+	var freeSpace uint64
+	var nvols int
+	var ierr error
+
+	for _, line := range cmdOut {
+		log.Debugln(line)
 		if d := reAggrInfo.FindAllStringSubmatch(line, -1); d != nil {
 			log.Debugf("aggregate: %s\n", line)
-			var freeSpace, nvols int
-			if freeSpace, err = strconv.Atoi(d[0][2]); err != nil {
-				log.Debugf("cannot parse freespace of aggregate: %s\n", d[0][2])
-				continue
-			}
-			if nvols, err = strconv.Atoi(d[0][3]); err != nil {
-				log.Debugf("cannot parse nvols of aggregate: %s\n", d[0][3])
+
+			if freeSpace, ierr = convertSize(d[0][2]); ierr != nil {
+				log.Debugf("cannot parse freespace of aggregate: %s, reason: %s\n", d[0][2], ierr)
 				continue
 			}
 
-			// TODO: convert freeSpace to unit of bytes
+			if nvols, ierr = strconv.Atoi(d[0][3]); ierr != nil {
+				log.Debugf("cannot parse nvols of aggregate: %s, reason: %s\n", d[0][3], ierr)
+				continue
+			}
 
 			aggregates = append(aggregates, aggregateInfo{
 				name:      d[0][1],
-				freeSpace: uint64(freeSpace),
+				freeSpace: freeSpace,
 				nvols:     uint16(nvols),
 			})
 		}
 	}
+
+	// print error message in debug mode
+	// Question: shall the cmdErr be returned as an error?
+	for _, line := range cmdErr {
+		log.Debugln(line)
+	}
+
+	return
+}
+
+// hasQosPolicyGroup checks if the policy `policyGroupName` exists in the NetApp
+// system.
+func (m NetAppVolumeManager) hasQosPolicyGroup(policyGroupName string) bool {
+
+	return false
+}
+
+// Create provisions a project volume on the NetApp's ONTAP cluster filer.
+func (m NetAppVolumeManager) Create(projecID string, quotaGiB int) error {
+
+	aggregates, err := m.getAggregates()
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("aggregates: %+v\n", aggregates)
 
 	// filer manager command to list QoS policies
 	// qos policy-group show
@@ -147,4 +208,35 @@ func (m NetAppVolumeManager) Create(projecID string, quotaGiB int64) error {
 	// cmd += ' -percent-snapshot-space 0'
 
 	return nil
+}
+
+// convertSize parses the size string and convert it into bytes in integer
+func convertSize(sizeStr string) (uint64, error) {
+
+	sizeUnitInBytes := 1.
+
+	switch {
+	case strings.HasSuffix(sizeStr, "KB"):
+		sizeStr = strings.TrimSuffix(sizeStr, "KB")
+		sizeUnitInBytes = 1000.
+	case strings.HasSuffix(sizeStr, "MB"):
+		sizeStr = strings.TrimSuffix(sizeStr, "MB")
+		sizeUnitInBytes = 1000000.
+	case strings.HasSuffix(sizeStr, "GB"):
+		sizeStr = strings.TrimSuffix(sizeStr, "GB")
+		sizeUnitInBytes = 1000000000.
+	case strings.HasSuffix(sizeStr, "TB"):
+		sizeStr = strings.TrimSuffix(sizeStr, "TB")
+		sizeUnitInBytes = 1000000000000.
+	case strings.HasSuffix(sizeStr, "PB"):
+		sizeStr = strings.TrimSuffix(sizeStr, "PB")
+		sizeUnitInBytes = 1000000000000000.
+	default:
+	}
+
+	if isize, err := strconv.ParseFloat(sizeStr, 32); err != nil {
+		return 0, err
+	} else {
+		return uint64(isize * sizeUnitInBytes), nil
+	}
 }
