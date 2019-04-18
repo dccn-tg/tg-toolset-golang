@@ -242,10 +242,14 @@ func (m NetAppVolumeManager) Create(projectID string, quotaGiB int) error {
 	if len(aggregates) < 1 {
 		return fmt.Errorf("no aggregate available for creating volume")
 	}
-	if aggregates[0].freeSpace < uint64(quotaGiB*1000000000) {
-		return fmt.Errorf("insufficient space on aggregate, required %d remaining %d", aggregates[0].freeSpace, quotaGiB*1000000000)
+
+	// the aggregate selected is the one with the largest free space.
+	aggr := aggregates[len(aggregates)-1]
+
+	if aggr.freeSpace < uint64(quotaGiB*1000000000) {
+		return fmt.Errorf("insufficient space on aggregate, required %d remaining %d", aggr.freeSpace, quotaGiB*1000000000)
 	}
-	log.Debugf("selected aggregate: %+v\n", aggregates[0])
+	log.Debugf("selected aggregate: %+v\n", aggr)
 
 	// check and create policy group for volume specific QoS.
 	// projectID --> policyGroup: 3010000.01 --> p3010000_01
@@ -267,7 +271,7 @@ func (m NetAppVolumeManager) Create(projectID string, quotaGiB int) error {
 	volumeName := strings.Replace(fmt.Sprintf("project_%s", projectID), ".", "_", -1)
 	junctionPath := path.Join("/project", projectID)
 
-	err = m.createVolume(volumeName, "project", "project_g", quotaGiB, "atreides", aggregates[0].name, qosPolicyGroup, junctionPath)
+	err = m.createVolume(volumeName, "project", "project_g", quotaGiB, "atreides", aggr.name, qosPolicyGroup, junctionPath)
 	if err != nil {
 		return err
 	}
