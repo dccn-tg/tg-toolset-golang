@@ -2,11 +2,13 @@ package vol
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os/user"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -36,6 +38,13 @@ type aggregateInfo struct {
 	freeSpace uint64
 	nvols     uint16
 }
+
+// byFreespace implements interface for sorting aggregates by freeSpace.
+type byFreespace []aggregateInfo
+
+func (b byFreespace) Len() int           { return len(b) }
+func (b byFreespace) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byFreespace) Less(i, j int) bool { return b[i].freeSpace < b[j].freeSpace }
 
 // connect makes a SSH connection to the NetApp filer management interface and
 // returns a ssh.Session.
@@ -164,6 +173,9 @@ func (m NetAppVolumeManager) getAggregates() (aggregates []aggregateInfo, err er
 		}
 	}
 
+	// sort aggregates by freeSpace
+	sort.Sort(byFreespace(aggregates))
+
 	// print error message in debug mode
 	// Question: shall the cmdErr be returned as an error?
 	for _, line := range cmdErr {
@@ -175,37 +187,90 @@ func (m NetAppVolumeManager) getAggregates() (aggregates []aggregateInfo, err er
 
 // hasQosPolicyGroup checks if the policy `policyGroupName` exists in the NetApp
 // system.
-func (m NetAppVolumeManager) hasQosPolicyGroup(policyGroupName string) bool {
+func (m NetAppVolumeManager) hasQosPolicyGroup(policyGroupName string) (bool, error) {
+	// filer manager command to list QoS policies
+	var cmdOut, cmdErr []string
+	cmdOut, cmdErr, err := m.execFilerMI("qos policy-group show -fields policy-group")
 
-	return false
+	if err != nil {
+		return false, err
+	}
+
+	for _, line := range cmdOut {
+		log.Debugln(line)
+		if strings.TrimSpace(line) == policyGroupName {
+			return true, nil
+		}
+	}
+
+	// print error message in debug mode
+	// Question: shall the cmdErr be returned as an error?
+	for _, line := range cmdErr {
+		log.Debugln(line)
+	}
+
+	return false, nil
+}
+
+// createQosPolicyGroup creates a QoS policy group on the NetApp filer with the given
+// group name.
+func (m NetAppVolumeManager) createQosPolicyGroup(policyGroupName string) error {
+	// filer manager command to create a new QoS policy
+	// fmt.Sprintf("qos policy-group create -policy-group %s -vserver atreides -max-throughput %diops", policyGroup, m.MaxIOPS)
+	return nil
+}
+
+// createVolume creates a volume on the NetApp filer with the given volume name.
+func (m NetAppVolumeManager) createVolume(volumeName string, user string, group string, quotaGiB int,
+	vserver string, aggregateName string, policyGroup string, junctionPath string) error {
+	// cmd  = 'volume create -vserver atreides -volume %s -aggregate %s -size %s -user %s -group %s -junction-path %s' % (vol_name, g_aggr['name'], quota, ouid, ogid, fpath)
+	// cmd += ' -security-style unix -unix-permissions 0750 -state online -autosize false -foreground true'
+	// cmd += ' -policy dccn-projects -qos-policy-group %s -space-guarantee none -snapshot-policy none -type RW' % qos_policy_group
+	// cmd += ' -percent-snapshot-space 0'
+	return nil
 }
 
 // Create provisions a project volume on the NetApp's ONTAP cluster filer.
-func (m NetAppVolumeManager) Create(projecID string, quotaGiB int) error {
+func (m NetAppVolumeManager) Create(projectID string, quotaGiB int) error {
 
+	// get lists of aggregates sorted by free space
 	aggregates, err := m.getAggregates()
 	if err != nil {
 		return err
 	}
 
-	log.Debugf("aggregates: %+v\n", aggregates)
+	if len(aggregates) < 1 {
+		return fmt.Errorf("no aggregate available for creating volume")
+	}
+	if aggregates[0].freeSpace < uint64(quotaGiB*1000000000) {
+		return fmt.Errorf("insufficient space on aggregate, required %d remaining %d", aggregates[0].freeSpace, quotaGiB*1000000000)
+	}
+	log.Debugf("selected aggregate: %+v\n", aggregates[0])
 
-	// filer manager command to list QoS policies
-	// qos policy-group show
-
-	// filer manager command to create a new QoS policy
-	//
+	// check and create policy group for volume specific QoS.
 	// projectID --> policyGroup: 3010000.01 --> p3010000_01
-	// fmt.Sprintf("qos policy-group create -policy-group %s -vserver atreides -max-throughput %diops", policyGroup, m.MaxIOPS)
+	qosPolicyGroup := strings.Replace(fmt.Sprintf("p%s", projectID), ".", "_", -1)
+	qosPolicyExist, err := m.hasQosPolicyGroup(qosPolicyGroup)
+	if err != nil {
+		return err
+	}
+	log.Debugf("found policy group %s: %t\n", qosPolicyGroup, qosPolicyExist)
+	if !qosPolicyExist {
+		err := m.createQosPolicyGroup(qosPolicyGroup)
+		if err != nil {
+			return err
+		}
+	}
 
-	// filer manager command to create project volume
-	//
+	// create volume for project.
 	// projectID --> volumeName: 3010000.01 --> project_3010000_01
+	volumeName := strings.Replace(fmt.Sprintf("project_%s", projectID), ".", "_", -1)
+	junctionPath := path.Join("/project", projectID)
 
-	// cmd  = 'volume create -vserver atreides -volume %s -aggregate %s -size %s -user %s -group %s -junction-path %s' % (vol_name, g_aggr['name'], quota, ouid, ogid, fpath)
-	// cmd += ' -security-style unix -unix-permissions 0750 -state online -autosize false -foreground true'
-	// cmd += ' -policy dccn-projects -qos-policy-group %s -space-guarantee none -snapshot-policy none -type RW' % qos_policy_group
-	// cmd += ' -percent-snapshot-space 0'
+	err = m.createVolume(volumeName, "project", "project_g", quotaGiB, "atreides", aggregates[0].name, qosPolicyGroup, junctionPath)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -234,9 +299,10 @@ func convertSize(sizeStr string) (uint64, error) {
 	default:
 	}
 
-	if isize, err := strconv.ParseFloat(sizeStr, 32); err != nil {
+	isize, err := strconv.ParseFloat(sizeStr, 32)
+	if err != nil {
 		return 0, err
-	} else {
-		return uint64(isize * sizeUnitInBytes), nil
 	}
+
+	return uint64(isize * sizeUnitInBytes), nil
 }
