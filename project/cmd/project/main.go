@@ -49,8 +49,6 @@ var volCreateCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		volManager := vol.NetAppVolumeManager{
-			FileSystemRoot: "/project",
-			MaxIOPS:        6000,
 			AddressFilerMI: volManagerAddress,
 		}
 

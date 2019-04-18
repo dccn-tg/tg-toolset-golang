@@ -16,6 +16,19 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const (
+	// VolumeMaxIOPS defines the maximum IOPS per volume for the QoS policy.
+	VolumeMaxIOPS = 6000
+	// VolumeUser defines the owner of a created volume on the NetApp filer.
+	VolumeUser = "project"
+	// VolumeGroup defines the group of a created volume on the NetApp filer.
+	VolumeGroup = "project_g"
+	// VolumeVserver defines the vserver of a created volume on the NetApp filer.
+	VolumeVserver = "atreides"
+	// VolumeJunctionPathRoot defines the base directory of the junction path of the volume.
+	VolumeJunctionPathRoot = "/project"
+)
+
 // VolumeManager defines functions for managing storage volume for a project.
 type VolumeManager interface {
 	// Create provisions a project volume on the targeting storage system.
@@ -24,10 +37,6 @@ type VolumeManager interface {
 
 // NetAppVolumeManager implements VolumeManager interface specific for the NetApp's ONTAP cluster filer.
 type NetAppVolumeManager struct {
-	// FileSystemRoot is the ONTAP filesystem path under which the created project volume will be mounted.
-	FileSystemRoot string
-	// MaxIOPS is the maximum IOPS the volume should support and quarantee as a QoS.
-	MaxIOPS int32
 	// AddressFilerMI is the hostname or ip address of the filer's management interface.
 	AddressFilerMI string
 }
@@ -221,8 +230,8 @@ func (m NetAppVolumeManager) createQosPolicyGroup(policyGroupName string) error 
 }
 
 // createVolume creates a volume on the NetApp filer with the given volume name.
-func (m NetAppVolumeManager) createVolume(volumeName string, user string, group string, quotaGiB int,
-	vserver string, aggregateName string, policyGroup string, junctionPath string) error {
+func (m NetAppVolumeManager) createVolume(volumeName string, quotaGiB int, aggregateName string,
+	policyGroup string, junctionPath string) error {
 	// cmd  = 'volume create -vserver atreides -volume %s -aggregate %s -size %s -user %s -group %s -junction-path %s' % (vol_name, g_aggr['name'], quota, ouid, ogid, fpath)
 	// cmd += ' -security-style unix -unix-permissions 0750 -state online -autosize false -foreground true'
 	// cmd += ' -policy dccn-projects -qos-policy-group %s -space-guarantee none -snapshot-policy none -type RW' % qos_policy_group
@@ -269,9 +278,9 @@ func (m NetAppVolumeManager) Create(projectID string, quotaGiB int) error {
 	// create volume for project.
 	// projectID --> volumeName: 3010000.01 --> project_3010000_01
 	volumeName := strings.Replace(fmt.Sprintf("project_%s", projectID), ".", "_", -1)
-	junctionPath := path.Join("/project", projectID)
+	junctionPath := path.Join(VolumeJunctionPathRoot, projectID)
 
-	err = m.createVolume(volumeName, "project", "project_g", quotaGiB, "atreides", aggr.name, qosPolicyGroup, junctionPath)
+	err = m.createVolume(volumeName, quotaGiB, aggr.name, qosPolicyGroup, junctionPath)
 	if err != nil {
 		return err
 	}
