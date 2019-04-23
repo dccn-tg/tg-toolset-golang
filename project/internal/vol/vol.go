@@ -225,8 +225,57 @@ func (m NetAppVolumeManager) hasQosPolicyGroup(policyGroupName string) (bool, er
 // group name.
 func (m NetAppVolumeManager) createQosPolicyGroup(policyGroupName string) error {
 	// filer manager command to create a new QoS policy
-	// fmt.Sprintf("qos policy-group create -policy-group %s -vserver atreides -max-throughput %diops", policyGroup, m.MaxIOPS)
+	cmd := fmt.Sprintf("qos policy-group create -policy-group %s -vserver atreides -max-throughput %diops", policyGroupName, VolumeMaxIOPS)
+
+	log.Debugf("create QoS group: %s\n", cmd)
+
+	var cmdOut, cmdErr []string
+	cmdOut, cmdErr, err := m.execFilerMI(cmd)
+	if err != nil {
+		return err
+	}
+
+	// print command stdout
+	for _, line := range cmdOut {
+		log.Debug(line)
+	}
+
+	// print command stderr
+	for _, line := range cmdErr {
+		log.Debug(line)
+	}
+
 	return nil
+}
+
+// hasVolume checks whether the volume with the given `volumeName` exists in the NetApp filer.
+func (m NetAppVolumeManager) hasVolume(volumeName string) (bool, error) {
+
+	// filer manager command to list QoS policies
+	var cmdOut, cmdErr []string
+	cmdOut, cmdErr, err := m.execFilerMI(fmt.Sprintf("volume show %s -fields volume", volumeName))
+
+	if err != nil {
+		return false, err
+	}
+
+	reVol := regexp.MustCompile(fmt.Sprintf(`\s%s$`, volumeName))
+
+	for _, line := range cmdOut {
+		log.Debugln(line)
+		if reVol.MatchString(strings.TrimSpace(line)) {
+			return true, nil
+		}
+	}
+
+	// print error message in debug mode
+	// Question: shall the cmdErr be returned as an error?
+	for _, line := range cmdErr {
+		log.Debugln(line)
+	}
+
+	return false, nil
+
 }
 
 // createVolume creates a volume on the NetApp filer with the given volume name.
@@ -236,6 +285,15 @@ func (m NetAppVolumeManager) createVolume(volumeName string, quotaGiB int, aggre
 	// cmd += ' -security-style unix -unix-permissions 0750 -state online -autosize false -foreground true'
 	// cmd += ' -policy dccn-projects -qos-policy-group %s -space-guarantee none -snapshot-policy none -type RW' % qos_policy_group
 	// cmd += ' -percent-snapshot-space 0'
+
+	cmd := fmt.Sprintf("volume create -vserver atreides -volume %s -aggregate %s -size %dGB", volumeName, aggregateName, quotaGiB)
+	cmd = fmt.Sprintf("%s -user %s -group %s -junction-path %s", cmd, VolumeUser, VolumeGroup, junctionPath)
+	cmd = fmt.Sprintf("%s -security-style unix -unix-permissions 0750 -state online -autosize false -foreground true", cmd)
+	cmd = fmt.Sprintf("%s -policy dccn-projects -qos-policy-group %s -space-guarantee none -snapshot-policy none -type RW", cmd, policyGroup)
+	cmd = fmt.Sprintf("%s -percent-snapshot-space 0", cmd)
+
+	log.Debugf("create volume: %s\n", cmd)
+
 	return nil
 }
 
@@ -263,26 +321,35 @@ func (m NetAppVolumeManager) Create(projectID string, quotaGiB int) error {
 	// check and create policy group for volume specific QoS.
 	// projectID --> policyGroup: 3010000.01 --> p3010000_01
 	qosPolicyGroup := strings.Replace(fmt.Sprintf("p%s", projectID), ".", "_", -1)
-	qosPolicyExist, err := m.hasQosPolicyGroup(qosPolicyGroup)
-	if err != nil {
-		return err
-	}
+	qosPolicyExist, _ := m.hasQosPolicyGroup(qosPolicyGroup)
 	log.Debugf("found policy group %s: %t\n", qosPolicyGroup, qosPolicyExist)
 	if !qosPolicyExist {
 		err := m.createQosPolicyGroup(qosPolicyGroup)
 		if err != nil {
 			return err
 		}
+		// check the policy group again to make sure the policy group is presented.
+		if qosPolicyExist, _ = m.hasQosPolicyGroup(qosPolicyGroup); !qosPolicyExist {
+			return fmt.Errorf("fail creating QoS group: %s", qosPolicyGroup)
+		}
 	}
 
 	// create volume for project.
 	// projectID --> volumeName: 3010000.01 --> project_3010000_01
 	volumeName := strings.Replace(fmt.Sprintf("project_%s", projectID), ".", "_", -1)
-	junctionPath := path.Join(VolumeJunctionPathRoot, projectID)
+	volumeExist, _ := m.hasVolume(volumeName)
+	log.Debugf("found volume %s: %t\n", volumeName, volumeExist)
 
-	err = m.createVolume(volumeName, quotaGiB, aggr.name, qosPolicyGroup, junctionPath)
-	if err != nil {
-		return err
+	if !volumeExist {
+		junctionPath := path.Join(VolumeJunctionPathRoot, projectID)
+		err = m.createVolume(volumeName, quotaGiB, aggr.name, qosPolicyGroup, junctionPath)
+		if err != nil {
+			return err
+		}
+		// check volume's existence again
+		if volumeExist, _ := m.hasVolume(volumeName); !volumeExist {
+			return fmt.Errorf("fail creating volume: %s", volumeName)
+		}
 	}
 
 	return nil
