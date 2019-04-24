@@ -294,13 +294,80 @@ func (m NetAppVolumeManager) createVolume(volumeName string, quotaGiB int, aggre
 
 	log.Debugf("create volume: %s\n", cmd)
 
+	var cmdOut, cmdErr []string
+	cmdOut, cmdErr, err := m.execFilerMI(cmd)
+	if err != nil {
+		return err
+	}
+
+	// print command stdout
+	for _, line := range cmdOut {
+		log.Debug(line)
+	}
+
+	// print command stderr
+	for _, line := range cmdErr {
+		log.Debug(line)
+	}
+
+	return nil
+}
+
+// enableVolumeEfficiency turns the efficiency flag on for a volume.
+func (m NetAppVolumeManager) enableVolumeEfficiency(volumeName string) error {
+	var cmdOut, cmdErr []string
+	cmdOut, cmdErr, err := m.execFilerMI(fmt.Sprintf("volume efficiency on -vserver %s -volume %s", VolumeVserver, volumeName))
+	if err != nil {
+		return err
+	}
+
+	// print command stdout
+	for _, line := range cmdOut {
+		log.Debug(line)
+	}
+
+	// print command stderr
+	for _, line := range cmdErr {
+		log.Debug(line)
+	}
+
+	return nil
+}
+
+// configVolumeEfficiency sets the volume efficiency flags.
+func (m NetAppVolumeManager) configVolumeEfficiency(volumeName string) error {
+	var cmdOut, cmdErr []string
+	cmdOut, cmdErr, err := m.execFilerMI(fmt.Sprintf("volume efficiency modify -schedule auto -vserver %s -volume %s", VolumeVserver, volumeName))
+	if err != nil {
+		return err
+	}
+
+	// print command stdout
+	for _, line := range cmdOut {
+		log.Debug(line)
+	}
+
+	// print command stderr
+	for _, line := range cmdErr {
+		log.Debug(line)
+	}
+
 	return nil
 }
 
 // Create provisions a project volume on the NetApp's ONTAP cluster filer.
 func (m NetAppVolumeManager) Create(projectID string, quotaGiB int) error {
 
-	// get lists of aggregates sorted by free space
+	// STEP 1: check if corresponding volume already exists
+	// convention: projectID --> volumeName = 3010000.01 --> project_3010000_01
+	volumeName := strings.Replace(fmt.Sprintf("project_%s", projectID), ".", "_", -1)
+	volumeExist, _ := m.hasVolume(volumeName)
+
+	if volumeExist {
+		return fmt.Errorf("volume already exists: %s", volumeName)
+	}
+
+	// STEP 2: pick up an aggregate with sufficient space for the new volume
 	aggregates, err := m.getAggregates()
 	if err != nil {
 		return err
@@ -318,8 +385,8 @@ func (m NetAppVolumeManager) Create(projectID string, quotaGiB int) error {
 	}
 	log.Debugf("selected aggregate: %+v\n", aggr)
 
-	// check and create policy group for volume specific QoS.
-	// projectID --> policyGroup: 3010000.01 --> p3010000_01
+	// STEP 3: check and create policy group for volume specific QoS.
+	// convention: projectID --> policyGroup = 3010000.01 --> p3010000_01
 	qosPolicyGroup := strings.Replace(fmt.Sprintf("p%s", projectID), ".", "_", -1)
 	qosPolicyExist, _ := m.hasQosPolicyGroup(qosPolicyGroup)
 	log.Debugf("found policy group %s: %t\n", qosPolicyGroup, qosPolicyExist)
@@ -334,22 +401,23 @@ func (m NetAppVolumeManager) Create(projectID string, quotaGiB int) error {
 		}
 	}
 
-	// create volume for project.
-	// projectID --> volumeName: 3010000.01 --> project_3010000_01
-	volumeName := strings.Replace(fmt.Sprintf("project_%s", projectID), ".", "_", -1)
-	volumeExist, _ := m.hasVolume(volumeName)
-	log.Debugf("found volume %s: %t\n", volumeName, volumeExist)
+	// STEP 4: create volume for project.
+	junctionPath := path.Join(VolumeJunctionPathRoot, projectID)
+	err = m.createVolume(volumeName, quotaGiB, aggr.name, qosPolicyGroup, junctionPath)
+	if err != nil {
+		return err
+	}
+	// make sure the newly created volume does exist
+	if volumeExist, _ := m.hasVolume(volumeName); !volumeExist {
+		return fmt.Errorf("volume not found after creation: %s", volumeName)
+	}
 
-	if !volumeExist {
-		junctionPath := path.Join(VolumeJunctionPathRoot, projectID)
-		err = m.createVolume(volumeName, quotaGiB, aggr.name, qosPolicyGroup, junctionPath)
-		if err != nil {
-			return err
-		}
-		// check volume's existence again
-		if volumeExist, _ := m.hasVolume(volumeName); !volumeExist {
-			return fmt.Errorf("fail creating volume: %s", volumeName)
-		}
+	// STEP 5: adjust the volume's efficiency setting
+	if err = m.enableVolumeEfficiency(volumeName); err != nil {
+		return err
+	}
+	if err = m.configVolumeEfficiency(volumeName); err != nil {
+		return err
 	}
 
 	return nil
