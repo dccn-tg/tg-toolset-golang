@@ -27,9 +27,9 @@ var signalHandled = []os.Signal{
 	syscall.SIGINT,
 }
 
-// Setter implements high-level functions for setting and deleting
+// Runner implements high-level functions for setting and deleting
 // project roles in a given path.
-type Setter struct {
+type Runner struct {
 	// RootPath is the top-level path from which the roles are being set/deleted.
 	RootPath string
 	// Managers is a comma-separated list of system UIDs to be set as managers or deleted from the manager role.
@@ -60,29 +60,29 @@ type Setter struct {
 }
 
 // SetRoles sets roles recursively for users on a the path defined by RootPath.
-func (s Setter) SetRoles() (exitcode int, err error) {
+func (r Runner) SetRoles() (exitcode int, err error) {
 
 	// map for role specification inputs (commad options)
 	roleSpec := make(map[Role]string)
-	roleSpec[Manager] = s.Managers
-	//roleSpec[Writer] = s.Writers
-	roleSpec[Contributor] = s.Contributors
-	roleSpec[Viewer] = s.Viewers
+	roleSpec[Manager] = r.Managers
+	//roleSpec[Writer] = r.Writers
+	roleSpec[Contributor] = r.Contributors
+	roleSpec[Viewer] = r.Viewers
 
 	// construct operable map and check duplicated specification
-	roles, usersT, err := s.parseRolesForSet(roleSpec)
+	roles, usersT, err := r.parseRolesForSet(roleSpec)
 	if err != nil {
 		exitcode = 1
 		return
 	}
 
 	// resolve any symlinks on ppathSym to actual path this program should work on.
-	s.ppath, _ = filepath.EvalSymlinks(s.RootPath)
+	r.ppath, _ = filepath.EvalSymlinks(r.RootPath)
 
-	fpinfo, err := ufp.GetFilePathMode(s.ppath)
+	fpinfo, err := ufp.GetFilePathMode(r.ppath)
 	if err != nil {
 		exitcode = 1
-		err = fmt.Errorf("path not found or unaccessible: %s", s.ppath)
+		err = fmt.Errorf("path not found or unaccessible: %s", r.ppath)
 		return
 	}
 
@@ -117,7 +117,7 @@ func (s Setter) SetRoles() (exitcode int, err error) {
 			}
 		}
 	}
-	if n == 0 && !s.Force {
+	if n == 0 && !r.Force {
 		log.Warnln("All roles in place, I have nothing to do.")
 		return
 	}
@@ -125,7 +125,7 @@ func (s Setter) SetRoles() (exitcode int, err error) {
 	// acquiring operation lock file
 	if fpinfo.Mode.IsDir() {
 		// acquire lock for the current process
-		flock := filepath.Join(s.ppath, ".prj_setacl.lock")
+		flock := filepath.Join(r.ppath, ".prj_setacl.lock")
 		if err = ufp.AcquireLock(flock); err != nil {
 			exitcode = 1
 			return
@@ -141,12 +141,12 @@ func (s Setter) SetRoles() (exitcode int, err error) {
 	rolesT[Traverse] = usersT
 
 	// set specified user roles
-	chanF := ufp.GoFastWalk(s.ppath, s.FollowLink, s.Nthreads*4)
-	chanOut := s.goSetRoles(roles, chanF, s.Nthreads)
+	chanF := ufp.GoFastWalk(r.ppath, r.FollowLink, r.Nthreads*4)
+	chanOut := r.goSetRoles(roles, chanF, r.Nthreads)
 
 	// set traverse roles
-	chanFt := s.goPrintOut(chanOut, s.Traverse, rolesT, s.Nthreads*4)
-	chanOutt := s.goSetRoles(rolesT, chanFt, s.Nthreads)
+	chanFt := r.goPrintOut(chanOut, r.Traverse, rolesT, r.Nthreads*4)
+	chanOutt := r.goSetRoles(rolesT, chanFt, r.Nthreads)
 
 	// block main until the output is all printed, or a system signal is received
 	select {
@@ -154,13 +154,13 @@ func (s Setter) SetRoles() (exitcode int, err error) {
 		log.Warnf("Stopped due to received signal: %s\n", s)
 		exitcode = int(s.(syscall.Signal))
 		return
-	case <-s.goPrintOut(chanOutt, false, nil, 0):
+	case <-r.goPrintOut(chanOutt, false, nil, 0):
 		exitcode = 0
 		return
 	}
 }
 
-func (s Setter) DeleteRoles() error {
+func (r Runner) DeleteRoles() error {
 	return nil
 }
 
@@ -169,7 +169,7 @@ func (s Setter) DeleteRoles() error {
 // 1. The users specified in the roleSpec cannot contain the current user.
 //
 // 2. The same user id cannot appear twice.
-func (s Setter) parseRolesForSet(roleSpec map[Role]string) (map[Role][]string, []string, error) {
+func (r Runner) parseRolesForSet(roleSpec map[Role]string) (map[Role][]string, []string, error) {
 	roles := make(map[Role][]string)
 	users := make(map[string]bool)
 
@@ -206,7 +206,7 @@ func (s Setter) parseRolesForSet(roleSpec map[Role]string) (map[Role][]string, [
 //
 // The returned channel can be passed onto the goPrintOut function for displaying the
 // results asynchronously.
-func (s Setter) goSetRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads int) chan RolePathMap {
+func (r Runner) goSetRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads int) chan RolePathMap {
 
 	// output channel
 	chanOut := make(chan RolePathMap)
@@ -254,7 +254,7 @@ func (s Setter) goSetRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 // Optionally, it also resolves the paths on which the traverse role has to be set.
 // The paths resolved for traverse role can be passed onto the goSetRoles function for
 // setting the traverse role.
-func (s Setter) goPrintOut(chanOut chan RolePathMap,
+func (r Runner) goPrintOut(chanOut chan RolePathMap,
 	resolvePathForTraverse bool, rolesT map[Role][]string, bufferChanTraverse int) chan ufp.FilePathMode {
 
 	chanFt := make(chan ufp.FilePathMode, bufferChanTraverse)
@@ -263,7 +263,7 @@ func (s Setter) goPrintOut(chanOut chan RolePathMap,
 		spinner := ustr.NewSpinner()
 		for o := range chanOut {
 			counter++
-			if s.Silence {
+			if r.Silence {
 				// print visited directory/path counter
 				switch m := counter % 100; m {
 				case 1:
@@ -282,20 +282,20 @@ func (s Setter) goPrintOut(chanOut chan RolePathMap,
 			// examine the path to see if it is deviated from the ppath from
 			// the project storage perspective.  If so, it should be considered for the
 			// traverse role settings.
-			if resolvePathForTraverse && !IsSameProjectPath(o.Path, s.ppath) {
+			if resolvePathForTraverse && !IsSameProjectPath(o.Path, r.ppath) {
 				GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
 			}
 		}
 		// enter a newline when using the silence mode
-		if s.Silence && counter != 0 {
+		if r.Silence && counter != 0 {
 			fmt.Printf("\n")
 		}
 		// examine ppath (and RootPath if it's not the same as ppath) to resolve possible
 		// parents for setting the traverse role.
 		if resolvePathForTraverse {
-			GetPathsForSetTraverse(s.ppath, rolesT, &chanFt)
-			if s.ppath != s.RootPath {
-				GetPathsForSetTraverse(s.RootPath, rolesT, &chanFt)
+			GetPathsForSetTraverse(r.ppath, rolesT, &chanFt)
+			if r.ppath != r.RootPath {
+				GetPathsForSetTraverse(r.RootPath, rolesT, &chanFt)
 			}
 		}
 		defer close(chanFt)
