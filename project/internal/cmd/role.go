@@ -15,6 +15,7 @@ var forceFlag bool
 var numThreads int
 var followSymlink bool
 var silenceFlag bool
+var recursion bool
 
 func init() {
 	roleSetCmd.PersistentFlags().StringVarP(
@@ -54,7 +55,13 @@ func init() {
 		"number of parallel worker threads",
 	)
 
-	roleCmd.AddCommand(roleSetCmd)
+	roleGetCmd.PersistentFlags().BoolVarP(
+		&recursion,
+		"recursive", "r", false,
+		"enable recursion for getting roles",
+	)
+
+	roleCmd.AddCommand(roleGetCmd, roleSetCmd)
 	rootCmd.AddCommand(roleCmd)
 }
 
@@ -64,9 +71,33 @@ var roleCmd = &cobra.Command{
 	Long:  ``,
 }
 
+var roleGetCmd = &cobra.Command{
+	Use:   "get [ projectID | path ]",
+	Short: "Get data access roles for a project or a path",
+	Long:  ``,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// the input argument starts with 7 digits (considered as project number)
+		ppathSym := args[0]
+		if matched, _ := regexp.MatchString("^[0-9]{7,}", ppathSym); matched {
+			ppathSym = filepath.Join(ProjectRootPath, ppathSym)
+		} else {
+			ppathSym, _ = filepath.Abs(ppathSym)
+		}
+
+		runner := acl.Runner{
+			RootPath:   ppathSym,
+			FollowLink: followSymlink,
+			Nthreads:   numThreads,
+		}
+
+		return runner.GetRoles(recursion)
+	},
+}
+
 var roleSetCmd = &cobra.Command{
 	Use:   "set [ projectID | path ]",
-	Short: "Set data access roles for a project",
+	Short: "Set data access roles for a project or a path",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
