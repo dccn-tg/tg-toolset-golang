@@ -70,7 +70,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 	roleSpec[Viewer] = r.Viewers
 
 	// construct operable map and check duplicated specification
-	roles, usersT, err := r.parseRolesForSet(roleSpec)
+	roles, usersT, err := r.parseRoles(roleSpec, true)
 	if err != nil {
 		exitcode = 1
 		return
@@ -160,9 +160,113 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 	}
 }
 
-// DeleteRoles removes roles recursively for users on a the path defined by RootPath.
-func (r *Runner) DeleteRoles() error {
-	return nil
+// RemoveRoles removes roles recursively for users on a the path defined by RootPath.
+func (r *Runner) RemoveRoles() (exitcode int, err error) {
+	// map for role specification inputs (commad options)
+	roleSpec := make(map[Role]string)
+	roleSpec[Manager] = r.Managers
+	//roleSpec[Writer] = r.Writers
+	roleSpec[Contributor] = r.Contributors
+	roleSpec[Viewer] = r.Viewers
+
+	// construct operable map and check duplicated specification
+	roles, usersT, err := r.parseRoles(roleSpec, false)
+	if err != nil {
+		exitcode = 1
+		return
+	}
+
+	// resolve any symlinks on ppath
+	r.ppath, _ = filepath.EvalSymlinks(r.RootPath)
+
+	fpinfo, err := ufp.GetFilePathMode(r.ppath)
+	if err != nil {
+		exitcode = 1
+		err = fmt.Errorf("path not found or unaccessible: %s", r.ppath)
+		return
+	}
+
+	roler := GetRoler(*fpinfo)
+	if roler == nil {
+		exitcode = 1
+		err = fmt.Errorf("roler not found: %s", fpinfo.Path)
+		return
+	}
+
+	log.Debug(fmt.Sprintf("+%v", fpinfo))
+	rolesNow, err := roler.GetRoles(*fpinfo)
+	if err != nil {
+		exitcode = 1
+		err = fmt.Errorf("%s: %s", err, fpinfo.Path)
+		return
+	}
+
+	// check the top-level directory to see if there are actual work to do.
+	// if there is a role to remove, n will be larger than 0.
+	n := 0
+	for r, usersRm := range roles {
+		if usersNow, ok := rolesNow[r]; ok {
+			// create map for faster user lookup
+			umap := make(map[string]bool)
+			for _, u := range usersNow {
+				umap[u] = true
+			}
+
+			for _, u := range usersRm {
+				if umap[u] {
+					n++
+					break
+				}
+			}
+		}
+
+		// break loop if we know there is already some work to do
+		if n > 0 {
+			break
+		}
+	}
+
+	if n == 0 && !r.Force {
+		log.Warn("All roles in place, I have nothing to do.")
+		return
+	}
+
+	// acquiring operation lock file
+	if fpinfo.Mode.IsDir() {
+		// acquire lock for the current process
+		flock := filepath.Join(r.ppath, ".prj_setacl.lock")
+		if err := ufp.AcquireLock(flock); err != nil {
+			log.Fatal(fmt.Sprintf("%s", err))
+		}
+		defer os.Remove(flock)
+	}
+
+	chanS := make(chan os.Signal, 1)
+	signal.Notify(chanS, signalHandled...)
+
+	// RoleMap for traverse role removal
+	rolesT := make(map[Role][]string)
+	rolesT[Traverse] = usersT
+
+	// remove specified user roles
+	chanF := ufp.GoFastWalk(r.ppath, r.FollowLink, r.Nthreads*4)
+	chanOut := r.goDelRoles(roles, chanF, r.Nthreads)
+
+	// channels for removing traverse roles
+	// set traverse roles
+	chanFt := r.goPrintOut(chanOut, r.Traverse, rolesT, r.Nthreads*4)
+	chanOutt := r.goDelRoles(rolesT, chanFt, r.Nthreads)
+
+	// block main until the output is all printed, or a system signal is received
+	select {
+	case s := <-chanS:
+		log.Warnf("Stopped due to received signal: %s\n", s)
+		exitcode = int(s.(syscall.Signal))
+		return
+	case <-r.goPrintOut(chanOutt, false, nil, 0):
+		exitcode = 0
+		return
+	}
 }
 
 // GetRoles retrieves roles for users on a the path defined by RootPath.
@@ -211,8 +315,8 @@ func (r *Runner) GetRoles(recursion bool) error {
 //
 // 1. The users specified in the roleSpec cannot contain the current user.
 //
-// 2. The same user id cannot appear twice.
-func (r Runner) parseRolesForSet(roleSpec map[Role]string) (map[Role][]string, []string, error) {
+// 2. The same user id cannot appear twice if userUnique option is true
+func (r Runner) parseRoles(roleSpec map[Role]string, userUnique bool) (map[Role][]string, []string, error) {
 	roles := make(map[Role][]string)
 	users := make(map[string]bool)
 
@@ -234,7 +338,7 @@ func (r Runner) parseRolesForSet(roleSpec map[Role]string) (map[Role][]string, [
 			}
 
 			// cannot specify the same user name more than once
-			if users[u] {
+			if userUnique && users[u] {
 				return nil, nil, fmt.Errorf("user specified more than once: %s", u)
 			}
 			users[u] = true
@@ -324,6 +428,54 @@ func (r Runner) goSetRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 			go func() {
 				for f := range chanF {
 					log.Debug("process file: " + f.Path)
+					updateACL(f)
+				}
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+		close(chanOut)
+	}()
+
+	return chanOut
+}
+
+// goSetRoles performs actions for deleting ACL (defined by roles) on paths provided
+// through the chanF channel, in a asynchronous manner. It returns a channel containing
+// ACL information of paths on which the ACL deletion is correctly applied.
+//
+// The returned channel can be passed onto the goPrintOut function for displaying the
+// results asynchronously.
+func (r Runner) goDelRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads int) chan RolePathMap {
+
+	// output channel
+	chanOut := make(chan RolePathMap)
+
+	// core function of updating ACL on the given file path
+	updateACL := func(f ufp.FilePathMode) {
+		// TODO: make the roler depends on path
+		roler := GetRoler(f)
+
+		if roler == nil {
+			log.Warn(fmt.Sprintf("roler not found: %s", f.Path))
+			return
+		}
+
+		if rolesNew, err := roler.DelRoles(f, roles, false, false); err == nil {
+			chanOut <- RolePathMap{Path: f.Path, RoleMap: rolesNew}
+		} else {
+			log.Error(fmt.Sprintf("%s: %s", err, f.Path))
+		}
+	}
+
+	// launch parallel go routines for deleting ACL
+	go func() {
+		var wg sync.WaitGroup
+		wg.Add(nthreads)
+		for i := 0; i < nthreads; i++ {
+			go func() {
+				for f := range chanF {
+					log.Debug("processing file: " + f.Path)
 					updateACL(f)
 				}
 				wg.Done()
