@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	"github.com/Donders-Institute/tg-toolset-golang/project/internal/cdb"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/cdb"
 	"github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

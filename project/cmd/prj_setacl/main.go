@@ -17,7 +17,7 @@ import (
 
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
 	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
-	"github.com/Donders-Institute/tg-toolset-golang/project/internal/acl"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 	log "github.com/sirupsen/logrus"
 )
 

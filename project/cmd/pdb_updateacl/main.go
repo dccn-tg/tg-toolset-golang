@@ -12,8 +12,8 @@ import (
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
-	"github.com/Donders-Institute/tg-toolset-golang/project/internal/acl"
-	"github.com/Donders-Institute/tg-toolset-golang/project/internal/pdb"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 	"github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
