@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/project/internal/pdb"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 
 	log "github.com/sirupsen/logrus"
 )

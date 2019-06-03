@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/project/internal/acl"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 	log "github.com/sirupsen/logrus"
 )
 
