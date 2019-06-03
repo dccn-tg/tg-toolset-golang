@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"os"
 	"path/filepath"
 	"regexp"
-	"syscall"
 
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 	"github.com/spf13/cobra"
@@ -17,16 +15,6 @@ var forceFlag bool
 var numThreads int
 var followSymlink bool
 var silenceFlag bool
-
-// two top-level path variable for resolving parent directories for setting travers role.
-var ppath, spath string
-
-var signalHandled = []os.Signal{
-	syscall.SIGABRT,
-	syscall.SIGHUP,
-	syscall.SIGTERM,
-	syscall.SIGINT,
-}
 
 func init() {
 	roleSetCmd.PersistentFlags().StringVarP(
@@ -90,7 +78,7 @@ var roleSetCmd = &cobra.Command{
 			ppathSym, _ = filepath.Abs(ppathSym)
 		}
 
-		setter := acl.Setter{
+		runner := acl.Runner{
 			RootPath:     ppathSym,
 			Managers:     uidsManager,
 			Contributors: uidsContributor,
@@ -101,7 +89,7 @@ var roleSetCmd = &cobra.Command{
 			Force:        forceFlag,
 		}
 
-		_, err := setter.SetRoles()
+		_, err := runner.SetRoles()
 		return err
 	},
 }
