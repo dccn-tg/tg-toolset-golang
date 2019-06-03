@@ -15,7 +15,6 @@ var forceFlag bool
 var numThreads int
 var followSymlink bool
 var silenceFlag bool
-var traverseFlag bool
 var recursion bool
 
 func init() {
@@ -33,11 +32,6 @@ func init() {
 		&uidsViewer,
 		"viewer", "u", "",
 		"comma-separated system uids to be set as project viewers",
-	)
-	roleCmd.PersistentFlags().BoolVarP(
-		&traverseFlag,
-		"traverse", "t", true,
-		"traverse for parent directories",
 	)
 
 	roleCmd.PersistentFlags().BoolVarP(
@@ -123,7 +117,7 @@ var roleSetCmd = &cobra.Command{
 			FollowLink:   followSymlink,
 			Nthreads:     numThreads,
 			Silence:      silenceFlag,
-			Traverse:     traverseFlag,
+			Traverse:     true,
 			Force:        forceFlag,
 		}
 
