@@ -199,14 +199,14 @@ var roleSetCmd = &cobra.Command{
 // roleAdminCmd is the CLI command for administrating project roles.
 var roleAdminCmd = &cobra.Command{
 	Use:   "role",
-	Short: "Administrator CLIs for managing project roles in project database",
+	Short: "Administer project roles",
 	Long:  ``,
 }
 
 // rolePdbCmd is the CLI command for administrating project roles in project database.
 var rolePdbCmd = &cobra.Command{
 	Use:   "pdb",
-	Short: "administrating project roles in project database",
+	Short: "Administer project roles in project database",
 	Long:  ``,
 }
 
@@ -214,8 +214,8 @@ var rolePdbCmd = &cobra.Command{
 // to the project database, according to the role settings on the project storage.
 var rolePdbUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "updating project roles based on role settings on the project storage",
-	Long:  ``,
+	Short: "Update project roles in project database",
+	Long:  `Update project roles in project database based on the role settings on the project storage`,
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 

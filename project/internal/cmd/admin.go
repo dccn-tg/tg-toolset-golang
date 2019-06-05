@@ -40,6 +40,6 @@ func init() {
 
 var adminCmd = &cobra.Command{
 	Use:   "admin",
-	Short: "project administration CLI",
+	Short: "Administrate project",
 	Long:  ``,
 }
