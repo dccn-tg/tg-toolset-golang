@@ -39,5 +39,10 @@ func ResolveAndCheckPath(dir string, pinfo os.FileInfo) (*FilePathMode, error) {
 		Mode: stat.Mode(),
 	}
 
+	// append ending "/" for path
+	if pinfo.IsDir() {
+		fpm.Path += "/"
+	}
+
 	return &fpm, nil
 }
