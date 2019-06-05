@@ -38,6 +38,9 @@ type Runner struct {
 	Contributors string
 	// Viewers is a comma-separated list of system UIDs to be set as viewers or deleted from the viewer role.
 	Viewers string
+	// Traversers is a comma-separated list of system UIDs to be deleted from the traverse role.
+	// This variable is not necessary for setting traverse role in parent directories.
+	Traversers string
 	// Nthreads defines number of workers performing the setting/deleting operation in parallel
 	// while walking through the filesystem tree.
 	Nthreads int
@@ -168,6 +171,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 	//roleSpec[Writer] = r.Writers
 	roleSpec[Contributor] = r.Contributors
 	roleSpec[Viewer] = r.Viewers
+	roleSpec[Traverse] = r.Traversers
 
 	// construct operable map and check duplicated specification
 	roles, usersT, err := r.parseRoles(roleSpec, false)

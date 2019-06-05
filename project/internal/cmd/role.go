@@ -137,10 +137,11 @@ var roleRemoveCmd = &cobra.Command{
 			Managers:     strings.Join([]string{uidsManager, uidsAll}, ","),
 			Contributors: strings.Join([]string{uidsContributor, uidsAll}, ","),
 			Viewers:      strings.Join([]string{uidsViewer, uidsAll}, ","),
+			Traversers:   uidsAll,
 			FollowLink:   followSymlink,
 			Nthreads:     numThreads,
 			Silence:      silenceFlag,
-			Traverse:     true,
+			Traverse:     false,
 			Force:        forceFlag,
 		}
 
