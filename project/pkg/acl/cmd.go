@@ -282,11 +282,11 @@ func (r *Runner) GetRoles(recursion bool) error {
 	fpinfo, err := ufp.GetFilePathMode(r.ppath)
 	if err != nil {
 		return fmt.Errorf("path not found or unaccessible: %s", r.ppath)
-	} else {
-		// disable recursion if ppath is not a directory
-		if !fpinfo.Mode.IsDir() {
-			recursion = false
-		}
+	}
+
+	// disable recursion if ppath is not a directory
+	if !fpinfo.Mode.IsDir() {
+		recursion = false
 	}
 
 	var chanD chan ufp.FilePathMode
