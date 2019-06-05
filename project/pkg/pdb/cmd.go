@@ -100,7 +100,9 @@ func (r Runner) UpdateRolesWithStorage(projectRootPath string) error {
 				if fpm, err := ufp.ResolveAndCheckPath(projectRootPath, fi); err != nil {
 					log.Warnf("skip for project %s: %s", fi.Name(), err)
 				} else {
-					updateProjectACL(db, fi.Name(), fpm)
+					if err := updateProjectACL(db, fi.Name(), fpm); err != nil {
+						log.Errorf("cannot update roles for project %s: %s", fi.Name(), err)
+					}
 				}
 			}
 		}()
