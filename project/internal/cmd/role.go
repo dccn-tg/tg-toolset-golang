@@ -215,8 +215,11 @@ var rolePdbCmd = &cobra.Command{
 var rolePdbUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update project roles in project database",
-	Long:  `Update project roles in project database based on the role settings on the project storage`,
-	Args:  cobra.NoArgs,
+	Long: `
+Update project roles in project database based on the role settings on project storage.
+
+This command retrieves the role settings from all project directories and updates the project database accordingly.`,
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		runner := pdb.Runner{
