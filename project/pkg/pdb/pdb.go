@@ -182,6 +182,12 @@ func UpdateProjectRoles(db *sql.DB, project string, roles acl.RoleMap) error {
 		return err
 	}
 	for r, users := range roles {
+
+		if r == acl.System {
+			log.Debugf("ignore system role %+v\n", users)
+			continue
+		}
+
 		for _, u := range users {
 			// check if the user in question is available in the project database.
 			if _, err := SelectUser(db, u); err != nil {
