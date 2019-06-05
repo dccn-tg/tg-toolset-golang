@@ -17,7 +17,7 @@ func init() {
 		"IP or hostname of the storage's management server",
 	)
 	volCmd.AddCommand(volCreateCmd)
-	rootCmd.AddCommand(volCmd)
+	adminCmd.AddCommand(volCmd)
 }
 
 var volCmd = &cobra.Command{

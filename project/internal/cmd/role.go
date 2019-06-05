@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 	"github.com/spf13/cobra"
 )
 
@@ -86,14 +87,26 @@ func init() {
 
 	roleCmd.AddCommand(roleGetCmd, roleSetCmd, roleRemoveCmd)
 	rootCmd.AddCommand(roleCmd)
+
+	// administrator's CLI
+	rolePdbCmd.PersistentFlags().IntVarP(
+		&numThreads,
+		"nthreads", "n", 8,
+		"number of parallel worker threads",
+	)
+	rolePdbCmd.AddCommand(rolePdbUpdateCmd, rolePdbGetPendingCmd)
+	roleAdminCmd.AddCommand(rolePdbCmd)
+	adminCmd.AddCommand(roleAdminCmd)
 }
 
+// roleCmd is the top-level CLI command for managing project roles.
 var roleCmd = &cobra.Command{
 	Use:   "role",
 	Short: "Manage data access role for projects",
 	Long:  ``,
 }
 
+// roleGetCmd is the CLI command for setting project roles.
 var roleGetCmd = &cobra.Command{
 	Use:   "get [ projectID | path ]",
 	Short: "Get data access roles for a project or a path",
@@ -118,6 +131,7 @@ var roleGetCmd = &cobra.Command{
 	},
 }
 
+// roleRemoveCmd is the CLI command for removing project roles.
 var roleRemoveCmd = &cobra.Command{
 	Use:   "remove [ projectID | path ]",
 	Short: "Remove data access roles for a project or a path",
@@ -150,6 +164,7 @@ var roleRemoveCmd = &cobra.Command{
 	},
 }
 
+// roleSetCmd is the CLI command for setting project roles.
 var roleSetCmd = &cobra.Command{
 	Use:   "set [ projectID | path ]",
 	Short: "Set data access roles for a project or a path",
@@ -180,3 +195,37 @@ var roleSetCmd = &cobra.Command{
 		return err
 	},
 }
+
+// roleAdminCmd is the CLI command for administrating project roles.
+var roleAdminCmd = &cobra.Command{
+	Use:   "role",
+	Short: "Administrator CLIs for managing project roles in project database",
+	Long:  ``,
+}
+
+// rolePdbCmd is the CLI command for administrating project roles in project database.
+var rolePdbCmd = &cobra.Command{
+	Use:   "pdb",
+	Short: "administrating project roles in project database",
+	Long:  ``,
+}
+
+// rolePdbUpdateCmd is the CLI command for administrator to update project roles
+// to the project database, according to the role settings on the project storage.
+var rolePdbUpdateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "updating project roles based on role settings on the project storage",
+	Long:  ``,
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		runner := pdb.Runner{
+			Nthreads:   numThreads,
+			ConfigFile: configFile,
+		}
+
+		return runner.UpdateRolesWithStorage(ProjectRootPath)
+	},
+}
+
+var rolePdbGetPendingCmd = &cobra.Command{}
