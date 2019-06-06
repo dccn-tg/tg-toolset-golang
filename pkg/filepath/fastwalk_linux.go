@@ -108,23 +108,29 @@ func fastWalk(root string, mode *os.FileMode, followLink bool, chanP *chan FileP
 				fastWalk(vpath, &m, followLink, chanP)
 			case syscall.DT_LNK:
 
-				if !followLink {
-					logger.Warnf("skip symlink: %s\n", vpath)
-					continue
-				}
+				// TODO: walk through symlinks is not supported due to issue with
+				//       eventual infinite walk loop of A -> B -> C -> A cannot be
+				//       easily detected.
+				logger.Warnf("skip symlink: %s\n", vpath)
+				continue
 
-				referent, err := filepath.EvalSymlinks(vpath)
-				if err != nil {
-					logger.Errorf("cannot resolve symlink: %s error: %s\n", vpath, err)
-					continue
-				}
+				// if !followLink {
+				// 	logger.Warnf("skip symlink: %s\n", vpath)
+				// 	continue
+				// }
 
-				// avoid the situation that the symlink refers to its parent, which
-				// can cause infinite filesystem walk loop.
-				if referent == root {
-					logger.Warnf("skip path to avoid symlink loop: %s\n", vpath)
-					continue
-				}
+				// referent, err := filepath.EvalSymlinks(vpath)
+				// if err != nil {
+				// 	logger.Errorf("cannot resolve symlink: %s error: %s\n", vpath, err)
+				// 	continue
+				// }
+
+				// // avoid the situation that the symlink refers to its parent, which
+				// // can cause infinite filesystem walk loop.
+				// if referent == root {
+				// 	logger.Warnf("skip path to avoid symlink loop: %s\n", vpath)
+				// 	continue
+				// }
 			default:
 				logger.Warnf("skip unhandled file: %s (type: %s)", vpath, string(dirent.Type))
 				continue
