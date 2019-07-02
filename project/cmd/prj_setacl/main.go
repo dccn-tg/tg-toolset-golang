@@ -39,7 +39,7 @@ func init() {
 	optsForce = flag.Bool("f", false, "force role setting regardlessly")
 	optsVerbose = flag.Bool("v", false, "print `verbosed` messages")
 	optsSilence = flag.Bool("s", false, "set to `silence` mode")
-	optsFollowLink = flag.Bool("l", false, "`follow` symlinks to set roles on referents")
+	optsFollowLink = flag.Bool("l", false, "`follow` symlink to set roles on its first non-symlink referent")
 
 	flag.Usage = usage
 
