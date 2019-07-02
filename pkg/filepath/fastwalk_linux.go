@@ -120,21 +120,22 @@ func fastWalk(root string, mode *os.FileMode, followLink bool, chanP *chan FileP
 				}
 
 				// follow the link; but only to its first level referent.
-				logger.Warnf("symlink only followed to its first non-symlink referent: %s\n", vpath)
-				fastWalk(vpath, nil, false, chanP)
+				referent, err := filepath.EvalSymlinks(vpath)
+				if err != nil {
+					logger.Errorf("cannot resolve symlink: %s error: %s\n", vpath, err)
+					continue
+				}
 
-				// referent, err := filepath.EvalSymlinks(vpath)
-				// if err != nil {
-				// 	logger.Errorf("cannot resolve symlink: %s error: %s\n", vpath, err)
-				// 	continue
-				// }
+				// avoid the situation that the symlink refers to its parent, which
+				// can cause infinite filesystem walk loop.
+				if referent == root {
+					logger.Warnf("skip path to avoid symlink loop: %s\n", vpath)
+					continue
+				}
 
-				// // avoid the situation that the symlink refers to its parent, which
-				// // can cause infinite filesystem walk loop.
-				// if referent == root {
-				// 	logger.Warnf("skip path to avoid symlink loop: %s\n", vpath)
-				// 	continue
-				// }
+				logger.Warnf("symlink only followed to its first non-symlink referent: %s -> %s\n", vpath, referent)
+				fastWalk(referent, nil, false, chanP)
+
 			default:
 				logger.Warnf("skip unhandled file: %s (type: %s)", vpath, string(dirent.Type))
 				continue
