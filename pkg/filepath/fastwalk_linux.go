@@ -111,13 +111,17 @@ func fastWalk(root string, mode *os.FileMode, followLink bool, chanP *chan FileP
 				// TODO: walk through symlinks is not supported due to issue with
 				//       eventual infinite walk loop of A -> B -> C -> A cannot be
 				//       easily detected.
-				logger.Warnf("skip symlink: %s\n", vpath)
-				continue
+				// logger.Warnf("skip symlink: %s\n", vpath)
+				// continue
 
-				// if !followLink {
-				// 	logger.Warnf("skip symlink: %s\n", vpath)
-				// 	continue
-				// }
+				if !followLink {
+					logger.Warnf("skip symlink: %s\n", vpath)
+					continue
+				}
+
+				// follow the link; but only to its first level referent.
+				logger.Warnf("symlink only followed to its first non-symlink referent: %s\n", vpath)
+				fastWalk(vpath, nil, false, chanP)
 
 				// referent, err := filepath.EvalSymlinks(vpath)
 				// if err != nil {
