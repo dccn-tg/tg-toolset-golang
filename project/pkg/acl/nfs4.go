@@ -74,6 +74,14 @@ func (ace *ACE) IsSysPermission() bool {
 	return aceSysPrinciple[ace.Principle]
 }
 
+// ForceInheritance modifies the `Flag` to ensure the `f` and `d` flags
+// are added.
+func (ace *ACE) ForceInheritance() {
+	flag := strings.ReplaceAll(ace.Flag, "f", "")
+	flag = strings.ReplaceAll(flag, "d", "")
+	ace.Flag = fmt.Sprintf("fd%s", flag)
+}
+
 // IsValidPrinciple checks if the ACE's Principle pertains to a valid system user or group.
 // If the ACE's Flag contains "g", the Principle is considered as a group; otherwise, the user.
 // If the ACE refers to a Linux system permission,  it returns true.
@@ -154,6 +162,7 @@ func setACL(path string, aces []ACE, recursive bool, followLink bool) error {
 
 		// ignore System principles
 		if ace.IsSysPermission() {
+			ace.ForceInheritance()
 			acess = append(acess, fmt.Sprintf("%s", ace))
 			continue
 		}
