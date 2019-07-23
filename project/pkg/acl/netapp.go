@@ -30,6 +30,11 @@ func (NetAppRoler) SetRoles(pinfo ufp.FilePathMode, roles RoleMap,
 	var acesNew []ACE
 	for _, ace := range acesNow {
 		if !umap[getPrincipleName(ace)] {
+			// enforce inheritance on ACEs of the system principle.
+			// this is so far only needed for NetApp to be Windows friendly.
+			if ace.IsSysPermission() && pinfo.Mode.IsDir() {
+				ace.ForceInheritance()
+			}
 			acesNew = append(acesNew, ace)
 		}
 	}

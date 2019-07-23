@@ -162,7 +162,6 @@ func setACL(path string, aces []ACE, recursive bool, followLink bool) error {
 
 		// ignore System principles
 		if ace.IsSysPermission() {
-			ace.ForceInheritance()
 			acess = append(acess, fmt.Sprintf("%s", ace))
 			continue
 		}
