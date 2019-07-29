@@ -3,6 +3,7 @@ package cmd
 import (
 	"strconv"
 
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/vol"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -16,7 +17,15 @@ func init() {
 		"manager", "m", "filer-a-mi.dccn.nl:22",
 		"IP or hostname of the storage's management server",
 	)
-	volCmd.AddCommand(volCreateCmd)
+
+	// administrator's CLI
+	volProvisionCmd.Flags().IntVarP(
+		&numThreads,
+		"nthreads", "n", 2,
+		"number of parallel worker threads",
+	)
+
+	volCmd.AddCommand(volCreateCmd, volProvisionCmd)
 	adminCmd.AddCommand(volCmd)
 }
 
@@ -45,5 +54,28 @@ var volCreateCmd = &cobra.Command{
 		if err := volManager.Create(args[0], quota); err != nil {
 			log.Errorln(err)
 		}
+	},
+}
+
+var volProvisionCmd = &cobra.Command{
+	Use:   "provision [projectID]",
+	Short: "Provision storage volume and pending access roles for projects.",
+	Long: `Provision storage volume and pending access roles for projects.
+	
+If no specific "projectID" is given in the argument, it runs over all projects
+with pending access-role settings in the project database.
+
+If the namespace of the project storage doesn't exist, it will creates the
+corresponding storage volume on the file server with the calcuated quota stored
+in the project database.
+
+`,
+	Args: cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		runner := pdb.Runner{
+			Nthreads:   numThreads,
+			ConfigFile: configFile,
+		}
+		runner.ProvisionOrUpdateStorage(args...)
 	},
 }
