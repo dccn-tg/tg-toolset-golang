@@ -227,7 +227,7 @@ This command retrieves the role settings from all project directories and update
 			ConfigFile: configFile,
 		}
 
-		return runner.UpdateRolesWithStorage(ProjectRootPath)
+		return runner.SyncRolesWithStorage(ProjectRootPath)
 	},
 }
 

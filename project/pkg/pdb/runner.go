@@ -67,10 +67,10 @@ func (r Runner) getPdbConfig() (mysql.Config, error) {
 	return dbConfig, nil
 }
 
-// UpdateRolesWithStorage synchronize roles of all projects under the `projectRootPath`
-// to the project database.
+// SyncRolesWithStorage synchronize roles of projects under the `projectRootPath`
+// on the storage filesystem to the roles registered in the project database.
 // Roles of subdirectories not taken into account.
-func (r Runner) UpdateRolesWithStorage(projectRootPath string) error {
+func (r Runner) SyncRolesWithStorage(projectRootPath string) error {
 
 	// loads configuration for making connection to the project database.
 	dbConfig, err := r.getPdbConfig()
