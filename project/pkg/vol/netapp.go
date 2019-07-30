@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
+
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 )
@@ -31,8 +33,8 @@ const (
 
 // NetAppVolumeManager implements VolumeManager interface specific for the NetApp's ONTAP cluster filer.
 type NetAppVolumeManager struct {
-	// AddressFilerMI is the hostname or ip address of the filer's management interface.
-	AddressFilerMI string
+	// addressFilerMI is the hostname or ip address of the filer's management interface.
+	addressFilerMI string
 }
 
 // aggregateInfo is a data structure containing attributes of a NetApp ONTAP aggregate.
@@ -76,7 +78,7 @@ func (m NetAppVolumeManager) connect() (session *ssh.Session, err error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	client, err := ssh.Dial("tcp", m.AddressFilerMI, config)
+	client, err := ssh.Dial("tcp", m.addressFilerMI, config)
 	if err != nil {
 		return
 	}
@@ -346,6 +348,12 @@ func (m NetAppVolumeManager) configVolumeEfficiency(volumeName string) error {
 		log.Debug(line)
 	}
 
+	return nil
+}
+
+// Config configures the NetApp volume manager with the filer management interface.
+func (m NetAppVolumeManager) Config(c config.VolumeManagerConfiguration) error {
+	m.addressFilerMI = c.ManagementInterface.NetApp
 	return nil
 }
 

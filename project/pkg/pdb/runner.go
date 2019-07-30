@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sync"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/vol"
 	"github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // Runner implements high-level functions for interacting with the project data.
@@ -34,25 +33,10 @@ func (r Runner) getPdbConfig() (mysql.Config, error) {
 	var dbConfig mysql.Config
 
 	// load configuration
-	cfg, err := filepath.Abs(r.ConfigFile)
+	conf, err := config.LoadConfig(r.ConfigFile)
 	if err != nil {
-		return dbConfig, fmt.Errorf("cannot resolve config path: %s", r.ConfigFile)
+		return dbConfig, err
 	}
-
-	if _, err := os.Stat(cfg); err != nil {
-		return dbConfig, fmt.Errorf("cannot load config: %s", cfg)
-	}
-
-	viper.SetConfigFile(cfg)
-	if err := viper.ReadInConfig(); err != nil {
-		return dbConfig, fmt.Errorf("Error reading config file, %s", err)
-	}
-	var conf config.Configuration
-	err = viper.Unmarshal(&conf)
-	if err != nil {
-		return dbConfig, fmt.Errorf("unable to decode into struct, %v", err)
-	}
-	log.Debugf("loaded configuration: %+v", conf)
 
 	dbConfig = mysql.Config{
 		Net:                  "tcp",
@@ -128,11 +112,29 @@ func (r Runner) SyncRolesWithStorage(projectRootPath string) error {
 	return nil
 }
 
-// ProvisionOrUpdateStorage creates storage space and update ACLs for projects with
-// pending access-role setup.
+// ProvisionOrUpdateStorage creates storage space under the filesystem path `projectRootPath`
+// and update ACLs for projects with pending access-role setup.
+//
+// The corresponding volume manager and acl roler are determined based on the `projectRootPath`
+// with the `acl.RolerMap` and `vol.VolumeManagerMap`.
+//
 // The input argument for project ID is optional.  If the value of it is
 // a project number, the provision or update is only applied for the specific project.
-func (r Runner) ProvisionOrUpdateStorage(pids ...string) error {
+func (r Runner) ProvisionOrUpdateStorage(projectRootPath string, pids ...string) error {
+	// check if we can get Roler and VolumeManager of the given projectRootPath.
+	var roler acl.Roler
+	var volManager vol.VolumeManager
+	var ok bool
+	if roler, ok = acl.RolerMap[projectRootPath]; !ok {
+		return fmt.Errorf("no defined Roler for path: %s", projectRootPath)
+	}
+	if volManager, ok = vol.VolumeManagerMap[projectRootPath]; !ok {
+		return fmt.Errorf("no defined VolumeManager for path: %s", projectRootPath)
+	}
+	logger.Debugf("path: %s, roler: %+v, volume manager: %+v\n", projectRootPath, roler, volManager)
+
+	// setup volManager
+
 	// loads configuration for making connection to the project database.
 	dbConfig, err := r.getPdbConfig()
 	if err != nil {
@@ -143,13 +145,13 @@ func (r Runner) ProvisionOrUpdateStorage(pids ...string) error {
 	// initialize the database connection.
 	db, err := sql.Open("mysql", dbConfig.FormatDSN())
 	if err != nil {
-		return fmt.Errorf("Fail connecting SQL database: %+v", err)
+		return fmt.Errorf("cannot connect SQL database: %+v", err)
 	}
 	defer db.Close()
 
 	actionMap, err := SelectPendingRoleMap(db)
 	if err != nil {
-		return fmt.Errorf("Fail getting pending access-role settings: %+v", err)
+		return fmt.Errorf("cannot get pending access-role settings: %+v", err)
 	}
 
 	// data structure to be passed on the channel.
@@ -182,7 +184,7 @@ func (r Runner) ProvisionOrUpdateStorage(pids ...string) error {
 		go func() {
 			defer wg.Done()
 			for paction := range chanPrj {
-				fmt.Printf("project: %s, actions: %+v\n", paction.pid, paction.actions)
+				logger.Debugf("project: %s, actions: %+v\n", paction.pid, paction.actions)
 			}
 		}()
 	}

@@ -18,3 +18,7 @@ streamer:
   prefixURL: "http://pacs.dccn.nl:3001"
   username: ""
   password: ""
+volumeManager:
+  managementInterface:
+    netApp: "filer-a-mi:22"
+    freeNas: "freenas:22"

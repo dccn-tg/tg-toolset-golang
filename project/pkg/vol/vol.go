@@ -3,12 +3,25 @@ package vol
 import (
 	"strconv"
 	"strings"
+
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 )
 
 // VolumeManager defines functions for managing storage volume for a project.
 type VolumeManager interface {
+
+	// Config configures the VolumeManager with the given configuration.
+	Config(config config.VolumeManagerConfiguration) error
+
 	// Create provisions a project volume on the targeting storage system.
-	Create(projectID string, quotaGiB int64) error
+	Create(projectID string, quotaGiB int) error
+}
+
+// VolumeManagerMap defines a list of supported VolumeManager with associated path as key of
+// the map.  The path is usually refers to the top-level mount point of the
+// fileserver on which the VolumeManager performs actions.
+var VolumeManagerMap = map[string]VolumeManager{
+	"/project": NetAppVolumeManager{},
 }
 
 // convertSize parses the size string and convert it into bytes in integer
