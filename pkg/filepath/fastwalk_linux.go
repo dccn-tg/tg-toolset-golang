@@ -41,7 +41,7 @@ func clen(n []byte) int {
 // If mode is provided, both root and mode are respected. Otherwise, the root is stated to
 // retrieve its FileMode.  If the root is a symbolic link, the returned FilePathInfo contains
 // information and path referring to the referent of the link.
-func fastWalk(root string, mode *os.FileMode, followLink bool, chanP *chan FilePathMode) {
+func fastWalk(root string, mode *os.FileMode, followLink bool, skipFiles bool, chanP *chan FilePathMode) {
 
 	if mode == nil {
 		// retrieve FileMode when it is not provided by the caller
@@ -99,13 +99,17 @@ func fastWalk(root string, mode *os.FileMode, followLink bool, chanP *chan FileP
 			vpath := filepath.Join(root, name)
 
 			switch dirent.Type {
-			case 0:
-				*chanP <- FilePathMode{Path: vpath, Mode: 0}
+			case syscall.DT_UNKNOWN:
+				if !skipFiles {
+					*chanP <- FilePathMode{Path: vpath, Mode: 0}
+				}
 			case syscall.DT_REG:
-				*chanP <- FilePathMode{Path: vpath, Mode: 0}
+				if !skipFiles {
+					*chanP <- FilePathMode{Path: vpath, Mode: 0}
+				}
 			case syscall.DT_DIR:
 				m := os.ModeDir
-				fastWalk(vpath, &m, followLink, chanP)
+				fastWalk(vpath, &m, followLink, skipFiles, chanP)
 			case syscall.DT_LNK:
 
 				// TODO: walk through symlinks is not supported due to issue with
@@ -134,7 +138,7 @@ func fastWalk(root string, mode *os.FileMode, followLink bool, chanP *chan FileP
 				}
 
 				logger.Warnf("symlink only followed to its first non-symlink referent: %s -> %s\n", vpath, referent)
-				fastWalk(referent, nil, false, chanP)
+				fastWalk(referent, nil, false, skipFiles, chanP)
 
 			default:
 				logger.Warnf("skip unhandled file: %s (type: %s)", vpath, string(dirent.Type))
@@ -155,12 +159,12 @@ func fastWalk(root string, mode *os.FileMode, followLink bool, chanP *chan FileP
 //
 // Note: This method uses the linux specific way (i.e. syscall.SYS_GETDENT64)
 // of getting directory content.  Thus it can only be used with $GOOS=linux.
-func GoFastWalk(root string, followLink bool, buffer int) chan FilePathMode {
+func GoFastWalk(root string, followLink bool, skipFiles bool, buffer int) chan FilePathMode {
 
 	chanP := make(chan FilePathMode, buffer)
 
 	go func() {
-		fastWalk(root, nil, followLink, &chanP)
+		fastWalk(root, nil, followLink, skipFiles, &chanP)
 		defer close(chanP)
 	}()
 

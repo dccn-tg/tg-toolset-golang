@@ -17,6 +17,7 @@ var uidsAll string
 var forceFlag bool
 var numThreads int
 var followSymlink bool
+var skipFiles bool
 var silenceFlag bool
 var recursion bool
 
@@ -73,6 +74,11 @@ func init() {
 		"link", "l", false,
 		"follow symlinks to set roles",
 	)
+	roleCmd.PersistentFlags().BoolVarP(
+		&skipFiles,
+		"skip-files", "k", false,
+		"skip setting/deleting/getting roles on individual files",
+	)
 	roleCmd.PersistentFlags().IntVarP(
 		&numThreads,
 		"nthreads", "n", 8,
@@ -124,6 +130,7 @@ var roleGetCmd = &cobra.Command{
 		runner := acl.Runner{
 			RootPath:   ppathSym,
 			FollowLink: followSymlink,
+			SkipFiles:  skipFiles,
 			Nthreads:   numThreads,
 		}
 
@@ -153,6 +160,7 @@ var roleRemoveCmd = &cobra.Command{
 			Viewers:      strings.Join([]string{uidsViewer, uidsAll}, ","),
 			Traversers:   uidsAll,
 			FollowLink:   followSymlink,
+			SkipFiles:    skipFiles,
 			Nthreads:     numThreads,
 			Silence:      silenceFlag,
 			Traverse:     false,
@@ -185,6 +193,7 @@ var roleSetCmd = &cobra.Command{
 			Contributors: uidsContributor,
 			Viewers:      uidsViewer,
 			FollowLink:   followSymlink,
+			SkipFiles:    skipFiles,
 			Nthreads:     numThreads,
 			Silence:      silenceFlag,
 			Traverse:     true,

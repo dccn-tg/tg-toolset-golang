@@ -56,6 +56,9 @@ type Runner struct {
 	// FollowLink specifies whether the set/delete action should be performed on the target
 	// of a symbolic link.
 	FollowLink bool
+	// SkipFiles specifies whether the set/delete action should skip applying role changes on
+	// existing files.
+	SkipFiles bool
 
 	// ppath is an absolute path evaluated from RootPath.  If RootPath is a symbolic link,
 	// the ppath will be pointed to the evaluated target.
@@ -144,7 +147,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 	rolesT[Traverse] = usersT
 
 	// set specified user roles
-	chanF := ufp.GoFastWalk(r.ppath, r.FollowLink, r.Nthreads*4)
+	chanF := ufp.GoFastWalk(r.ppath, r.FollowLink, r.SkipFiles, r.Nthreads*4)
 	chanOut := r.goSetRoles(roles, chanF, r.Nthreads)
 
 	// set traverse roles
@@ -253,7 +256,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 	rolesT[Traverse] = usersT
 
 	// remove specified user roles
-	chanF := ufp.GoFastWalk(r.ppath, r.FollowLink, r.Nthreads*4)
+	chanF := ufp.GoFastWalk(r.ppath, r.FollowLink, r.SkipFiles, r.Nthreads*4)
 	chanOut := r.goDelRoles(roles, chanF, r.Nthreads)
 
 	// channels for removing traverse roles
@@ -292,7 +295,7 @@ func (r *Runner) GetRoles(recursion bool) error {
 	var chanD chan ufp.FilePathMode
 	nthreads := r.Nthreads
 	if recursion {
-		chanD = ufp.GoFastWalk(r.ppath, r.FollowLink, nthreads)
+		chanD = ufp.GoFastWalk(r.ppath, r.FollowLink, r.SkipFiles, nthreads)
 	} else {
 		nthreads = 1
 		chanD = make(chan ufp.FilePathMode)

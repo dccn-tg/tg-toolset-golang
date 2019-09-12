@@ -17,6 +17,7 @@ var recursion *bool
 var nthreads *int
 var verbose *bool
 var optsFollowLink *bool
+var optsSkipFiles *bool
 
 func init() {
 	path = flag.String("d", "/project", "root path of project storage")
@@ -24,6 +25,7 @@ func init() {
 	nthreads = flag.Int("n", 4, "number of concurrent processing threads")
 	verbose = flag.Bool("v", false, "print debug messages")
 	optsFollowLink = flag.Bool("l", false, "`follow` symlinks to set roles on referents")
+	optsSkipFiles = flag.Bool("k", false, "`skip` getting roles on existing files")
 
 	flag.Usage = usage
 	flag.Parse()
@@ -73,6 +75,7 @@ func main() {
 	runner := acl.Runner{
 		RootPath:   ppath,
 		FollowLink: *optsFollowLink,
+		SkipFiles:  *optsSkipFiles,
 		Nthreads:   *nthreads,
 	}
 

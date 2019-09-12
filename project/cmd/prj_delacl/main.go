@@ -27,6 +27,7 @@ var optsForce *bool
 var optsVerbose *bool
 var optsSilence *bool
 var optsFollowLink *bool
+var optsSkipFiles *bool
 
 func init() {
 	optsManager = flag.String("m", "", "specify a comma-separated-list of users to be removed from the manager role")
@@ -41,6 +42,7 @@ func init() {
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 	optsSilence = flag.Bool("s", false, "set to `silence` mode")
 	optsFollowLink = flag.Bool("l", false, "`follow` symlinks to set roles on referents")
+	optsSkipFiles = flag.Bool("k", false, "`skip` deleting roles on existing files")
 
 	flag.Usage = usage
 
@@ -109,6 +111,7 @@ func main() {
 		Viewers:      strings.Join([]string{*optsViewer, uidsAll}, ","),
 		Traversers:   uidsAll,
 		FollowLink:   *optsFollowLink,
+		SkipFiles:    *optsSkipFiles,
 		Nthreads:     *optsNthreads,
 		Silence:      *optsSilence,
 		Traverse:     *optsTraverse,
