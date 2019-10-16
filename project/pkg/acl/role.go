@@ -76,9 +76,9 @@ type Roler interface {
 // the map.  The path is usually refers to the top-level mount point of the
 // fileserver on which the roler performs actions.
 var RolerMap = map[string]Roler{
-	"/project":     NetAppRoler{},
-	"/groupshare":  NetAppRoler{},
-	"/project_ext": FreeNasRoler{},
+	"/project":         NetAppRoler{},
+	"/groupshare":      NetAppRoler{},
+	"/project_freenas": FreeNasRoler{},
 }
 
 // GetRoler returns a proper roler determined from the given path.
