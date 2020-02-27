@@ -79,7 +79,7 @@ func main() {
 		Nthreads:   *nthreads,
 	}
 
-	if err := runner.GetRoles(*recursion); err != nil {
+	if err := runner.PrintRoles(*recursion); err != nil {
 		log.Fatalln(err)
 	}
 }

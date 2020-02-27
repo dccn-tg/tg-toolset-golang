@@ -134,7 +134,7 @@ var roleGetCmd = &cobra.Command{
 			Nthreads:   numThreads,
 		}
 
-		return runner.GetRoles(recursion)
+		return runner.PrintRoles(recursion)
 	},
 }
 

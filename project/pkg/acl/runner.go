@@ -276,15 +276,36 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 	}
 }
 
-// GetRoles retrieves roles for users on a the path defined by RootPath.
+// PrintRoles prints roles for users on a the path defined by RootPath to the stdout.
 // Use the `recursion` argument to enable/disable recursion through filesystem tree.
-func (r *Runner) GetRoles(recursion bool) error {
+func (r *Runner) PrintRoles(recursion bool) error {
+
+	chanOut, err := r.GetRoles(recursion)
+
+	if err != nil {
+		return err
+	}
+
+	for o := range chanOut {
+		fmt.Printf("%s:\n", o.Path)
+		for _, r := range []Role{Manager, Contributor, Writer, Viewer, Traverse} {
+			if users, ok := o.RoleMap[r]; ok {
+				fmt.Printf("%12s: %s\n", r, strings.Join(users, ","))
+			}
+		}
+	}
+	return nil
+}
+
+// GetRoles returns roles for users on a the path defined by RootPath via a channel.
+// Use the `recursion` argument to enable/disable recursion through filesystem tree.
+func (r *Runner) GetRoles(recursion bool) (chan RolePathMap, error) {
 	// resolve any symlinks on ppath
 	r.ppath, _ = filepath.EvalSymlinks(r.RootPath)
 
 	fpinfo, err := ufp.GetFilePathMode(r.ppath)
 	if err != nil {
-		return fmt.Errorf("path not found or unaccessible: %s", r.ppath)
+		return nil, fmt.Errorf("path not found or unaccessible: %s", r.ppath)
 	}
 
 	// disable recursion if ppath is not a directory
@@ -307,15 +328,7 @@ func (r *Runner) GetRoles(recursion bool) error {
 
 	chanOut := r.goGetACL(chanD, nthreads)
 
-	for o := range chanOut {
-		fmt.Printf("%s:\n", o.Path)
-		for _, r := range []Role{Manager, Contributor, Writer, Viewer, Traverse} {
-			if users, ok := o.RoleMap[r]; ok {
-				fmt.Printf("%12s: %s\n", r, strings.Join(users, ","))
-			}
-		}
-	}
-	return nil
+	return chanOut, nil
 }
 
 // parseRolesForSet checks the role specification from the caller on the following two things:
