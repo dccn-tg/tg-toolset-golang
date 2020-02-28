@@ -88,7 +88,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 	fpinfo, err := ufp.GetFilePathMode(r.ppath)
 	if err != nil {
 		exitcode = 1
-		err = fmt.Errorf("path not found or unaccessible: %s", r.ppath)
+		err = fmt.Errorf("path not found or unaccessible: %s", r.RootPath)
 		return
 	}
 
@@ -189,7 +189,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 	fpinfo, err := ufp.GetFilePathMode(r.ppath)
 	if err != nil {
 		exitcode = 1
-		err = fmt.Errorf("path not found or unaccessible: %s", r.ppath)
+		err = fmt.Errorf("path not found or unaccessible: %s", r.RootPath)
 		return
 	}
 
@@ -305,7 +305,7 @@ func (r *Runner) GetRoles(recursion bool) (chan RolePathMap, error) {
 
 	fpinfo, err := ufp.GetFilePathMode(r.ppath)
 	if err != nil {
-		return nil, fmt.Errorf("path not found or unaccessible: %s", r.ppath)
+		return nil, fmt.Errorf("path not found or unaccessible: %s", r.RootPath)
 	}
 
 	// disable recursion if ppath is not a directory
