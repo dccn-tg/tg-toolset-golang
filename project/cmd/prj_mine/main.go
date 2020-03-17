@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,17 +13,53 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var optsPath *string
+var nthreads *int
+var verbose *bool
+
+func init() {
+	optsPath = flag.String("d", "/project", "root path of project storage")
+	nthreads = flag.Int("n", 4, "number of concurrent processing threads")
+	verbose = flag.Bool("v", false, "print debug messages")
+
+	flag.Usage = usage
+	flag.Parse()
+
+	// set logging
+	log.SetOutput(os.Stderr)
+	// set logging level
+	llevel := log.InfoLevel
+	if *verbose {
+		llevel = log.DebugLevel
+	}
+	log.SetLevel(llevel)
+}
+
+func usage() {
+	fmt.Printf("\nGetting an overview on users' project roles.\n")
+	fmt.Printf("\nUSAGE: %s [OPTIONS] userID\n", os.Args[0])
+	fmt.Printf("\nOPTIONS:\n")
+	flag.PrintDefaults()
+	fmt.Printf("\n")
+}
+
 func main() {
 
-	nworkers := 4
+	// command-line arguments
+	args := flag.Args()
 
-	uid := os.Args[1]
+	if len(args) < 1 {
+		flag.Usage()
+		log.Fatal(fmt.Sprintf("unknown user id: %v", args))
+	}
 
-	dirs := make(chan string, nworkers*2)
+	uid := args[0]
+
+	dirs := make(chan string, *nthreads*2)
 	members := make(chan projectRole)
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < nworkers; i++ {
+	for i := 0; i < *nthreads; i++ {
 		wg.Add(1)
 		go findUserMember(uid, dirs, members, &wg)
 	}
@@ -42,12 +79,12 @@ func main() {
 			dirs <- filepath.Join(path, infoDir.Name())
 		}
 
-	}("/project")
+	}(*optsPath)
 
 	// go routine printing user's membership.
 	go func() {
 		for member := range members {
-			fmt.Printf("%+v\n", member)
+			fmt.Printf("%s: %s\n", member.projectID, member.role)
 		}
 	}()
 
