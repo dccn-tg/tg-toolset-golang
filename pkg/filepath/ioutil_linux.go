@@ -10,11 +10,6 @@ import (
 // ListDir lists directory content in a faster way using Linux's system call.
 func ListDir(path string) ([]string, error) {
 
-	const (
-		blockSize = 4096
-		separator = string(filepath.Separator)
-	)
-
 	objs := make([]string, 0)
 
 	dir, err := os.Open(path)
