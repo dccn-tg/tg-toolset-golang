@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 
@@ -69,11 +70,17 @@ func main() {
 		// close the dirs channel on exit
 		defer close(dirs)
 
+		start := time.Now()
+
 		infoDirs, err := ioutil.ReadDir(path)
 		if err != nil {
 			log.Errorf("cannot get content of path: %s", path)
 			return
 		}
+
+		elapsed := time.Since(start)
+
+		log.Debugf("project listing took %s\n", elapsed)
 
 		for _, infoDir := range infoDirs {
 			dirs <- filepath.Join(path, infoDir.Name())
