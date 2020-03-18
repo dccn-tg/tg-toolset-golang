@@ -3,12 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	fp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 
 	log "github.com/sirupsen/logrus"
@@ -72,18 +72,17 @@ func main() {
 
 		start := time.Now()
 
-		infoDirs, err := ioutil.ReadDir(path)
+		objs, err := fp.ListDir(path)
 		if err != nil {
 			log.Errorf("cannot get content of path: %s", path)
 			return
 		}
-
 		elapsed := time.Since(start)
 
 		log.Debugf("project listing took %s\n", elapsed)
 
-		for _, infoDir := range infoDirs {
-			dirs <- filepath.Join(path, infoDir.Name())
+		for _, obj := range objs {
+			dirs <- obj
 		}
 
 	}(*optsPath)
