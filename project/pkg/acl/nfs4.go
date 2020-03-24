@@ -6,16 +6,10 @@ import (
 	"os/user"
 	"strings"
 
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
-
-var logger *log.Entry
-
-func init() {
-	logger = log.WithFields(log.Fields{"source": "acl.nfs4"})
-}
 
 // aceAlias defines the ace mask alias supported by the NFSv4 ACL.
 var aceAlias = map[string]string{
@@ -140,7 +134,7 @@ func getACL(path string) ([]ACE, error) {
 		ace, err := parseAce(line)
 		if err != nil {
 			// print a warning and continue
-			logger.Warn(fmt.Sprintf("%s", err))
+			log.Warnf("%s", err)
 			continue
 		}
 		aces = append(aces, *ace)
@@ -170,7 +164,7 @@ func setACL(path string, aces []ACE, recursive bool, followLink bool) error {
 		if ace.IsValidPrinciple() {
 			naces = append(naces, fmt.Sprintf("%s", ace))
 		} else {
-			logger.Warn(fmt.Sprintf("invalid user or group: %s %s", ace.Principle, path))
+			log.Warnf("invalid user or group: %s %s", ace.Principle, path)
 		}
 	}
 
@@ -188,7 +182,7 @@ func setACL(path string, aces []ACE, recursive bool, followLink bool) error {
 	cmdArgs = append(cmdArgs, strings.Join(naces[:], ","))
 	cmdArgs = append(cmdArgs, path)
 
-	logger.Debug(fmt.Sprintf("%s %s", cmdNfs4Setfacl, strings.Join(cmdArgs, " ")))
+	log.Debugf("%s %s", cmdNfs4Setfacl, strings.Join(cmdArgs, " "))
 
 	_, err := exec.Command(cmdNfs4Setfacl, cmdArgs...).Output()
 	return errors.Wrap(err, fmt.Sprintf("%s exec failure", cmdNfs4Setfacl))

@@ -1,12 +1,12 @@
 package acl
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
 // IsSameProjectPath checks whether the two given paths are pointing to the same
@@ -99,12 +99,12 @@ func GetPathsForSetTraverse(p string, roles RoleMap, chanF *chan ufp.FilePathMod
 		fpm := ufp.FilePathMode{Path: p, Mode: os.ModeDir}
 		roler := GetRoler(fpm)
 		if roler == nil {
-			logger.Warn(fmt.Sprintf("roler not found: %s", p))
+			log.Warnf("roler not found: %s", p)
 			continue
 		}
 		rolesNow, err := roler.GetRoles(fpm)
 		if err != nil {
-			logger.Warn(fmt.Sprintf("%s: %s", err, p))
+			log.Warnf("%s: %s", err, p)
 		}
 		if !userInRole(rolesNow) {
 			*chanF <- fpm
@@ -151,12 +151,12 @@ func GetPathsForDelTraverse(p string, roles RoleMap, chanF *chan ufp.FilePathMod
 		fpm := ufp.FilePathMode{Path: p, Mode: os.ModeDir}
 		roler := GetRoler(fpm)
 		if roler == nil {
-			logger.Warn(fmt.Sprintf("roler not found: %s", p))
+			log.Warnf("roler not found: %s", p)
 			continue
 		}
 		rolesNow, err := roler.GetRoles(fpm)
 		if err != nil {
-			logger.Warn(fmt.Sprintf("%s: %s", err, p))
+			log.Warnf("%s: %s", err, p)
 		}
 		if userInRole(rolesNow) {
 			*chanF <- fpm

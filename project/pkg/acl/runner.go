@@ -12,13 +12,9 @@ import (
 	"syscall"
 
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
-	log "github.com/sirupsen/logrus"
 )
-
-func init() {
-
-}
 
 var signalHandled = []os.Signal{
 	syscall.SIGABRT,
@@ -100,7 +96,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 		return
 	}
 
-	log.Debug(fmt.Sprintf("%+v", fpinfo))
+	log.Debugf("%+v", fpinfo)
 	rolesNow, err := roler.GetRoles(*fpinfo)
 	if err != nil {
 		exitcode = 1
@@ -124,7 +120,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 		}
 	}
 	if n == 0 && !r.Force {
-		log.Warnln("All roles in place, I have nothing to do.")
+		log.Warnf("All roles in place, I have nothing to do.")
 		return
 	}
 
@@ -200,7 +196,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 		return
 	}
 
-	log.Debug(fmt.Sprintf("+%v", fpinfo))
+	log.Debugf("+%v", fpinfo)
 	rolesNow, err := roler.GetRoles(*fpinfo)
 	if err != nil {
 		exitcode = 1
@@ -234,7 +230,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 	}
 
 	if n == 0 && !r.Force {
-		log.Warn("All roles in place, I have nothing to do.")
+		log.Warnf("All roles in place, I have nothing to do.")
 		return
 	}
 
@@ -243,7 +239,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 		// acquire lock for the current process
 		flock := filepath.Join(r.ppath, ".prj_setacl.lock")
 		if err := ufp.AcquireLock(flock); err != nil {
-			log.Fatal(fmt.Sprintf("%s", err))
+			log.Fatalf("%s", err)
 		}
 		defer os.Remove(flock)
 	}
@@ -382,14 +378,14 @@ func (r Runner) goGetACL(chanD chan ufp.FilePathMode, nthreads int) chan RolePat
 
 				roler := GetRoler(p)
 				if roler == nil {
-					log.Warn(fmt.Sprintf("roler not found: %s", p.Path))
+					log.Warnf("roler not found: %s", p.Path)
 					continue
 				}
-				log.Debug(fmt.Sprintf("path: %s %s", p.Path, reflect.TypeOf(roler)))
+				log.Debugf("path: %s %s", p.Path, reflect.TypeOf(roler))
 				if roles, err := roler.GetRoles(p); err == nil {
 					chanOut <- RolePathMap{Path: p.Path, RoleMap: roles}
 				} else {
-					log.Error(fmt.Sprintf("%s: %s", err, p.Path))
+					log.Errorf("%s: %s", err, p.Path)
 				}
 			}
 			chanSync <- 1
@@ -426,17 +422,17 @@ func (r Runner) goSetRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 	updateACL := func(f ufp.FilePathMode) {
 		// TODO: make the roler depends on path
 		roler := GetRoler(f)
-		log.Debug(fmt.Sprintf("path: %s %s", f.Path, reflect.TypeOf(roler)))
+		log.Debugf("path: %s %s", f.Path, reflect.TypeOf(roler))
 
 		if roler == nil {
-			log.Warn(fmt.Sprintf("roler not found: %s", f.Path))
+			log.Warnf("roler not found: %s", f.Path)
 			return
 		}
 
 		if rolesNew, err := roler.SetRoles(f, roles, false, false); err == nil {
 			chanOut <- RolePathMap{Path: f.Path, RoleMap: rolesNew}
 		} else {
-			log.Error(fmt.Sprintf("%s: %s", err, f.Path))
+			log.Errorf("%s: %s", err, f.Path)
 		}
 	}
 
@@ -447,7 +443,7 @@ func (r Runner) goSetRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 		for i := 0; i < nthreads; i++ {
 			go func() {
 				for f := range chanF {
-					log.Debug("process file: " + f.Path)
+					log.Debugf("process file: %s", f.Path)
 					updateACL(f)
 				}
 				wg.Done()
@@ -477,14 +473,14 @@ func (r Runner) goDelRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 		roler := GetRoler(f)
 
 		if roler == nil {
-			log.Warn(fmt.Sprintf("roler not found: %s", f.Path))
+			log.Warnf("roler not found: %s", f.Path)
 			return
 		}
 
 		if rolesNew, err := roler.DelRoles(f, roles, false, false); err == nil {
 			chanOut <- RolePathMap{Path: f.Path, RoleMap: rolesNew}
 		} else {
-			log.Error(fmt.Sprintf("%s: %s", err, f.Path))
+			log.Errorf("%s: %s", err, f.Path)
 		}
 	}
 
@@ -495,7 +491,7 @@ func (r Runner) goDelRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 		for i := 0; i < nthreads; i++ {
 			go func() {
 				for f := range chanF {
-					log.Debug("processing file: " + f.Path)
+					log.Debugf("processing file: %f", f.Path)
 					updateACL(f)
 				}
 				wg.Done()
@@ -532,11 +528,11 @@ func (r Runner) goPrintOut(chanOut chan RolePathMap,
 				}
 			} else {
 				// the role has been set to the path
-				log.Info(fmt.Sprintf("%s", o.Path))
+				log.Infof("%s", o.Path)
 			}
 
 			for r, users := range o.RoleMap {
-				log.Debug(fmt.Sprintf("%12s: %s", r, strings.Join(users, ",")))
+				log.Debugf("%12s: %s", r, strings.Join(users, ","))
 			}
 			// examine the path to see if it is deviated from the ppath from
 			// the project storage perspective.  If so, it should be considered for the

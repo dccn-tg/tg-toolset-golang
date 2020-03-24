@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
 // FreeNasRoler implements Roler interfaces for the FreeNAS filer.
@@ -70,7 +71,7 @@ func (FreeNasRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
 	for _, ace := range aces {
 
 		if isDenyAceForDeletion(ace) { // ignore specific DENY
-			logger.Debugf("ignore deny type ace: %s\n", ace.String())
+			log.Debugf("ignore deny type ace: %s\n", ace.String())
 			continue
 		}
 
