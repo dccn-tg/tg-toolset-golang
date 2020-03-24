@@ -12,4 +12,5 @@ require (
 	go.uber.org/zap v1.14.1
 	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
 	google.golang.org/appengine v1.4.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
