@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strings"
 
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
-	log "github.com/sirupsen/logrus"
 )
 
 // global variables from command-line arguments
@@ -48,14 +48,18 @@ func init() {
 
 	flag.Parse()
 
-	// set logging
-	log.SetOutput(os.Stderr)
-	// set logging level
-	llevel := log.InfoLevel
-	if *optsVerbose {
-		llevel = log.DebugLevel
+	cfg := log.Configuration{
+		EnableConsole:     true,
+		ConsoleJSONFormat: false,
+		ConsoleLevel:      log.Info,
 	}
-	log.SetLevel(llevel)
+
+	if *optsVerbose {
+		cfg.ConsoleLevel = log.Debug
+	}
+
+	// initialize logger
+	log.NewLogger(cfg, log.InstanceLogrusLogger)
 }
 
 func usage() {
@@ -82,12 +86,12 @@ func main() {
 
 	if len(args) < 1 {
 		flag.Usage()
-		log.Fatal(fmt.Sprintf("unknown project number: %v", args))
+		log.Fatalf("unknown project number: %v", args)
 	}
 
 	if len(args) >= 2 && *optsManager+*optsContributor+*optsViewer != "" {
 		flag.Usage()
-		log.Fatal("use only one way to specify users: with or without role options (-m|-c|-u), not both.")
+		log.Fatalf("use only one way to specify users: with or without role options (-m|-c|-u), not both.")
 	}
 
 	uidsAll := ""
@@ -120,7 +124,7 @@ func main() {
 
 	exitcode, err := runner.RemoveRoles()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("%s", err)
 	}
 	os.Exit(exitcode)
 }

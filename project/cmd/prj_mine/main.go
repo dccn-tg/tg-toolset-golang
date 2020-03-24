@@ -11,7 +11,7 @@ import (
 	fp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 
-	log "github.com/sirupsen/logrus"
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
 var optsPath *string
@@ -26,14 +26,18 @@ func init() {
 	flag.Usage = usage
 	flag.Parse()
 
-	// set logging
-	log.SetOutput(os.Stderr)
-	// set logging level
-	llevel := log.InfoLevel
-	if *verbose {
-		llevel = log.DebugLevel
+	cfg := log.Configuration{
+		EnableConsole:     true,
+		ConsoleJSONFormat: false,
+		ConsoleLevel:      log.Info,
 	}
-	log.SetLevel(llevel)
+
+	if *verbose {
+		cfg.ConsoleLevel = log.Debug
+	}
+
+	// initialize logger
+	log.NewLogger(cfg, log.InstanceLogrusLogger)
 }
 
 func usage() {
@@ -51,7 +55,7 @@ func main() {
 
 	if len(args) < 1 {
 		flag.Usage()
-		log.Fatal(fmt.Sprintf("unknown user id: %v", args))
+		log.Fatalf("unknown user id: %v", args)
 	}
 
 	uid := args[0]
