@@ -83,12 +83,45 @@ function newVolume() {
     aggr=""
     size=0
     for id in $(getObjectByName $SVM '/svm/svms' 'aggregates[].uuid' 2>/dev/null | sed 's/"//g'); do
+
         avail=$(getObjectByUUID $id "/storage/aggregates" space.block_storage.available 2>/dev/null)
+
         [ $avail -gt $quota ] && [ $avail -gt $size ] && aggr=$id && size=$avail
     done
     
-    # create new volume on aggregate 
-    echo $aggr, $size
+    # create new volume on aggregate
+    dataVolume $name $quota $aggr || return 1
+}
+
+
+# Compose POST data for creating new volume
+function dataVolume() {
+
+    name=$1
+    size=$2
+    aggr=$3
+
+    #'.|.name=$name|.size=($size|tonumber)|.aggregates+=[{.uuid=$aggr}]' << EOF
+    jq --arg name "$name" \
+       --arg size "$size" \
+       --arg aggr "$aggr" \
+       --arg svm "$SVM" \
+       -c -M \
+       '.|.name=$name|.size=($size|tonumber)|.aggregates+=[{"uuid": $aggr}]|.svm.name=$svm' << EOF
+{
+  "svm": {},
+  "state": "online",
+  "style": "flexvol",
+  "qos": {
+    "policy": {
+      "max_throughput_iops": "6000"
+    }
+  },
+  "aggregates": []
+}
+
+EOF
+
 }
 
 # Get SVM
