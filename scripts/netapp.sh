@@ -66,7 +66,7 @@ function getObjectByName() {
 
     [ "" == "$uuid" ] && echo "object not found: $name" >&2 && return 1
    
-    getObjectByUUID $uuid $api_ns ${@:3} 
+    getObjectByUUID $uuid $api_ns ${@:3}
 }
 
 # Creates a new volume with given name and size.
@@ -90,9 +90,17 @@ function newVolume() {
     done
     
     # create new volume on aggregate
-    dataVolume $name $quota $aggr || return 1
-}
+    out=$( ${CURL} -X POST -u ${ADMIN}:${PASS} \
+            -H 'content-type: application/json' \
+            -d $(dataVolume $name $quota $aggr) \
+            ${API_URL}/storage/volumes )
 
+    [ "$(echo $out | jq '.error' )" != "" ] &&
+        echo "fail to create volume: $name" >&2 &&
+        echo $out | jq && return 1
+
+    echo $out | jq
+}
 
 # Compose POST data for creating new volume
 function dataVolume() {
