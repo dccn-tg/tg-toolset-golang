@@ -1,13 +1,15 @@
 #!/bin/bash
 
-API_URL="https://131.174.44.94/api"
+API_HOST="https://131.174.44.94"
+API_URL="${API_HOST}/api"
 [ -z $ADMIN ] && ADMIN="roadmin"
 PASS=""
 SVM="atreides"
 
 # curl command prefix
-CURL="curl -k"
+CURL="curl -k -#"
 
+[ -z $QUOTA_POLICY ] && QUOTA_POLICY="Qatreides"
 [ -z $EXPORT_POLICY ] && EXPORT_POLICY="dccn-projects"
 [ -z $PATH_PROJECT ] && PATH_PROJECT="/project"
 [ -z $UID_PROJECT ] && UID_PROJECT="1010"
@@ -15,7 +17,7 @@ CURL="curl -k"
 
 # Print usage message and document.
 function usage() {
-    echo "Usage: $1 <new|get|qot|del> <projectID> [<sizeGb>]" 1>&2
+    echo "Usage: $1 <new|get|qot|del> <projectID|username> [<sizeGb>] [<usergroup>]" 1>&2
     cat << EOF >&2
 
 This script is a demo implementation of managing project flexvol/qtree
@@ -35,8 +37,12 @@ Operations:
     get: retrieves information of the space.
     qot: configures quota of the project/user home space.
     del: deletes space of a project or a user home.
-
 EOF
+}
+
+# Check if given argument is a project name
+function isProjectName() {
+    [[ $1 =~ ^[0-9]{7}\.[0-9]{2}$ ]]
 }
 
 # Convert projectID to volume name using a convention
@@ -49,37 +55,12 @@ function projectNasPath() {
     echo "${PATH_PROJECT}/${1}"
 }
 
-# Get UUID
-function getUUID() {
-
-    name=$1
+# Get the API href to the named object. 
+function getHrefByQuery() {
+    query=$1
     api_ns=$2
-
-    case $(basename $api_ns) in
-    qtree)
-        ${CURL} -X GET -u ${ADMIN}:${PASS} "${API_URL}/${api_ns}" | \
-        jq --arg name "$name" \
-           '.records[] | select(.name == $name) | .id' | \
-        sed 's/"//g'
-        ;;
-    *)
-        ${CURL} -X GET -u ${ADMIN}:${PASS} "${API_URL}/${api_ns}" | \
-        jq --arg name "$name" \
-           '.records[] | select(.name == $name) | .uuid' | \
-        sed 's/"//g'
-        ;;
-    esac
-}
-
-# Get ID, in some cases, objects are 
-function getUUID() {
-
-    name=$1
-    api_ns=$2
-
-    ${CURL} -X GET -u ${ADMIN}:${PASS} "${API_URL}/${api_ns}" | \
-    jq --arg name "$name" \
-       '.records[] | select(.name == $name) | .uuid' | \
+    ${CURL} -X GET -u ${ADMIN}:${PASS} "${API_URL}/${api_ns}?${query}" | \
+    jq '.records[] | ._links.self.href' | \
     sed 's/"//g'
 }
 
@@ -95,30 +76,39 @@ function getObjectByUUID() {
     jq ${filter}
 }
 
+# Get Object attributes by Href in a generic way.
+function getObjectByHref() {
+    href=$1
+    filter=".|.$(echo ${@:2} | sed 's/ /,./g')"
+
+    ${CURL} -X GET -u ${ADMIN}:${PASS} "${API_HOST}/${href}" | \
+    jq ${filter}
+}
+
 # Get Object attributes by name in a generic way.
 function getObjectByName() {
     name=$1
     api_ns=$2
 
-    uuid=$(getUUID $name $api_ns)
+    href=$(getHrefByQuery "name=$name" $api_ns)
 
-    [ "" == "$uuid" ] && echo "object not found: $name" >&2 && return 1
+    [ "" == "$href" ] && echo "object not found: $name" >&2 && return 1
    
-    getObjectByUUID $uuid $api_ns ${@:3}
+    getObjectByHref $href ${@:3}
 }
 
 # Creates a new qtree with given qtree path
 function newQtree() {
     name=$1
     volname=$2
-    quota=$( echo "$3 * 1024 * 1024 * 1024" | bc )
 
     # first get volume uuid
-    voluuid=$(getObjectByName $name '/storage/volumes' 'uuid' >&2)
-    [ -z $voluuid ] && echo "volume doesn't exist: $volname" >&2 && return 1
+    voluuid=$(getObjectByName $volname '/storage/volumes' 'uuid' 2>/dev/null)
+    [ "$voluuid" == "" ] && echo "volume doesn't exist: $volname" >&2 && return 1
 
     # check if tree already exists
-    getUUID $name '/storage/qtrees' >/dev/null 2>&1 &&
+    href=$( getHrefByQuery "name=$name" '/storage/qtrees' 2>/dev/null )
+    [ "$href" != "" ] &&
         echo "qtree already exists: $name" >&2 && return 1
 
     # create new qtree
@@ -127,7 +117,7 @@ function newQtree() {
             -d $(dataQtree $name $volname) \
             ${API_URL}/storage/qtrees )
 
-    [ "$(echo $out | jq '.error' )" != "" ] &&
+    [ "$(echo $out | jq '.error' )" != "null" ] &&
         echo "fail to create qtree: $name" >&2 &&
         echo $out | jq && return 1
 
@@ -161,7 +151,7 @@ function newVolume() {
             -d $(dataProjectVolume $name $quota $aggr $path) \
             ${API_URL}/storage/volumes )
 
-    [ "$(echo $out | jq '.error' )" != "" ] &&
+    [ "$(echo $out | jq '.error' )" != "null" ] &&
         echo "fail to create volume: $name" >&2 &&
         echo $out | jq && return 1
 
@@ -174,20 +164,205 @@ function resizeVolume() {
     quota=$( echo "$2 * 1024 * 1024 * 1024" | bc )
 
     # check if volume exists.
-    uuid=$(getUUID $name '/storage/volumes' 2>/dev/null)
-    [ "$uuid" == "" ] && echo "volume does not exists: $name" >&2 && return 1
+    href=$(getHrefByQuery "name=$name" '/storage/volumes' 2>/dev/null)
+    [ "$href" == "" ] && echo "volume does not exists: $name" >&2 && return 1
 
     # resizing volume 
     out=$( ${CURL} -X PATCH -u ${ADMIN}:${PASS} \
             -H 'content-type: application/json' \
             -d $(dataResizeVolume $name $quota) \
-            ${API_URL}/storage/volumes/${uuid} )
+            ${API_HOST}/${href} )
 
-    [ "$(echo $out | jq '.error' )" != "" ] &&
+    [ "$(echo $out | jq '.error' )" != "null" ] &&
         echo "fail to resize volume: $name" >&2 &&
         echo $out | jq && return 1
 
     echo $out | jq
+}
+
+# Get quota rule
+function getQuotaRule() {
+    name=$1
+
+    href=$(getHrefByQuery "qtree.name=$name" '/storage/quota/rules')
+    [ "" == "$href" ] && echo "quota rule not found: $name" && return 1
+
+    getObjectByHref $href ${@:2}
+}
+
+# Create quota rule
+function newQuotaRule() {
+    name=$1   # name is the name in the context of the rule type
+    volname=$2
+    quota=$( echo "$3 * 1024 * 1024 * 1024" | bc )
+
+    # make sure volume is presented
+    href=$(getHrefByQuery "name=$volname" '/storage/volumes' 2>/dev/null)
+    [ "" == "$href" ] &&
+        echo "volume doesn't exists: $volname" >&2 &&
+        return 1
+
+    # make sure the quota rule name doesn't exist in the volume
+    href=$(getHrefByQuery "qtree.name=$name&volume.name=$volname" '/storage/quota/rules' 2>/dev/null)
+    [ "" != "$href" ] &&
+        echo "quota rule already exists: $name" >&2 &&
+        return 1
+
+    # NOTE: it seems that switching off quota on volume is necessary in
+    #       order to create an explicit quota rule.
+    switchVolumeQuota $volname off || return 1
+
+    # create quota rule ...
+    out=$( ${CURL} -X POST -u ${ADMIN}:${PASS} \
+            -H 'content-type: application/json' \
+            -d $(dataQuotaRule $name $volname $quota) \
+            ${API_URL}/storage/quota/rules )
+
+    [ "$(echo $out | jq '.error' )" != "null" ] &&
+        echo "fail to create quota rule: $name" >&2 &&
+        echo $out | jq && return 1
+
+    # turn quota off and on to refresh the quota
+    switchVolumeQuota $volname off &&
+    switchVolumeQuota $volname on ||
+    (echo "unable to refresh quota on volume: $volname" >&2 && return 1) 
+}
+
+# update the quota rule to resize quota of a qtree 
+function resizeQuota() {
+    name=$1   # name is the name in the context of the rule type
+    volname=$2   # volume name is the name in the context of the rule type
+    quota=$( echo "$3 * 1024 * 1024 * 1024" | bc )
+
+    # make sure the quota rule is presented
+    href=$(getHrefByQuery "qtree.name=$name&volume.name=$volname" '/storage/quota/rules' 2>/dev/null)
+    [ "" == "$href" ] &&
+        echo "quota rule doesn't exists: $name, volume: $volname" >&2 &&
+        return 1
+
+    # set quota rule ...
+    out=$( ${CURL} -X PATCH -u ${ADMIN}:${PASS} \
+            -H 'content-type: application/json' \
+            -d $(dataResizeQuota $quota) \
+            ${API_HOST}/${href} )
+
+    [ "$(echo $out | jq '.error' )" != "null" ] &&
+        echo "fail to set quota rule: $name" >&2 &&
+        echo $out | jq && return 1
+
+    # turn quota off and on to refresh the quota
+    switchVolumeQuota $volname off &&
+    switchVolumeQuota $volname on ||
+    (echo "unable to refresh quota on volume: $volname" >&2 && return 1)
+}
+
+# switch on/off quota for a volume, and wait until it is applied.
+function switchVolumeQuota() {
+   
+    volname=$1
+    state=$2
+
+    # make sure the volume is presented
+    href=$(getHrefByQuery "name=$volname" '/storage/volumes' 2>/dev/null)
+    [ "" == "$href" ] &&
+        echo "volume doesn't exists: $volname" >&2 &&
+        return 1
+
+    data=""
+    case $state in
+    on)
+        data='{"quota":{"enabled":true}}'
+        ;;
+
+    off)
+        data='{"quota":{"enabled":false}}'
+        ;;
+    *)
+        echo "unknown state" >&2
+        return 1
+        ;;
+    esac
+
+    out=$( ${CURL} -X PATCH -u ${ADMIN}:${PASS} \
+            -H 'content-type: application/json' \
+            -d $(echo $data) \
+            ${API_HOST}/${href} )
+
+    [ "$(echo $out | jq '.error' )" == "null" ] ||
+        (echo "fail to switch quota state on volume: $volname" >&2 && return 1)
+
+    # wait for the job to complete
+    jid=$(echo $out | jq '.job.uuid' | sed 's/"//g')
+    while [[ ! $(getJobState $jid) =~ ^(success|failure)$ ]]; do
+        sleep 1
+    done
+
+    # check final state
+    case "$(getJobState $jid)" in
+    success)
+        return 0
+        ;;
+    failure)
+        getJobMessage $jid | grep "Quotas are already $state" >/dev/null && return 0 || return 1
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
+# Get job status
+function getJobState() {
+    id=$1
+    ${CURL} -X GET -u ${ADMIN}:${PASS} \
+        "${API_URL}/cluster/jobs/${id}" | jq '.state' | sed 's/"//g'
+}
+
+# Get job messages
+function getJobMessage() {
+    id=$1
+    ${CURL} -X GET -u ${ADMIN}:${PASS} \
+        "${API_URL}/cluster/jobs/${id}" | jq '.message' | sed 's/"//g'
+}
+
+# Compose POST data for creating quota rule
+function dataQuotaRule() {
+    name=$1
+    volname=$2
+    diskLimit=$3
+
+    jq --arg name "$name" \
+       --arg volname "$volname" \
+       --arg svm "$SVM" \
+       --arg limit "$diskLimit" \
+       -c -M \
+       '.|.qtree.name=$name|.volume.name=$volname|.svm.name=$svm|.space.hard_limit=($limit|tonumber)' << EOF
+
+{
+  "svm": {},
+  "volume": {},
+  "type": "tree",
+  "qtree": {},
+  "space": {}
+}
+
+EOF
+
+}
+
+# Compose POST data for resizing quota on a qtree
+function dataResizeQuota() {
+    diskLimit=$1
+    jq --arg limit "$diskLimit" \
+       -c -M \
+       '.|.space.hard_limit=($limit|tonumber)' << EOF
+
+{
+  "space": {}
+}
+
+EOF
+
 }
 
 # Compose POST data for creating new qtree
@@ -274,7 +449,6 @@ EOF
 ## main program
 [ $# -lt 2 ] && usage $0 && exit 1
 ops=$1
-projectID=$2
 
 echo -n "Password for API user ($ADMIN): "
 read -s PASS
@@ -283,25 +457,59 @@ echo
 case $ops in
 new)
 
-    [ $# -lt 3 ] && usage $0 && exit 1
+    [ $# -lt 3 ] && usage $0 && echo "missing size" >&2 && exit 1
     sizeGb=$3
 
-    volName=$(projectVolName $projectID)
-    nasPath=$(projectNasPath $projectID)
- 
-    newVolume $volName $sizeGb $nasPath || exit 1
+    if isProjectName $2; then #this is for project
+        projectID=$2
+        volname=$(projectVolName $projectID)
+        nasPath=$(projectNasPath $projectID)
+        echo "Creating volume of project $projectID ..." &&
+        newVolume $volname $sizeGb $nasPath || exit 1
+    else #this is for user home
+        [ $# -lt 4 ] && usage $0 && echo "missing user group" >&2 && exit 1
+        name=$2
+        # TODO: determine volume name from user's primary group
+        volname=$4
+        echo "Creating qtree for user $name, group $volname ..." &&
+        newQtree $name $volname &&
+            newQuotaRule $name $volname $sizeGb || exit 1
+    fi
+
     ;;
 get)
-    getObjectByName $(projectVolName $projectID) "/storage/volumes" || exit 1
+    if isProjectName $2; then #this is for project
+        projectID=$2
+        echo "Getting volume of project $projectID ..." &&
+        getObjectByName $(projectVolName $projectID) "/storage/volumes" || exit 1
+    else #this is for user home
+        name=$2
+        echo "Getting qtree of user $name ..." &&
+        getObjectByName $name "/storage/qtrees" && 
+        echo "Getting quota rule for user $name ..." &&
+        getQuotaRule $name || exit 1
+    fi
     ;;
 del)
     ;;
 qot)
     [ $# -lt 3 ] && usage $0 && exit 1
     sizeGb=$3
-    volName=$(projectVolName $projectID)
 
-    resizeVolume $volName $sizeGb || exit 1
+    if isProjectName $2; then #this is for project
+        projectID=$2
+        volName=$(projectVolName $projectID)
+
+        echo "Resizing volume for project $projectID ..." &&
+        resizeVolume $volName $sizeGb || exit 1
+    else #this is for user home
+        [ $# -lt 4 ] && usage $0 && echo "missing user group" >&2 && exit 1
+        name=$2
+        # TODO: determine volume name from user's primary group
+        volname=$4
+        echo "Setting quota for user $name ..." &&
+        resizeQuota $name $volname $sizeGb || exit 1
+    fi
     ;;
 *)
     echo "unknown operation: $ops" >&2 && exit 1
