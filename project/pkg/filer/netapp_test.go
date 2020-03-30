@@ -2,6 +2,7 @@ package filer
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -12,8 +13,8 @@ var netapp NetApp
 func init() {
 	netapp = NetApp{
 		APIServerURL: "https://131.174.44.94",
-		APIUsername:  "",
-		APIPassword:  "",
+		APIUsername:  os.Getenv("NETAPP_API_USERNAME"),
+		APIPassword:  os.Getenv("NETAPP_API_PASSWORD"),
 		Vserver:      "atreides",
 		ProjectGID:   1010,
 		ProjectUID:   1010,
