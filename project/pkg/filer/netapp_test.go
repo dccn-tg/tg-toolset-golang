@@ -104,3 +104,9 @@ func TestCreateProject(t *testing.T) {
 		t.Errorf("fail to create project volume: %s", err)
 	}
 }
+
+func TestCreateHome(t *testing.T) {
+	if err := netapp.CreateHome("test", "tg", 10); err != nil {
+		t.Errorf("fail to create qtree for user home: %s", err)
+	}
+}
