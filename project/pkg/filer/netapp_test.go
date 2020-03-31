@@ -8,7 +8,15 @@ import (
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
-var netapp NetApp
+var (
+	netapp NetApp
+)
+
+const (
+	projectID string = "3010000.03"
+	groupname string = "tg"
+	username  string = "test"
+)
 
 func init() {
 	netapp = NetApp{
@@ -73,40 +81,28 @@ func TestUnmarshal(t *testing.T) {
 	t.Logf("%+v", records)
 }
 
-// func TestWaitJob(t *testing.T) {
-
-// 	l := Link{}
-// 	l.Self.Href = "/api/cluster/jobs/54683337-729e-11ea-98ba-00a0989c4283"
-
-// 	j := APIJob{
-// 		Job: Job{
-// 			Link: &l,
-// 		},
-// 	}
-
-// 	netapp.waitJob(&j)
-// }
-
-func TestGetObjectByName(t *testing.T) {
-
-	vol := Volume{}
-
-	if err := netapp.GetObjectByName(netapp.volName("3010000.01"), "/storage/volumes", &vol); err != nil {
-		t.Errorf("fail to get object: %s", err)
-	}
-
-	t.Logf("retrieved volume: %+v", vol)
-}
-
 func TestCreateProject(t *testing.T) {
 	netapp.ProjectMode = "volume"
-	if err := netapp.CreateProject("3010000.03", 10); err != nil {
+	if err := netapp.CreateProject(projectID, 10); err != nil {
 		t.Errorf("fail to create project volume: %s", err)
 	}
 }
 
+func TestSetProjectQuota(t *testing.T) {
+	netapp.ProjectMode = "volume"
+	if err := netapp.SetProjectQuota(projectID, 20); err != nil {
+		t.Errorf("fail to update quota for project %s: %s", projectID, err)
+	}
+}
+
 func TestCreateHome(t *testing.T) {
-	if err := netapp.CreateHome("test", "tg", 10); err != nil {
-		t.Errorf("fail to create qtree for user home: %s", err)
+	if err := netapp.CreateHome(username, groupname, 10); err != nil {
+		t.Errorf("%s\n", err)
+	}
+}
+
+func TestSetHomeQuota(t *testing.T) {
+	if err := netapp.SetHomeQuota(username, groupname, 20); err != nil {
+		t.Errorf("%s\n", err)
 	}
 }

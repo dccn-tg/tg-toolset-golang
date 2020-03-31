@@ -70,7 +70,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		// check if volume with the same name doee not exist.
 		qry := url.Values{}
 		qry.Set("name", filer.volName(projectID))
-		records, err := filer.GetRecordsByQuery(qry, API_NS_VOLUMES)
+		records, err := filer.getRecordsByQuery(qry, API_NS_VOLUMES)
 		if err != nil {
 			return fmt.Errorf("fail to check volume %s: %s", projectID, err)
 		}
@@ -81,7 +81,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		// determine which aggregate should be used for creating the new volume.
 		quota := int64(quotaGiB << 30)
 		svm := SVM{}
-		if err := filer.GetObjectByName(filer.Vserver, API_NS_SVMS, &svm); err != nil {
+		if err := filer.getObjectByName(filer.Vserver, API_NS_SVMS, &svm); err != nil {
 			return fmt.Errorf("fail to get SVM %s: %s", filer.Vserver, err)
 		}
 		avail := int64(0)
@@ -94,7 +94,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 				API_NS_AGGREGATES,
 				record.UUID,
 			}, "/")
-			if err := filer.GetObjectByHref(href, &aggr); err != nil {
+			if err := filer.getObjectByHref(href, &aggr); err != nil {
 				log.Errorf("ignore aggregate %s: %s", record.Name, err)
 			}
 			if aggr.State == "online" && aggr.Space.BlockStorage.Available > avail && aggr.Space.BlockStorage.Available > quota {
@@ -138,6 +138,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		}
 
 	case "qtree":
+		return fmt.Errorf("not implemented yet: %s", filer.ProjectMode)
 
 	default:
 		return fmt.Errorf("unsupported project mode: %s", filer.ProjectMode)
@@ -153,7 +154,7 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 	// check if volume "groupname" exists.
 	qry := url.Values{}
 	qry.Set("name", groupname)
-	volRecords, err := filer.GetRecordsByQuery(qry, API_NS_VOLUMES)
+	volRecords, err := filer.getRecordsByQuery(qry, API_NS_VOLUMES)
 	if err != nil {
 		return fmt.Errorf("fail to check volume %s: %s", groupname, err)
 	}
@@ -164,7 +165,7 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 	// check if qtree with "username" already exists.
 	qry.Set("name", username)
 	qry.Set("volume.name", groupname)
-	records, err := filer.GetRecordsByQuery(qry, API_NS_QTREES)
+	records, err := filer.getRecordsByQuery(qry, API_NS_QTREES)
 	if err != nil {
 		return fmt.Errorf("fail to check qtree %s: %s", username, err)
 	}
@@ -216,14 +217,30 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 	return nil
 }
 
+// SetProjectQuota updates the quota of a project space.
 func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
 	switch filer.ProjectMode {
 	case "volume":
 		// check if volume with the same name already exists.
+		qry := url.Values{}
+		qry.Set("name", filer.volName(projectID))
+		records, err := filer.getRecordsByQuery(qry, API_NS_VOLUMES)
+		if err != nil {
+			return fmt.Errorf("fail to check volume %s: %s", projectID, err)
+		}
+		if len(records) != 1 {
+			return fmt.Errorf("project volume doesn't exist: %s", projectID)
+		}
 
 		// resize the volume to the given quota.
+		data := []byte(fmt.Sprintf(`{"name":"%s", "size":%d}`, filer.volName(projectID), quotaGiB<<30))
+
+		if err := filer.patchObject(records[0], data); err != nil {
+			return err
+		}
 
 	case "qtree":
+		return fmt.Errorf("unsupported project mode: %s", filer.ProjectMode)
 
 	default:
 		return fmt.Errorf("unsupported project mode: %s", filer.ProjectMode)
@@ -232,36 +249,62 @@ func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
 	return nil
 }
 
+// SetHomeQuota updates the quota of a home directory.
 func (filer NetApp) SetHomeQuota(username, groupname string, quotaGiB int) error {
 
-	// check if the qtree "username" already exists under volume "groupname"
+	// check if the volume exists
+	qry := url.Values{}
+	qry.Set("name", groupname)
+	volRecords, err := filer.getRecordsByQuery(qry, API_NS_VOLUMES)
+	if err != nil {
+		return fmt.Errorf("fail to check volume %s: %s", groupname, err)
+	}
+	if len(volRecords) == 0 {
+		return fmt.Errorf("volume doesn't exit: %s", groupname)
+	}
+
+	// check if the quota rule exists
+	qry = url.Values{}
+	qry.Set("volume.name", groupname)
+	qry.Set("qtree.name", username)
+	records, err := filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
+	if err != nil {
+		return fmt.Errorf("fail to check quota rule for volume %s qtree %s: %s", groupname, username, err)
+	}
+	if len(records) != 1 {
+		return fmt.Errorf("quota rule for volume %s qtree %s doesn't exist", groupname, username)
+	}
+
+	// switch off volume quota
+	// otherwise we cannot create new rule; perhaps it is because we don't have default rule on the volume.
+	if err := filer.patchObject(volRecords[0], []byte(`{"quota":{"enabled":false}}`)); err != nil {
+		return err
+	}
+
+	// ensure the volume quota will be switched on before this function is returned.
+	defer func() {
+		if err := filer.patchObject(volRecords[0], []byte(`{"quota":{"enabled":true}}`)); err != nil {
+			log.Errorf("cannot turn on quota for volume %s: %s", groupname, err)
+		}
+	}()
 
 	// update corresponding quota rule for the qtree
+	data := []byte(fmt.Sprintf(`{"space":{"hard_limit":%d}}`, quotaGiB<<30))
 
-	// turn volume quota off and on to apply the new rule.
+	if err := filer.patchObject(records[0], data); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-// GetVolume gets the volume with the given name.
-func (filer NetApp) GetVolume(name string) (*Volume, error) {
-
-	volume := Volume{}
-
-	if err := filer.GetObjectByName(name, API_NS_VOLUMES, &volume); err != nil {
-		return nil, err
-	}
-
-	return &volume, nil
-}
-
-// GetObjectByName retrives the named object from the given API namespace.
-func (filer NetApp) GetObjectByName(name, nsAPI string, object interface{}) error {
+// getObjectByName retrives the named object from the given API namespace.
+func (filer NetApp) getObjectByName(name, nsAPI string, object interface{}) error {
 
 	query := url.Values{}
 	query.Set("name", name)
 
-	records, err := filer.GetRecordsByQuery(query, nsAPI)
+	records, err := filer.getRecordsByQuery(query, nsAPI)
 	if err != nil {
 		return err
 	}
@@ -270,15 +313,15 @@ func (filer NetApp) GetObjectByName(name, nsAPI string, object interface{}) erro
 		return fmt.Errorf("more than 1 object found: %d", len(records))
 	}
 
-	if err := filer.GetObjectByHref(records[0].Link.Self.Href, object); err != nil {
+	if err := filer.getObjectByHref(records[0].Link.Self.Href, object); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// GetRecordsByQuery retrives the object from the given API namespace using a specific URL query.
-func (filer NetApp) GetRecordsByQuery(query url.Values, nsAPI string) ([]Record, error) {
+// getRecordsByQuery retrives the object from the given API namespace using a specific URL query.
+func (filer NetApp) getRecordsByQuery(query url.Values, nsAPI string) ([]Record, error) {
 
 	records := make([]Record, 0)
 
@@ -328,8 +371,8 @@ func (filer NetApp) GetRecordsByQuery(query url.Values, nsAPI string) ([]Record,
 	return rec.Records, nil
 }
 
-// GetObjectByHref retrives the object from the given API namespace using a specific URL query.
-func (filer NetApp) GetObjectByHref(href string, object interface{}) error {
+// getObjectByHref retrives the object from the given API namespace using a specific URL query.
+func (filer NetApp) getObjectByHref(href string, object interface{}) error {
 
 	c := newHTTPSClient()
 
@@ -503,7 +546,7 @@ func (filer NetApp) waitJob(job *APIJob) error {
 
 waitLoop:
 	for {
-		if e := filer.GetObjectByHref(href, &(job.Job)); err != nil {
+		if e := filer.getObjectByHref(href, &(job.Job)); err != nil {
 			err = fmt.Errorf("cannot poll job %s: %s", job.Job.UUID, e)
 			break
 		}
@@ -528,9 +571,9 @@ waitLoop:
 func newHTTPSClient() (client *http.Client) {
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
-			Timeout: 5 * time.Second,
+			Timeout: 10 * time.Second,
 		}).DialContext,
-		TLSHandshakeTimeout: 5 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // FIXIT: don't ignore the bad server certificate.
 	}
 
