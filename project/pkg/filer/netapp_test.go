@@ -20,14 +20,14 @@ const (
 
 func init() {
 	filerCfg := NetAppConfig{
-		APIServerURL: "https://131.174.44.94",
-		APIUsername:  os.Getenv("NETAPP_API_USERNAME"),
-		APIPassword:  os.Getenv("NETAPP_API_PASSWORD"),
-		Vserver:      "atreides",
-		ProjectGID:   1010,
-		ProjectUID:   1010,
-		ProjectRoot:  "/project",
-		ProjectMode:  "volume",
+		ApiURL:      "https://131.174.44.94",
+		ApiUser:     os.Getenv("NETAPP_API_USERNAME"),
+		ApiPass:     os.Getenv("NETAPP_API_PASSWORD"),
+		Vserver:     "atreides",
+		ProjectGID:  1010,
+		ProjectUID:  1010,
+		ProjectRoot: "/project",
+		ProjectMode: "volume",
 	}
 
 	netapp = New("netapp", filerCfg)
