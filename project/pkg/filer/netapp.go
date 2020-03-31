@@ -2,11 +2,9 @@ package filer
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -325,7 +323,7 @@ func (filer NetApp) getRecordsByQuery(query url.Values, nsAPI string) ([]Record,
 
 	records := make([]Record, 0)
 
-	c := newHTTPSClient()
+	c := newHTTPSClient(true)
 
 	href := strings.Join([]string{filer.APIServerURL, "api", nsAPI}, "/")
 
@@ -374,7 +372,7 @@ func (filer NetApp) getRecordsByQuery(query url.Values, nsAPI string) ([]Record,
 // getObjectByHref retrives the object from the given API namespace using a specific URL query.
 func (filer NetApp) getObjectByHref(href string, object interface{}) error {
 
-	c := newHTTPSClient()
+	c := newHTTPSClient(true)
 
 	// create request
 	req, err := http.NewRequest("GET", strings.Join([]string{filer.APIServerURL, href}, "/"), nil)
@@ -414,7 +412,7 @@ func (filer NetApp) getObjectByHref(href string, object interface{}) error {
 
 // createObject creates given object under the specified API namespace.
 func (filer NetApp) createObject(object interface{}, nsAPI string) error {
-	c := newHTTPSClient()
+	c := newHTTPSClient(true)
 
 	href := strings.Join([]string{filer.APIServerURL, "api", nsAPI}, "/")
 
@@ -481,7 +479,7 @@ func (filer NetApp) createObject(object interface{}, nsAPI string) error {
 // patchObject patches given object `Record` with provided setting specified by `data`.
 func (filer NetApp) patchObject(object Record, data []byte) error {
 
-	c := newHTTPSClient()
+	c := newHTTPSClient(true)
 
 	href := strings.Join([]string{filer.APIServerURL, object.Link.Self.Href}, "/")
 
@@ -565,24 +563,6 @@ waitLoop:
 	}
 
 	return err
-}
-
-// internal utility functions
-func newHTTPSClient() (client *http.Client) {
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout: 10 * time.Second,
-		}).DialContext,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // FIXIT: don't ignore the bad server certificate.
-	}
-
-	client = &http.Client{
-		Timeout:   10 * time.Second,
-		Transport: transport,
-	}
-
-	return
 }
 
 // APIJob of the API request.

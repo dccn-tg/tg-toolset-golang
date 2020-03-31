@@ -4,6 +4,11 @@
 package filer
 
 import (
+	"crypto/tls"
+	"net"
+	"net/http"
+	"time"
+
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
@@ -39,4 +44,25 @@ type Filer interface {
 	CreateHome(username, groupname string, quotaGiB int) error
 	SetProjectQuota(projectID string, quotaGiB int) error
 	SetHomeQuota(username, groupname string, quotaGiB int) error
+}
+
+// newHTTPSClient initiate a HTTPS client.
+func newHTTPSClient(insecure bool) (client *http.Client) {
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout: 10 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+
+	if insecure {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	client = &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: transport,
+	}
+
+	return
 }
