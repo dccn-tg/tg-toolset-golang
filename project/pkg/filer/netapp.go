@@ -29,14 +29,18 @@ const (
 	API_NS_QUOTA_RULES string = "/storage/quota/rules"
 )
 
-// NetApp implements Filer interface for NetApp OnTAP cluster.
-type NetApp struct {
+// NetAppConfig implements the `Config` interface and extends it with configurations
+// that are specific to the NetApp filer.
+type NetAppConfig struct {
 	// APIServerURL is the server URL of the OnTAP APIs.
 	APIServerURL string
 	// APIUsername is the username for the basic authentication of the OnTAP API.
 	APIUsername string
 	// APIPassword is the password for the basic authentication of the OnTAP API.
 	APIPassword string
+	// ProjectRoot specifies the top-level NAS path in which projects are located.
+	ProjectRoot string
+
 	// ProjectMode specifies how the project space is allocated. Valid modes are
 	// "volume" and "qtree".
 	ProjectMode string
@@ -46,8 +50,23 @@ type NetApp struct {
 	ProjectUID int
 	// ProjectGID specifies the system GID of group `project_g`
 	ProjectGID int
-	// ProjectRoot specifies the top-level NAS path in which projects are located.
-	ProjectRoot string
+}
+
+// GetApiURL returns the server URL of the OnTAP API.
+func (c NetAppConfig) GetApiURL() string { return c.APIServerURL }
+
+// GetApiUser returns the username for the API basic authentication.
+func (c NetAppConfig) GetApiUser() string { return c.APIUsername }
+
+// GetApiPass returns the password for the API basic authentication.
+func (c NetAppConfig) GetApiPass() string { return c.APIPassword }
+
+// GetProjectRoot returns the filesystem root path in which directories of projects are located.
+func (c NetAppConfig) GetProjectRoot() string { return c.ProjectRoot }
+
+// NetApp implements Filer interface for NetApp OnTAP cluster.
+type NetApp struct {
+	config NetAppConfig
 }
 
 // volName converts project identifier to the OnTAP volume name.
@@ -63,7 +82,7 @@ func (filer NetApp) volName(projectID string) string {
 // CreateProject provisions a project space on the filer with the given quota.
 func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 
-	switch filer.ProjectMode {
+	switch filer.config.ProjectMode {
 	case "volume":
 		// check if volume with the same name doee not exist.
 		qry := url.Values{}
@@ -79,8 +98,8 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		// determine which aggregate should be used for creating the new volume.
 		quota := int64(quotaGiB << 30)
 		svm := SVM{}
-		if err := filer.getObjectByName(filer.Vserver, API_NS_SVMS, &svm); err != nil {
-			return fmt.Errorf("fail to get SVM %s: %s", filer.Vserver, err)
+		if err := filer.getObjectByName(filer.config.Vserver, API_NS_SVMS, &svm); err != nil {
+			return fmt.Errorf("fail to get SVM %s: %s", filer.config.Vserver, err)
 		}
 		avail := int64(0)
 
@@ -112,14 +131,14 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 				Record{Name: theAggr.Name},
 			},
 			Size:  quota,
-			Svm:   Record{Name: filer.Vserver},
+			Svm:   Record{Name: filer.config.Vserver},
 			State: "online",
 			Style: "flexvol",
 			Type:  "rw",
 			Nas: Nas{
-				UID:             filer.ProjectUID,
-				GID:             filer.ProjectGID,
-				Path:            filepath.Join(filer.ProjectRoot, projectID),
+				UID:             filer.config.ProjectUID,
+				GID:             filer.config.ProjectGID,
+				Path:            filepath.Join(filer.config.GetProjectRoot(), projectID),
 				SecurityStyle:   "unix",
 				UnixPermissions: "0750",
 				ExportPolicy:    ExportPolicy{Name: "dccn-projects"},
@@ -136,10 +155,10 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		}
 
 	case "qtree":
-		return fmt.Errorf("not implemented yet: %s", filer.ProjectMode)
+		return fmt.Errorf("not implemented yet: %s", filer.config.ProjectMode)
 
 	default:
-		return fmt.Errorf("unsupported project mode: %s", filer.ProjectMode)
+		return fmt.Errorf("unsupported project mode: %s", filer.config.ProjectMode)
 	}
 
 	return nil
@@ -174,7 +193,7 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 	// create qtree within the volume.
 	qtree := QTree{
 		Name:            username,
-		SVM:             Record{Name: filer.Vserver},
+		SVM:             Record{Name: filer.config.Vserver},
 		Volume:          Record{Name: groupname},
 		SecurityStyle:   "unix",
 		UnixPermissions: "0700",
@@ -182,7 +201,7 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 	}
 
 	qrule := QuotaRule{
-		SVM:    Record{Name: filer.Vserver},
+		SVM:    Record{Name: filer.config.Vserver},
 		Volume: Record{Name: groupname},
 		QTree:  &Record{Name: username},
 		Type:   "tree",
@@ -217,7 +236,7 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 
 // SetProjectQuota updates the quota of a project space.
 func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
-	switch filer.ProjectMode {
+	switch filer.config.ProjectMode {
 	case "volume":
 		// check if volume with the same name already exists.
 		qry := url.Values{}
@@ -238,10 +257,10 @@ func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
 		}
 
 	case "qtree":
-		return fmt.Errorf("unsupported project mode: %s", filer.ProjectMode)
+		return fmt.Errorf("unsupported project mode: %s", filer.config.ProjectMode)
 
 	default:
-		return fmt.Errorf("unsupported project mode: %s", filer.ProjectMode)
+		return fmt.Errorf("unsupported project mode: %s", filer.config.ProjectMode)
 	}
 
 	return nil
@@ -323,9 +342,9 @@ func (filer NetApp) getRecordsByQuery(query url.Values, nsAPI string) ([]Record,
 
 	records := make([]Record, 0)
 
-	c := newHTTPSClient(true)
+	c := newHTTPSClient(30*time.Second, true)
 
-	href := strings.Join([]string{filer.APIServerURL, "api", nsAPI}, "/")
+	href := strings.Join([]string{filer.config.GetApiURL(), "api", nsAPI}, "/")
 
 	// create request
 	req, err := http.NewRequest("GET", href, nil)
@@ -336,7 +355,7 @@ func (filer NetApp) getRecordsByQuery(query url.Values, nsAPI string) ([]Record,
 	req.URL.RawQuery = query.Encode()
 
 	// set request header for basic authentication
-	req.SetBasicAuth(filer.APIUsername, filer.APIPassword)
+	req.SetBasicAuth(filer.config.GetApiUser(), filer.config.GetApiPass())
 	// NOTE: adding "Accept: application/json" to header can causes the API server
 	//       to not returning "_links" attribute containing API href to the object.
 	//       Therefore, it is not set here.
@@ -358,8 +377,6 @@ func (filer NetApp) getRecordsByQuery(query url.Values, nsAPI string) ([]Record,
 		return records, err
 	}
 
-	log.Debugf("%s", string(httpBodyBytes))
-
 	// unmarshal response body to object structure
 	rec := Records{}
 	if err := json.Unmarshal(httpBodyBytes, &rec); err != nil {
@@ -372,16 +389,16 @@ func (filer NetApp) getRecordsByQuery(query url.Values, nsAPI string) ([]Record,
 // getObjectByHref retrives the object from the given API namespace using a specific URL query.
 func (filer NetApp) getObjectByHref(href string, object interface{}) error {
 
-	c := newHTTPSClient(true)
+	c := newHTTPSClient(10*time.Second, true)
 
 	// create request
-	req, err := http.NewRequest("GET", strings.Join([]string{filer.APIServerURL, href}, "/"), nil)
+	req, err := http.NewRequest("GET", strings.Join([]string{filer.config.GetApiURL(), href}, "/"), nil)
 	if err != nil {
 		return err
 	}
 
 	// set request header for basic authentication
-	req.SetBasicAuth(filer.APIUsername, filer.APIPassword)
+	req.SetBasicAuth(filer.config.GetApiUser(), filer.config.GetApiPass())
 	// NOTE: adding "Accept: application/json" to header can causes the API server
 	//       to not returning "_links" attribute containing API href to the object.
 	//       Therefore, it is not set here.
@@ -400,8 +417,6 @@ func (filer NetApp) getObjectByHref(href string, object interface{}) error {
 		return err
 	}
 
-	log.Debugf("%s", string(httpBodyBytes))
-
 	// unmarshal response body to object structure
 	if err := json.Unmarshal(httpBodyBytes, object); err != nil {
 		return err
@@ -412,9 +427,9 @@ func (filer NetApp) getObjectByHref(href string, object interface{}) error {
 
 // createObject creates given object under the specified API namespace.
 func (filer NetApp) createObject(object interface{}, nsAPI string) error {
-	c := newHTTPSClient(true)
+	c := newHTTPSClient(10*time.Second, true)
 
-	href := strings.Join([]string{filer.APIServerURL, "api", nsAPI}, "/")
+	href := strings.Join([]string{filer.config.GetApiURL(), "api", nsAPI}, "/")
 
 	data, err := json.Marshal(object)
 
@@ -431,7 +446,7 @@ func (filer NetApp) createObject(object interface{}, nsAPI string) error {
 	}
 
 	// set request header for basic authentication
-	req.SetBasicAuth(filer.APIUsername, filer.APIPassword)
+	req.SetBasicAuth(filer.config.GetApiUser(), filer.config.GetApiPass())
 	req.Header.Set("content-type", "application/json")
 
 	res, err := c.Do(req)
@@ -455,15 +470,13 @@ func (filer NetApp) createObject(object interface{}, nsAPI string) error {
 		return fmt.Errorf("cannot read response body: %s", err)
 	}
 
-	log.Debugf("%s", string(httpBodyBytes))
-
 	job := APIJob{}
 	// unmarshal response body to object structure
 	if err := json.Unmarshal(httpBodyBytes, &job); err != nil {
 		return fmt.Errorf("cannot get job id: %s", err)
 	}
 
-	log.Debugf("%+v", job)
+	log.Debugf("job data: %+v", job)
 
 	if err := filer.waitJob(&job); err != nil {
 		return err
@@ -479,9 +492,9 @@ func (filer NetApp) createObject(object interface{}, nsAPI string) error {
 // patchObject patches given object `Record` with provided setting specified by `data`.
 func (filer NetApp) patchObject(object Record, data []byte) error {
 
-	c := newHTTPSClient(true)
+	c := newHTTPSClient(10*time.Second, true)
 
-	href := strings.Join([]string{filer.APIServerURL, object.Link.Self.Href}, "/")
+	href := strings.Join([]string{filer.config.GetApiURL(), object.Link.Self.Href}, "/")
 
 	// create request
 	req, err := http.NewRequest("PATCH", href, bytes.NewBuffer(data))
@@ -490,7 +503,7 @@ func (filer NetApp) patchObject(object Record, data []byte) error {
 	}
 
 	// set request header for basic authentication
-	req.SetBasicAuth(filer.APIUsername, filer.APIPassword)
+	req.SetBasicAuth(filer.config.GetApiUser(), filer.config.GetApiPass())
 	req.Header.Set("content-type", "application/json")
 
 	res, err := c.Do(req)
@@ -514,15 +527,13 @@ func (filer NetApp) patchObject(object Record, data []byte) error {
 		return fmt.Errorf("cannot read response body: %s", err)
 	}
 
-	log.Debugf("%s", string(httpBodyBytes))
-
 	job := APIJob{}
 	// unmarshal response body to object structure
 	if err := json.Unmarshal(httpBodyBytes, &job); err != nil {
 		return fmt.Errorf("cannot get job id: %s", err)
 	}
 
-	log.Debugf("%+v", job)
+	log.Debugf("job data: %+v", job)
 
 	if err := filer.waitJob(&job); err != nil {
 		return err

@@ -26,15 +26,24 @@ func init() {
 
 // New function returns the corresponding File implementation based on the
 // `system` name.
-func New(system string) Filer {
+func New(system string, config Config) Filer {
 	switch system {
 	case "netapp":
-		return NetApp{}
+		return NetApp{config: config.(NetAppConfig)}
 	case "freenas":
-		return FreeNas{}
+		return FreeNas{config: config.(FreeNasConfig)}
 	default:
 		return nil
 	}
+}
+
+// Config defines interfaces for retriving configuration parameters that are
+// common across different filer systems.
+type Config interface {
+	GetApiURL() string
+	GetApiUser() string
+	GetApiPass() string
+	GetProjectRoot() string
 }
 
 // Filer defines the interfaces for provisioning and setting storage space
@@ -47,12 +56,12 @@ type Filer interface {
 }
 
 // newHTTPSClient initiate a HTTPS client.
-func newHTTPSClient(insecure bool) (client *http.Client) {
+func newHTTPSClient(timeout time.Duration, insecure bool) (client *http.Client) {
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
-			Timeout: 10 * time.Second,
+			Timeout: timeout,
 		}).DialContext,
-		TLSHandshakeTimeout: 10 * time.Second,
+		TLSHandshakeTimeout: timeout,
 	}
 
 	if insecure {
@@ -60,7 +69,7 @@ func newHTTPSClient(insecure bool) (client *http.Client) {
 	}
 
 	client = &http.Client{
-		Timeout:   10 * time.Second,
+		Timeout:   timeout,
 		Transport: transport,
 	}
 

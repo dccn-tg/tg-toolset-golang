@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	netapp NetApp
+	netapp Filer
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 )
 
 func init() {
-	netapp = NetApp{
+	filerCfg := NetAppConfig{
 		APIServerURL: "https://131.174.44.94",
 		APIUsername:  os.Getenv("NETAPP_API_USERNAME"),
 		APIPassword:  os.Getenv("NETAPP_API_PASSWORD"),
@@ -27,16 +27,19 @@ func init() {
 		ProjectGID:   1010,
 		ProjectUID:   1010,
 		ProjectRoot:  "/project",
+		ProjectMode:  "volume",
 	}
 
-	cfg := log.Configuration{
+	netapp = New("netapp", filerCfg)
+
+	logCfg := log.Configuration{
 		EnableConsole:     true,
 		ConsoleJSONFormat: false,
 		ConsoleLevel:      log.Debug,
 	}
 
 	// initialize logger
-	log.NewLogger(cfg, log.InstanceLogrusLogger)
+	log.NewLogger(logCfg, log.InstanceLogrusLogger)
 }
 
 func TestUnmarshal(t *testing.T) {
@@ -82,14 +85,12 @@ func TestUnmarshal(t *testing.T) {
 }
 
 func TestCreateProject(t *testing.T) {
-	netapp.ProjectMode = "volume"
 	if err := netapp.CreateProject(projectID, 10); err != nil {
 		t.Errorf("fail to create project volume: %s", err)
 	}
 }
 
 func TestSetProjectQuota(t *testing.T) {
-	netapp.ProjectMode = "volume"
 	if err := netapp.SetProjectQuota(projectID, 20); err != nil {
 		t.Errorf("fail to update quota for project %s: %s", projectID, err)
 	}
