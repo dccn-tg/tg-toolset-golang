@@ -315,6 +315,49 @@ func (filer NetApp) SetHomeQuota(username, groupname string, quotaGiB int) error
 	return nil
 }
 
+// GetProjectQuotaInBytes retrieves quota of a project in bytes.
+func (filer NetApp) GetProjectQuotaInBytes(projectID string) (int64, error) {
+	switch filer.config.ProjectMode {
+	case "volume":
+		// check if volume with the same name already exists.
+		vol := Volume{}
+
+		if err := filer.getObjectByName(filer.volName(projectID), API_NS_VOLUMES, &vol); err != nil {
+			return 0, fmt.Errorf("cannot get project volume %s: %s", projectID, err)
+		}
+
+		return vol.Size, nil
+
+	case "qtree":
+		return 0, fmt.Errorf("unsupported project mode: %s", filer.config.ProjectMode)
+
+	default:
+		return 0, fmt.Errorf("unsupported project mode: %s", filer.config.ProjectMode)
+	}
+}
+
+// GetHomeQuotaInBytes retrieves quota of a user home space in bytes.
+func (filer NetApp) GetHomeQuotaInBytes(username, groupname string) (int64, error) {
+	qry := url.Values{}
+	qry.Set("volume.name", groupname)
+	qry.Set("qtree.name", username)
+
+	records, err := filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
+	if err != nil {
+		return 0, fmt.Errorf("fail to check quota rule for volume %s qtree %s: %s", groupname, username, err)
+	}
+	if len(records) != 1 {
+		return 0, fmt.Errorf("quota rule for volume %s qtree %s doesn't exist", groupname, username)
+	}
+
+	rule := QuotaRule{}
+	if err := filer.getObjectByHref(records[0].Link.Self.Href, &rule); err != nil {
+		return 0, fmt.Errorf("cannot get quota rule for volume %s qtree %s", groupname, username)
+	}
+
+	return rule.Space.HardLimit, nil
+}
+
 // getObjectByName retrives the named object from the given API namespace.
 func (filer NetApp) getObjectByName(name, nsAPI string, object interface{}) error {
 

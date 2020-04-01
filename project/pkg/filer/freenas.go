@@ -49,3 +49,11 @@ func (filer FreeNas) SetProjectQuota(projectID string, quotaGiB int) error {
 func (filer FreeNas) SetHomeQuota(username, groupname string, quotaGiB int) error {
 	return nil
 }
+
+func (filer FreeNas) GetProjectQuotaInBytes(projectID string) (int64, error) {
+	return 0, nil
+}
+
+func (filer FreeNas) GetHomeQuotaInBytes(username, groupname string) (int64, error) {
+	return 0, nil
+}

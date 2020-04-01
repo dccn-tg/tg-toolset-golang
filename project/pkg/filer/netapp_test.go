@@ -107,3 +107,19 @@ func TestSetHomeQuota(t *testing.T) {
 		t.Errorf("%s\n", err)
 	}
 }
+
+func TestGetHomeQuota(t *testing.T) {
+	if quota, err := netapp.GetHomeQuotaInBytes(username, groupname); err != nil {
+		t.Errorf("%s\n", err)
+	} else {
+		t.Logf("quota: %d\n", quota)
+	}
+}
+
+func TestGetProjectQuota(t *testing.T) {
+	if quota, err := netapp.GetProjectQuotaInBytes(projectID); err != nil {
+		t.Errorf("%s\n", err)
+	} else {
+		t.Logf("quota: %d\n", quota)
+	}
+}
