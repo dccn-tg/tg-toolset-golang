@@ -1,19 +1,18 @@
 #!/bin/bash
 
-API_HOST="https://131.174.44.94"
-API_URL="${API_HOST}/api"
-[ -z $ADMIN ] && ADMIN="roadmin"
-PASS=""
-SVM="atreides"
-
-# curl command prefix
-CURL="curl -k -#"
-
+[ -z $API_HOST ] && API_HOST="https://irulan-mgmt.dccn.nl"
+[ -z $API_USR ] && API_USR="roadmin"
+[ -z $SVM ] && SVM="fremen"
 [ -z $QUOTA_POLICY ] && QUOTA_POLICY="Qatreides"
 [ -z $EXPORT_POLICY ] && EXPORT_POLICY="dccn-projects"
 [ -z $PATH_PROJECT ] && PATH_PROJECT="/project"
 [ -z $UID_PROJECT ] && UID_PROJECT="1010"
 [ -z $GID_PROJECT ] && GID_PROJECT="1010"
+
+API_URL="${API_HOST}/api"
+
+# curl command prefix
+CURL="curl -k -#"
 
 # Print usage message and document.
 function usage() {
@@ -26,7 +25,7 @@ using the ONTAP management APIs. It requires "curl" and "jq".
 API documentation: https://library.netapp.com/ecmdocs/ECMLP2856304/html/index.html 
 
 Environment variables:
-            ADMIN: username for accessing the API server.
+            API_USR: username for accessing the API server.
     EXPORT_POLICY: NAS export policy name
      PATH_PROJECT: NAS export path
       UID_PROJECT: numerical uid of the user "project"
@@ -59,7 +58,7 @@ function projectNasPath() {
 function getHrefByQuery() {
     query=$1
     api_ns=$2
-    ${CURL} -X GET -u ${ADMIN}:${PASS} "${API_URL}/${api_ns}?${query}" | \
+    ${CURL} -X GET -u ${API_USR}:${API_PASS} "${API_URL}/${api_ns}?${query}" | \
     jq '.records[] | ._links.self.href' | \
     sed 's/"//g'
 }
@@ -72,7 +71,7 @@ function getObjectByUUID() {
 
     filter=".|.$(echo ${@:3} | sed 's/ /,./g')"
 
-    ${CURL} -X GET -u ${ADMIN}:${PASS} "${API_URL}/${api_ns}/${uuid}" | \
+    ${CURL} -X GET -u ${API_USR}:${API_PASS} "${API_URL}/${api_ns}/${uuid}" | \
     jq ${filter}
 }
 
@@ -81,7 +80,7 @@ function getObjectByHref() {
     href=$1
     filter=".|.$(echo ${@:2} | sed 's/ /,./g')"
 
-    ${CURL} -X GET -u ${ADMIN}:${PASS} "${API_HOST}/${href}" | \
+    ${CURL} -X GET -u ${API_USR}:${API_PASS} "${API_HOST}/${href}" | \
     jq ${filter}
 }
 
@@ -112,7 +111,7 @@ function newQtree() {
         echo "qtree already exists: $name" >&2 && return 1
 
     # create new qtree
-    out=$( ${CURL} -X POST -u ${ADMIN}:${PASS} \
+    out=$( ${CURL} -X POST -u ${API_USR}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataQtree $name $volname) \
             ${API_URL}/storage/qtrees )
@@ -146,7 +145,7 @@ function newVolume() {
     done
     
     # create new volume on aggregate
-    out=$( ${CURL} -X POST -u ${ADMIN}:${PASS} \
+    out=$( ${CURL} -X POST -u ${API_USR}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataProjectVolume $name $quota $aggr $path) \
             ${API_URL}/storage/volumes )
@@ -168,7 +167,7 @@ function resizeVolume() {
     [ "$href" == "" ] && echo "volume does not exists: $name" >&2 && return 1
 
     # resizing volume 
-    out=$( ${CURL} -X PATCH -u ${ADMIN}:${PASS} \
+    out=$( ${CURL} -X PATCH -u ${API_USR}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataResizeVolume $name $quota) \
             ${API_HOST}/${href} )
@@ -213,7 +212,7 @@ function newQuotaRule() {
     switchVolumeQuota $volname off || return 1
 
     # create quota rule ...
-    out=$( ${CURL} -X POST -u ${ADMIN}:${PASS} \
+    out=$( ${CURL} -X POST -u ${API_USR}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataQuotaRule $name $volname $quota) \
             ${API_URL}/storage/quota/rules )
@@ -241,7 +240,7 @@ function resizeQuota() {
         return 1
 
     # set quota rule ...
-    out=$( ${CURL} -X PATCH -u ${ADMIN}:${PASS} \
+    out=$( ${CURL} -X PATCH -u ${API_USR}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataResizeQuota $quota) \
             ${API_HOST}/${href} )
@@ -283,7 +282,7 @@ function switchVolumeQuota() {
         ;;
     esac
 
-    out=$( ${CURL} -X PATCH -u ${ADMIN}:${PASS} \
+    out=$( ${CURL} -X PATCH -u ${API_USR}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(echo $data) \
             ${API_HOST}/${href} )
@@ -314,14 +313,14 @@ function switchVolumeQuota() {
 # Get job status
 function getJobState() {
     id=$1
-    ${CURL} -X GET -u ${ADMIN}:${PASS} \
+    ${CURL} -X GET -u ${API_USR}:${API_PASS} \
         "${API_URL}/cluster/jobs/${id}" | jq '.state' | sed 's/"//g'
 }
 
 # Get job messages
 function getJobMessage() {
     id=$1
-    ${CURL} -X GET -u ${ADMIN}:${PASS} \
+    ${CURL} -X GET -u ${API_USR}:${API_PASS} \
         "${API_URL}/cluster/jobs/${id}" | jq '.message' | sed 's/"//g'
 }
 
@@ -453,9 +452,9 @@ EOF
 [ $# -lt 2 ] && usage $0 && exit 1
 ops=$1
 
-echo -n "Password for API user ($ADMIN): "
-read -s PASS
-echo
+## prompt to ask for API_PASS if not set
+[ -z $API_PASS ] &&
+    echo -n "Password for API user ($API_USR): " &&  read -s API_PASS && echo
 
 case $ops in
 new)
@@ -465,10 +464,17 @@ new)
 
     if isProjectName $2; then #this is for project
         projectID=$2
-        volname=$(projectVolName $projectID)
-        nasPath=$(projectNasPath $projectID)
-        echo "Creating volume of project $projectID ..." &&
-        newVolume $volname $sizeGb $nasPath || exit 1
+
+        ### For creating project as qtree.
+        echo "Creating qtree for project $projectID, volume project ... " &&
+        newQtree $projectID project &&
+            newQuotRule $projectID project $sizeGb || exit 1
+
+        ### For creating project as volume.
+        # volname=$(projectVolName $projectID)
+        # nasPath=$(projectNasPath $projectID)
+        # echo "Creating volume of project $projectID ..." &&
+        # newVolume $volname $sizeGb $nasPath || exit 1
     else #this is for user home
         [ $# -lt 4 ] && usage $0 && echo "missing user group" >&2 && exit 1
         name=$2
@@ -483,8 +489,16 @@ new)
 get)
     if isProjectName $2; then #this is for project
         projectID=$2
-        echo "Getting volume of project $projectID ..." &&
-        getObjectByName $(projectVolName $projectID) "/storage/volumes" || exit 1
+
+        ### For project as qtree.
+        echo "Getting qtree of project $projectID ..." &&
+        getObjectByName $name "/storage/qtrees" && 
+        echo "Getting quota rule for project $projectID ..." &&
+        getQuotaRule $name || exit 1
+
+        ### For project as volume.
+        # echo "Getting volume of project $projectID ..." &&
+        # getObjectByName $(projectVolName $projectID) "/storage/volumes" || exit 1
     else #this is for user home
         name=$2
         echo "Getting qtree of user $name ..." &&
@@ -501,10 +515,16 @@ qot)
 
     if isProjectName $2; then #this is for project
         projectID=$2
-        volName=$(projectVolName $projectID)
 
-        echo "Resizing volume for project $projectID ..." &&
-        resizeVolume $volName $sizeGb || exit 1
+        ### For project as qtree.
+        echo "Setting quota for project $projectID ..." &&
+        resizeQuota $projectID project $sizeGb || exit 1     
+
+        ### For project as volume.
+        # volName=$(projectVolName $projectID)
+
+        # echo "Resizing volume for project $projectID ..." &&
+        # resizeVolume $volName $sizeGb || exit 1
     else #this is for user home
         [ $# -lt 4 ] && usage $0 && echo "missing user group" >&2 && exit 1
         name=$2
