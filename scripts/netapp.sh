@@ -1,7 +1,7 @@
 #!/bin/bash
 
 [ -z $API_HOST ] && API_HOST="https://irulan-mgmt.dccn.nl"
-[ -z $API_USR ] && API_USR="roadmin"
+[ -z $API_USER ] && API_USER="roadmin"
 [ -z $SVM ] && SVM="fremen"
 # [ -z $QUOTA_POLICY ] && QUOTA_POLICY="Qatreides"
 [ -z $EXPORT_POLICY ] && EXPORT_POLICY="dccn-projects"
@@ -26,10 +26,11 @@ API documentation: https://library.netapp.com/ecmdocs/ECMLP2856304/html/index.ht
 
 Environment variables:
             API_HOST: URL of the API host.
-             API_USR: username for accessing the API server.
+            API_USER: username for accessing the API server.
+            API_PASS: password for accessing the API server (prompt for password if not set).
                  SVM: vserver name.
        EXPORT_POLICY: NAS export policy name
-        PATH_PROJECT: NAS export path
+        PATH_PROJECT: NAS export path (not used if project is made as qtree).
          UID_PROJECT: numerical uid of the user "project"
          GID_PROJECT: numerical gid of the group "project_g"
 
@@ -60,7 +61,7 @@ function projectNasPath() {
 function getHrefByQuery() {
     query=$1
     api_ns=$2
-    ${CURL} -X GET -u ${API_USR}:${API_PASS} "${API_URL}/${api_ns}?${query}" | \
+    ${CURL} -X GET -u ${API_USER}:${API_PASS} "${API_URL}/${api_ns}?${query}" | \
     jq '.records[] | ._links.self.href' | \
     sed 's/"//g'
 }
@@ -73,7 +74,7 @@ function getObjectByUUID() {
 
     filter=".|.$(echo ${@:3} | sed 's/ /,./g')"
 
-    ${CURL} -X GET -u ${API_USR}:${API_PASS} "${API_URL}/${api_ns}/${uuid}" | \
+    ${CURL} -X GET -u ${API_USER}:${API_PASS} "${API_URL}/${api_ns}/${uuid}" | \
     jq ${filter}
 }
 
@@ -82,7 +83,7 @@ function getObjectByHref() {
     href=$1
     filter=".|.$(echo ${@:2} | sed 's/ /,./g')"
 
-    ${CURL} -X GET -u ${API_USR}:${API_PASS} "${API_HOST}/${href}" | \
+    ${CURL} -X GET -u ${API_USER}:${API_PASS} "${API_HOST}/${href}" | \
     jq ${filter}
 }
 
@@ -113,7 +114,7 @@ function newQtree() {
         echo "qtree already exists: $name" >&2 && return 1
 
     # create new qtree
-    out=$( ${CURL} -X POST -u ${API_USR}:${API_PASS} \
+    out=$( ${CURL} -X POST -u ${API_USER}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataQtree $name $volname) \
             ${API_URL}/storage/qtrees )
@@ -147,7 +148,7 @@ function newVolume() {
     done
     
     # create new volume on aggregate
-    out=$( ${CURL} -X POST -u ${API_USR}:${API_PASS} \
+    out=$( ${CURL} -X POST -u ${API_USER}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataProjectVolume $name $quota $aggr $path) \
             ${API_URL}/storage/volumes )
@@ -169,7 +170,7 @@ function resizeVolume() {
     [ "$href" == "" ] && echo "volume does not exists: $name" >&2 && return 1
 
     # resizing volume 
-    out=$( ${CURL} -X PATCH -u ${API_USR}:${API_PASS} \
+    out=$( ${CURL} -X PATCH -u ${API_USER}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataResizeVolume $name $quota) \
             ${API_HOST}/${href} )
@@ -214,7 +215,7 @@ function newQuotaRule() {
     switchVolumeQuota $volname off || return 1
 
     # create quota rule ...
-    out=$( ${CURL} -X POST -u ${API_USR}:${API_PASS} \
+    out=$( ${CURL} -X POST -u ${API_USER}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataQuotaRule $name $volname $quota) \
             ${API_URL}/storage/quota/rules )
@@ -242,7 +243,7 @@ function resizeQuota() {
         return 1
 
     # set quota rule ...
-    out=$( ${CURL} -X PATCH -u ${API_USR}:${API_PASS} \
+    out=$( ${CURL} -X PATCH -u ${API_USER}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(dataResizeQuota $quota) \
             ${API_HOST}/${href} )
@@ -284,7 +285,7 @@ function switchVolumeQuota() {
         ;;
     esac
 
-    out=$( ${CURL} -X PATCH -u ${API_USR}:${API_PASS} \
+    out=$( ${CURL} -X PATCH -u ${API_USER}:${API_PASS} \
             -H 'content-type: application/json' \
             -d $(echo $data) \
             ${API_HOST}/${href} )
@@ -315,14 +316,14 @@ function switchVolumeQuota() {
 # Get job status
 function getJobState() {
     id=$1
-    ${CURL} -X GET -u ${API_USR}:${API_PASS} \
+    ${CURL} -X GET -u ${API_USER}:${API_PASS} \
         "${API_URL}/cluster/jobs/${id}" | jq '.state' | sed 's/"//g'
 }
 
 # Get job messages
 function getJobMessage() {
     id=$1
-    ${CURL} -X GET -u ${API_USR}:${API_PASS} \
+    ${CURL} -X GET -u ${API_USER}:${API_PASS} \
         "${API_URL}/cluster/jobs/${id}" | jq '.message' | sed 's/"//g'
 }
 
@@ -456,7 +457,7 @@ ops=$1
 
 ## prompt to ask for API_PASS if not set
 [ -z $API_PASS ] &&
-    echo -n "Password for API user ($API_USR): " &&  read -s API_PASS && echo
+    echo -n "Password for API user ($API_USER): " &&  read -s API_PASS && echo
 
 case $ops in
 new)
