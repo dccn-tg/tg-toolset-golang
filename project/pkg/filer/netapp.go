@@ -728,7 +728,7 @@ type Space struct {
 
 // SnapshotConfig of a OnTAP volume.
 type SnapshotConfig struct {
-	ReservePercent int `json:"reserve_precent"`
+	ReservePercent int `json:"reserve_percent"`
 }
 
 // SVM of OnTAP
