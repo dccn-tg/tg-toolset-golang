@@ -147,7 +147,10 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 				Policy: QoSPolicy{MaxIOPS: 6000},
 			},
 			SnapshotPolicy: Record{Name: "none"},
-			Autosize:       &Autosize{Mode: "off"},
+			Space: &Space{
+				Snapshot: &SnapshotConfig{ReservePercent: 5},
+			},
+			Autosize: &Autosize{Mode: "off"},
 		}
 
 		// blocking operation to create the volume.
@@ -717,9 +720,15 @@ type ExportPolicy struct {
 
 // Space information of a OnTAP volume.
 type Space struct {
-	Size      int64 `json:"size"`
-	Available int64 `json:"available"`
-	Used      int64 `json:"used"`
+	Size      int64           `json:"size,omitempty"`
+	Available int64           `json:"available,omitempty"`
+	Used      int64           `json:"used,omitempty"`
+	Snapshot  *SnapshotConfig `json:"snapshot,omitempty"`
+}
+
+// SnapshotConfig of a OnTAP volume.
+type SnapshotConfig struct {
+	ReservePercent int `json:"reserve_precent"`
 }
 
 // SVM of OnTAP
