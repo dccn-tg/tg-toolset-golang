@@ -148,7 +148,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 			},
 			SnapshotPolicy: Record{Name: "none"},
 			Space: &Space{
-				Snapshot: &SnapshotConfig{ReservePercent: 5},
+				Snapshot: &SnapshotConfig{ReservePercent: 0},
 			},
 			Autosize: &Autosize{Mode: "off"},
 		}
