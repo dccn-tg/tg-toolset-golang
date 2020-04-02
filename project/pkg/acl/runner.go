@@ -491,7 +491,7 @@ func (r Runner) goDelRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 		for i := 0; i < nthreads; i++ {
 			go func() {
 				for f := range chanF {
-					log.Debugf("processing file: %f", f.Path)
+					log.Debugf("processing file: %s", f.Path)
 					updateACL(f)
 				}
 				wg.Done()
