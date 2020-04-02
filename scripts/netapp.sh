@@ -3,7 +3,7 @@
 [ -z $API_HOST ] && API_HOST="https://irulan-mgmt.dccn.nl"
 [ -z $API_USR ] && API_USR="roadmin"
 [ -z $SVM ] && SVM="fremen"
-[ -z $QUOTA_POLICY ] && QUOTA_POLICY="Qatreides"
+# [ -z $QUOTA_POLICY ] && QUOTA_POLICY="Qatreides"
 [ -z $EXPORT_POLICY ] && EXPORT_POLICY="dccn-projects"
 [ -z $PATH_PROJECT ] && PATH_PROJECT="/project"
 [ -z $UID_PROJECT ] && UID_PROJECT="1010"
@@ -25,11 +25,13 @@ using the ONTAP management APIs. It requires "curl" and "jq".
 API documentation: https://library.netapp.com/ecmdocs/ECMLP2856304/html/index.html 
 
 Environment variables:
-            API_USR: username for accessing the API server.
-    EXPORT_POLICY: NAS export policy name
-     PATH_PROJECT: NAS export path
-      UID_PROJECT: numerical uid of the user "project"
-      GID_PROJECT: numerical gid of the group "project_g"
+            API_HOST: URL of the API host.
+             API_USR: username for accessing the API server.
+                 SVM: vserver name.
+       EXPORT_POLICY: NAS export policy name
+        PATH_PROJECT: NAS export path
+         UID_PROJECT: numerical uid of the user "project"
+         GID_PROJECT: numerical gid of the group "project_g"
 
 Operations:
     new: creates new space for a project or a user home.
