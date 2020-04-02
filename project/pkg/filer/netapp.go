@@ -146,7 +146,8 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 			QoS: &QoS{
 				Policy: QoSPolicy{MaxIOPS: 6000},
 			},
-			Autosize: &Autosize{Mode: "off"},
+			SnapshotPolicy: Record{Name: "none"},
+			Autosize:       &Autosize{Mode: "off"},
 		}
 
 		// blocking operation to create the volume.
@@ -665,19 +666,20 @@ type Link struct {
 
 // Volume of OnTAP.
 type Volume struct {
-	UUID       string    `json:"uuid,omitempty"`
-	Name       string    `json:"name"`
-	Type       string    `json:"type"`
-	State      string    `json:"state"`
-	Size       int64     `json:"size"`
-	Style      string    `json:"style"`
-	Space      *Space    `json:"space,omitempty"`
-	Svm        Record    `json:"svm"`
-	Aggregates []Record  `json:"aggregates"`
-	Nas        Nas       `json:"nas"`
-	QoS        *QoS      `json:"qos,omitempty"`
-	Autosize   *Autosize `json:"autosize,omitempty"`
-	Link       *Link     `json:"_links,omitempty"`
+	UUID           string    `json:"uuid,omitempty"`
+	Name           string    `json:"name"`
+	Type           string    `json:"type"`
+	State          string    `json:"state"`
+	Size           int64     `json:"size"`
+	Style          string    `json:"style"`
+	Space          *Space    `json:"space,omitempty"`
+	Svm            Record    `json:"svm"`
+	Aggregates     []Record  `json:"aggregates"`
+	Nas            Nas       `json:"nas"`
+	SnapshotPolicy Record    `json:"snapshot_policy"`
+	QoS            *QoS      `json:"qos,omitempty"`
+	Autosize       *Autosize `json:"autosize,omitempty"`
+	Link           *Link     `json:"_links,omitempty"`
 }
 
 // QoS contains a Qolity-of-Service policy.
