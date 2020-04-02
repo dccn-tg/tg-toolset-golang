@@ -439,6 +439,9 @@ function dataProjectVolume() {
     "security_style": "unix",
     "unix_permissions": "0750",
     "export_policy": {}
+  },
+  "snapshot_policy": {
+    "name": "none"
   }
 }
 
