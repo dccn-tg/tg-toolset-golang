@@ -4,7 +4,7 @@
 [ -z $API_USER ] && API_USER="roadmin"
 [ -z $SVM ] && SVM="fremen"
 # [ -z $QUOTA_POLICY ] && QUOTA_POLICY="Qatreides"
-[ -z $EXPORT_POLICY ] && EXPORT_POLICY="dccn-projects"
+[ -z $EXPORT_POLICY ] && EXPORT_POLICY="fremen-projects"
 [ -z $PATH_PROJECT ] && PATH_PROJECT="/project"
 [ -z $UID_PROJECT ] && UID_PROJECT="1010"
 [ -z $GID_PROJECT ] && GID_PROJECT="1010"
@@ -471,7 +471,7 @@ new)
         ### For creating project as qtree.
         echo "Creating qtree for project $projectID, volume project ... " &&
         newQtree $projectID project &&
-            newQuotRule $projectID project $sizeGb || exit 1
+            newQuotaRule $projectID project $sizeGb || exit 1
 
         ### For creating project as volume.
         # volname=$(projectVolName $projectID)
