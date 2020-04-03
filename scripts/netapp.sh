@@ -212,7 +212,9 @@ function newQuotaRule() {
 
     # NOTE: it seems that switching off quota on volume is necessary in
     #       order to create an explicit quota rule.
-    switchVolumeQuota $volname off || return 1
+    # NOTE: it is no longer needed to turn off/on the volume quota if there is already a
+    #       default rule applied.  !!Manually create the default rule is required!!
+    # switchVolumeQuota $volname off || return 1
 
     # create quota rule ...
     out=$( ${CURL} -X POST -u ${API_USER}:${API_PASS} \
@@ -225,9 +227,11 @@ function newQuotaRule() {
         echo $out | jq && return 1
 
     # turn quota off and on to refresh the quota
-    switchVolumeQuota $volname off &&
-    switchVolumeQuota $volname on ||
-    (echo "unable to refresh quota on volume: $volname" >&2 && return 1) 
+    # NOTE: it is no longer needed to turn off/on the volume quota if there is already a
+    #       default rule applied.  !!Manually create the default rule is required!!
+    # switchVolumeQuota $volname off &&
+    # switchVolumeQuota $volname on ||
+    # (echo "unable to refresh quota on volume: $volname" >&2 && return 1) 
 }
 
 # update the quota rule to resize quota of a qtree 
@@ -253,9 +257,11 @@ function resizeQuota() {
         echo $out | jq && return 1
 
     # turn quota off and on to refresh the quota
-    switchVolumeQuota $volname off &&
-    switchVolumeQuota $volname on ||
-    (echo "unable to refresh quota on volume: $volname" >&2 && return 1)
+    # NOTE: it is no longer needed to turn off/on the volume quota if there is already a
+    #       default rule applied.  !!Manually create the default rule is required!!
+    # switchVolumeQuota $volname off &&
+    # switchVolumeQuota $volname on ||
+    # (echo "unable to refresh quota on volume: $volname" >&2 && return 1)
 }
 
 # switch on/off quota for a volume, and wait until it is applied.
@@ -484,8 +490,10 @@ new)
         # TODO: determine volume name from user's primary group
         volname=$4
         echo "Creating qtree for user $name, group $volname ..." &&
-        newQtree $name $volname &&
-            newQuotaRule $name $volname $sizeGb || exit 1
+        newQtree $name $volname || exit 1
+
+        # set new quota rule for home qtree if non-default ($sizeGb != 0 ).
+        [ $sizeGb -ne 0 ] && newQuotaRule $name $volname $sizeGb || exit 1
     fi
 
     ;;
