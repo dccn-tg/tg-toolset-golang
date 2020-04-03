@@ -507,9 +507,9 @@ get)
 
         ### For project as qtree.
         echo "Getting qtree of project $projectID ..." &&
-        getObjectByName $name "/storage/qtrees" && 
+        getObjectByName $projectID "/storage/qtrees" && 
         echo "Getting quota rule for project $projectID ..." &&
-        getQuotaRule $name || exit 1
+        getQuotaRule $projectID || exit 1
 
         ### For project as volume.
         # echo "Getting volume of project $projectID ..." &&
