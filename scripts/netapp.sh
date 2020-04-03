@@ -238,13 +238,15 @@ function newQuotaRule() {
 function resizeQuota() {
     name=$1   # name is the name in the context of the rule type
     volname=$2   # volume name is the name in the context of the rule type
-    quota=$( echo "$3 * 1024 * 1024 * 1024" | bc )
+    quotaGb=$3
+    quota=$( echo "$quotaGb * 1024 * 1024 * 1024" | bc )
 
     # make sure the quota rule is presented
     href=$(getHrefByQuery "qtree.name=$name&volume.name=$volname" '/storage/quota/rules' 2>/dev/null)
     [ "" == "$href" ] &&
-        echo "quota rule doesn't exists: $name, volume: $volname" >&2 &&
-        return 1
+        echo "specific quota rule doesn't exists: $name, volume $volname" >&2 &&
+            echo "creating new quota rule for $name, volume $volname" >/dev/tty &&
+            newQuotaRule $name $volname $quotaGb && return $?
 
     # set quota rule ...
     out=$( ${CURL} -X PATCH -u ${API_USER}:${API_PASS} \
@@ -541,6 +543,7 @@ qot)
         name=$2
         # TODO: determine volume name from user's primary group
         volname=$4
+
         echo "Setting quota for user $name ..." &&
         resizeQuota $name $volname $sizeGb || exit 1
     fi
