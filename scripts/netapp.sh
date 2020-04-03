@@ -243,10 +243,12 @@ function resizeQuota() {
 
     # make sure the quota rule is presented
     href=$(getHrefByQuery "qtree.name=$name&volume.name=$volname" '/storage/quota/rules' 2>/dev/null)
-    [ "" == "$href" ] &&
-        echo "specific quota rule doesn't exists: $name, volume $volname" >&2 &&
-            echo "creating new quota rule for $name, volume $volname" >/dev/tty &&
-            newQuotaRule $name $volname $quotaGb && return $?
+    if [ "" == "$href" ]; then
+        echo "specific quota rule doesn't exists: $name, volume $volname" >&2
+        echo "creating new quota rule for $name, volume $volname" >/dev/tty
+        newQuotaRule $name $volname $quotaGb
+        return $?
+    fi
 
     # set quota rule ...
     out=$( ${CURL} -X PATCH -u ${API_USER}:${API_PASS} \
