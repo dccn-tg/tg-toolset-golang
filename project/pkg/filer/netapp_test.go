@@ -20,14 +20,17 @@ const (
 
 func init() {
 	filerCfg := NetAppConfig{
-		ApiURL:      "https://131.174.44.94",
-		ApiUser:     os.Getenv("NETAPP_API_USERNAME"),
-		ApiPass:     os.Getenv("NETAPP_API_PASSWORD"),
-		Vserver:     "atreides",
-		ProjectGID:  1010,
-		ProjectUID:  1010,
-		ProjectRoot: "/project",
-		ProjectMode: "volume",
+		ApiURL:              os.Getenv("NETAPP_API_SERVER"),
+		ApiUser:             os.Getenv("NETAPP_API_USERNAME"),
+		ApiPass:             os.Getenv("NETAPP_API_PASSWORD"),
+		Vserver:             os.Getenv("NETAPP_VSERVER"),
+		ProjectGID:          1010,
+		ProjectUID:          1010,
+		ProjectRoot:         "/project",
+		ProjectMode:         "volume",
+		UserHomeQuotaGiB:    50,
+		ExportPolicyHome:    os.Getenv("NETAPP_EXPORT_POLICY_HOME"),
+		ExportPolicyProject: os.Getenv("NETAPP_EXPORT_POLICY_PROJECT"),
 	}
 
 	netapp = New("netapp", filerCfg)
@@ -82,6 +85,22 @@ func TestUnmarshal(t *testing.T) {
 
 	json.Unmarshal(data, &records)
 	t.Logf("%+v", records)
+}
+
+func TestGetDefaultQuotRule(t *testing.T) {
+
+	r, err := netapp.(NetApp).getDefaultQuotaPolicy(groupname)
+
+	if err != nil {
+		t.Errorf("fail to get default quota policy: %s\n", err)
+	}
+
+	if r.QTree.Name != "" {
+		t.Errorf("not a default quota rule, name=%s\n", r.QTree.Name)
+	}
+
+	t.Logf("quota rule: %+v\n", r)
+
 }
 
 func TestCreateProject(t *testing.T) {

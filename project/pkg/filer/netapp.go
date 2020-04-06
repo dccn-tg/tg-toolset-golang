@@ -44,12 +44,24 @@ type NetAppConfig struct {
 	// ProjectMode specifies how the project space is allocated. Valid modes are
 	// "volume" and "qtree".
 	ProjectMode string
+
+	// UserHomeQuotaGiB specifies the default quota of user's home directory.
+	// It expects the default quota policy on the tree type is implemented accordingly
+	// on the corresponding volume.
+	UserHomeQuotaGiB int
+
 	// Vserver specifies the name of OnTAP SVM on which the filer APIs will perform.
 	Vserver string
 	// ProjectUID specifies the system UID of user `project`
 	ProjectUID int
 	// ProjectGID specifies the system GID of group `project_g`
 	ProjectGID int
+
+	// ExportPolicyHome specifies the export policy name of the user home
+	ExportPolicyHome string
+
+	// ExportPolicyProject specifies the export policy name of the project
+	ExportPolicyProject string
 }
 
 // GetApiURL returns the server URL of the OnTAP API.
@@ -140,8 +152,8 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 				GID:             filer.config.ProjectGID,
 				Path:            filepath.Join(filer.config.GetProjectRoot(), projectID),
 				SecurityStyle:   "unix",
-				UnixPermissions: "0750",
-				ExportPolicy:    ExportPolicy{Name: "dccn-projects"},
+				UnixPermissions: 750,
+				ExportPolicy:    ExportPolicy{Name: filer.config.ExportPolicyProject},
 			},
 			QoS: &QoS{
 				Policy: QoSPolicy{MaxIOPS: 6000},
@@ -200,16 +212,8 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 		SVM:             Record{Name: filer.config.Vserver},
 		Volume:          Record{Name: groupname},
 		SecurityStyle:   "unix",
-		UnixPermissions: "0700",
-		ExportPolicy:    ExportPolicy{Name: "dccn-home-nfs-vpn"},
-	}
-
-	qrule := QuotaRule{
-		SVM:    Record{Name: filer.config.Vserver},
-		Volume: Record{Name: groupname},
-		QTree:  &Record{Name: username},
-		Type:   "tree",
-		Space:  &QuotaLimit{HardLimit: int64(quotaGiB << 30)},
+		UnixPermissions: 700,
+		ExportPolicy:    ExportPolicy{Name: filer.config.ExportPolicyHome},
 	}
 
 	// blocking operation to create the qtree.
@@ -217,25 +221,7 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 		return err
 	}
 
-	// switch off volume quota
-	// otherwise we cannot create new rule; perhaps it is because we don't have default rule on the volume.
-	if err := filer.patchObject(volRecords[0], []byte(`{"quota":{"enabled":false}}`)); err != nil {
-		return err
-	}
-
-	// ensure the volume quota will be switched on before this function is returned.
-	defer func() {
-		if err := filer.patchObject(volRecords[0], []byte(`{"quota":{"enabled":true}}`)); err != nil {
-			log.Errorf("cannot turn on quota for volume %s: %s", groupname, err)
-		}
-	}()
-
-	// create quota rule for the newly created qtree.
-	if err := filer.createObject(&qrule, API_NS_QUOTA_RULES); err != nil {
-		return err
-	}
-
-	return nil
+	return filer.SetHomeQuota(username, groupname, quotaGiB)
 }
 
 // SetProjectQuota updates the quota of a project space.
@@ -273,47 +259,93 @@ func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
 // SetHomeQuota updates the quota of a home directory.
 func (filer NetApp) SetHomeQuota(username, groupname string, quotaGiB int) error {
 
-	// check if the volume exists
+	// check if the qtree exists
 	qry := url.Values{}
-	qry.Set("name", groupname)
-	volRecords, err := filer.getRecordsByQuery(qry, API_NS_VOLUMES)
+	qry.Set("name", username)
+	qry.Set("volume.name", groupname)
+	records, err := filer.getRecordsByQuery(qry, API_NS_QTREES)
 	if err != nil {
-		return fmt.Errorf("fail to check volume %s: %s", groupname, err)
+		return fmt.Errorf("fail to check qtree %s of volume %s: %s", username, groupname, err)
 	}
-	if len(volRecords) == 0 {
-		return fmt.Errorf("volume doesn't exit: %s", groupname)
+	if len(records) == 0 {
+		return fmt.Errorf("qtree %s of volume %s doesn't exit", username, groupname)
 	}
 
-	// check if the quota rule exists
+	// get volume record from the qtree
+	qtree := QTree{}
+	if err := filer.getObjectByHref(records[0].Link.Self.Href, &qtree); err != nil {
+		return fmt.Errorf("fail to retrieve volume %s: %s", groupname, err)
+	}
+	volRecord := qtree.Volume
+
+	// check if the user-specific quota rule exists
 	qry = url.Values{}
 	qry.Set("volume.name", groupname)
 	qry.Set("qtree.name", username)
-	records, err := filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
+	records, err = filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
 	if err != nil {
 		return fmt.Errorf("fail to check quota rule for volume %s qtree %s: %s", groupname, username, err)
 	}
-	if len(records) != 1 {
-		return fmt.Errorf("quota rule for volume %s qtree %s doesn't exist", groupname, username)
+
+	// unexpected number of quota rules for the specific volume and qtree.
+	if len(records) > 1 {
+		return fmt.Errorf("more than one quota rule for volume %s qtree %s (%d)", groupname, username, len(records))
 	}
 
-	// switch off volume quota
-	// otherwise we cannot create new rule; perhaps it is because we don't have default rule on the volume.
-	if err := filer.patchObject(volRecords[0], []byte(`{"quota":{"enabled":false}}`)); err != nil {
+	// check if default quota rule is available.
+	rule, err := filer.getDefaultQuotaPolicy(groupname)
+	if err != nil {
 		return err
 	}
 
-	// ensure the volume quota will be switched on before this function is returned.
-	defer func() {
-		if err := filer.patchObject(volRecords[0], []byte(`{"quota":{"enabled":true}}`)); err != nil {
-			log.Errorf("cannot turn on quota for volume %s: %s", groupname, err)
+	// determin which logic to use
+	if filer.config.UserHomeQuotaGiB == quotaGiB {
+
+		// already a default rule, should remove the user specific rule if it exists.
+		if rule != nil && len(records) == 1 {
+			if err := filer.delObjectByHref(records[0].Link.Self.Href); err != nil {
+				return fmt.Errorf("cannot delete user-specific quota rule for %s volume %s: %s", username, groupname, err)
+			}
+			return nil
 		}
-	}()
+	}
 
-	// update corresponding quota rule for the qtree
-	data := []byte(fmt.Sprintf(`{"space":{"hard_limit":%d}}`, quotaGiB<<30))
+	// switch off and on the volume quota is needed if there is no default quota rule applied on the volume.
+	if rule == nil {
+		// switch off volume quota
+		log.Debugf("turn off quota on volume %s", groupname)
+		if err := filer.patchObject(volRecord, []byte(`{"quota":{"enabled":false}}`)); err != nil {
+			return err
+		}
 
-	if err := filer.patchObject(records[0], data); err != nil {
-		return err
+		// ensure the volume quota will be switched on before this function is returned.
+		defer func() {
+			log.Debugf("turn on quota on volume %s", groupname)
+			if err := filer.patchObject(volRecord, []byte(`{"quota":{"enabled":true}}`)); err != nil {
+				log.Errorf("cannot turn on quota for volume %s: %s", groupname, err)
+			}
+		}()
+	}
+
+	if len(records) == 0 {
+		// create new user-specific quota rule.
+		qrule := QuotaRule{
+			SVM:    Record{Name: filer.config.Vserver},
+			Volume: Record{Name: groupname},
+			QTree:  &Record{Name: username},
+			Type:   "tree",
+			Space:  &QuotaLimit{HardLimit: int64(quotaGiB << 30)},
+		}
+		if err := filer.createObject(&qrule, API_NS_QUOTA_RULES); err != nil {
+			return err
+		}
+	} else {
+		// update corresponding quota rule for the qtree
+		data := []byte(fmt.Sprintf(`{"space":{"hard_limit":%d}}`, quotaGiB<<30))
+
+		if err := filer.patchObject(records[0], data); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -360,6 +392,35 @@ func (filer NetApp) GetHomeQuotaInBytes(username, groupname string) (int64, erro
 	}
 
 	return rule.Space.HardLimit, nil
+}
+
+// getDefaultQuotaPolicy returns the default quota rule on a volume as `QuotaRule`.
+func (filer NetApp) getDefaultQuotaPolicy(volume string) (*QuotaRule, error) {
+
+	var rule QuotaRule
+
+	qry := url.Values{}
+	qry.Set("volume.name", volume)
+
+	records, err := filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
+	if err != nil {
+		return &rule, fmt.Errorf("fail to check quota rule for volume %s: %s", volume, err)
+	}
+	if len(records) == 0 {
+		return &rule, nil
+	}
+
+	for _, rec := range records {
+		err := filer.getObjectByHref(rec.Link.Self.Href, &rule)
+		if err != nil {
+			log.Errorf("cannot retrieve quota rule: %s", err)
+			continue
+		}
+		if rule.QTree.Name == "" {
+			break
+		}
+	}
+	return &rule, nil
 }
 
 // getObjectByName retrives the named object from the given API namespace.
@@ -433,7 +494,57 @@ func (filer NetApp) getRecordsByQuery(query url.Values, nsAPI string) ([]Record,
 	return rec.Records, nil
 }
 
-// getObjectByHref retrives the object from the given API namespace using a specific URL query.
+// delObjectByHref deletes the object at the given API namespace `href`.
+func (filer NetApp) delObjectByHref(href string) error {
+	c := newHTTPSClient(10*time.Second, true)
+
+	// create request
+	req, err := http.NewRequest("DELETE", strings.Join([]string{filer.config.GetApiURL(), href}, "/"), nil)
+	if err != nil {
+		return err
+	}
+
+	// set request header for basic authentication
+	req.SetBasicAuth(filer.config.GetApiUser(), filer.config.GetApiPass())
+
+	res, err := c.Do(req)
+
+	// expect status to be 202 (Accepted)
+	if res.StatusCode != 202 {
+		// try to get the error code returned as the body
+		var apiErr APIError
+		if httpBodyBytes, err := ioutil.ReadAll(res.Body); err == nil {
+			json.Unmarshal(httpBodyBytes, &apiErr)
+		}
+		return fmt.Errorf("response not ok: %s (%d), error: %+v", res.Status, res.StatusCode, apiErr)
+	}
+
+	// read response body as accepted job
+	httpBodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("cannot read response body: %s", err)
+	}
+
+	job := APIJob{}
+	// unmarshal response body to object structure
+	if err := json.Unmarshal(httpBodyBytes, &job); err != nil {
+		return fmt.Errorf("cannot get job id: %s", err)
+	}
+
+	log.Debugf("job data: %+v", job)
+
+	if err := filer.waitJob(&job); err != nil {
+		return err
+	}
+
+	if job.Job.State != "success" {
+		return fmt.Errorf("API job failed: %s", job.Job.Message)
+	}
+
+	return nil
+}
+
+// getObjectByHref retrives the object from the given API namespace `href`.
 func (filer NetApp) getObjectByHref(href string, object interface{}) error {
 
 	c := newHTTPSClient(10*time.Second, true)
@@ -709,7 +820,7 @@ type Nas struct {
 	UID             int          `json:"uid,omitempty"`
 	GID             int          `json:"gid,omitempty"`
 	SecurityStyle   string       `json:"security_style,omitempty"`
-	UnixPermissions string       `json:"unix_permissions,omitempty"`
+	UnixPermissions int          `json:"unix_permissions,omitempty"`
 	ExportPolicy    ExportPolicy `json:"export_policy,omitempty"`
 }
 
@@ -751,14 +862,14 @@ type Aggregate struct {
 
 // QTree of OnTAP
 type QTree struct {
-	ID              string       `json:"id,omitempty"`
+	ID              int          `json:"id,omitempty"`
 	Name            string       `json:"name"`
 	Path            string       `json:"path,omitempty"`
 	SVM             Record       `json:"svm"`
 	Volume          Record       `json:"volume"`
 	ExportPolicy    ExportPolicy `json:"export_policy"`
 	SecurityStyle   string       `json:"security_style"`
-	UnixPermissions string       `json:"unix_permissions"`
+	UnixPermissions int          `json:"unix_permissions"`
 	Link            *Link        `json:"_links,omitempty"`
 }
 
