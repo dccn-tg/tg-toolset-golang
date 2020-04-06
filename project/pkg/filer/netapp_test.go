@@ -27,8 +27,8 @@ func init() {
 		ProjectGID:          1010,
 		ProjectUID:          1010,
 		ProjectRoot:         "/project",
-		ProjectMode:         "volume",
-		UserHomeQuotaGiB:    50,
+		ProjectMode:         os.Getenv("NETAPP_PROJECT_MODE"),
+		VolumeProjectQtrees: "project",
 		ExportPolicyHome:    os.Getenv("NETAPP_EXPORT_POLICY_HOME"),
 		ExportPolicyProject: os.Getenv("NETAPP_EXPORT_POLICY_PROJECT"),
 	}
@@ -122,7 +122,7 @@ func TestCreateHome(t *testing.T) {
 }
 
 func TestSetHomeQuota(t *testing.T) {
-	if err := netapp.SetHomeQuota(username, groupname, 20); err != nil {
+	if err := netapp.SetHomeQuota(username, groupname, 50); err != nil {
 		t.Errorf("%s\n", err)
 	}
 }

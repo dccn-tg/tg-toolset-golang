@@ -45,10 +45,9 @@ type NetAppConfig struct {
 	// "volume" and "qtree".
 	ProjectMode string
 
-	// UserHomeQuotaGiB specifies the default quota of user's home directory.
-	// It expects the default quota policy on the tree type is implemented accordingly
-	// on the corresponding volume.
-	UserHomeQuotaGiB int
+	// VolumeProjectQtrees specifies the (FlexGroup) volume name in which project
+	// qtrees are located.
+	VolumeProjectQtrees string
 
 	// Vserver specifies the name of OnTAP SVM on which the filer APIs will perform.
 	Vserver string
@@ -171,7 +170,11 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		}
 
 	case "qtree":
-		return fmt.Errorf("not implemented yet: %s", filer.config.ProjectMode)
+		// blocking operation to create the qtree.
+		if err := filer.createQtree(projectID, filer.config.VolumeProjectQtrees, 750, filer.config.ExportPolicyProject); err != nil {
+			return err
+		}
+		return filer.SetProjectQuota(projectID, quotaGiB)
 
 	default:
 		return fmt.Errorf("unsupported project mode: %s", filer.config.ProjectMode)
@@ -183,44 +186,10 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 // CreateHome creates a home directory as qtree `username` under the volume `groupname`,
 // and assigned the given `quotaGiB` to the qtree.
 func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
-
-	// check if volume "groupname" exists.
-	qry := url.Values{}
-	qry.Set("name", groupname)
-	volRecords, err := filer.getRecordsByQuery(qry, API_NS_VOLUMES)
-	if err != nil {
-		return fmt.Errorf("fail to check volume %s: %s", groupname, err)
-	}
-	if len(volRecords) == 0 {
-		return fmt.Errorf("volume doesn't exit: %s", groupname)
-	}
-
-	// check if qtree with "username" already exists.
-	qry.Set("name", username)
-	qry.Set("volume.name", groupname)
-	records, err := filer.getRecordsByQuery(qry, API_NS_QTREES)
-	if err != nil {
-		return fmt.Errorf("fail to check qtree %s: %s", username, err)
-	}
-	if len(records) != 0 {
-		return fmt.Errorf("qtree already exists: %s", username)
-	}
-
-	// create qtree within the volume.
-	qtree := QTree{
-		Name:            username,
-		SVM:             Record{Name: filer.config.Vserver},
-		Volume:          Record{Name: groupname},
-		SecurityStyle:   "unix",
-		UnixPermissions: 700,
-		ExportPolicy:    ExportPolicy{Name: filer.config.ExportPolicyHome},
-	}
-
 	// blocking operation to create the qtree.
-	if err := filer.createObject(&qtree, API_NS_QTREES); err != nil {
+	if err := filer.createQtree(username, groupname, 700, filer.config.ExportPolicyHome); err != nil {
 		return err
 	}
-
 	return filer.SetHomeQuota(username, groupname, quotaGiB)
 }
 
@@ -247,7 +216,7 @@ func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
 		}
 
 	case "qtree":
-		return fmt.Errorf("unsupported project mode: %s", filer.config.ProjectMode)
+		return filer.setQtreeQuota(projectID, filer.config.VolumeProjectQtrees, quotaGiB)
 
 	default:
 		return fmt.Errorf("unsupported project mode: %s", filer.config.ProjectMode)
@@ -258,81 +227,121 @@ func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
 
 // SetHomeQuota updates the quota of a home directory.
 func (filer NetApp) SetHomeQuota(username, groupname string, quotaGiB int) error {
+	return filer.setQtreeQuota(username, groupname, quotaGiB)
+}
+
+// createQtree implements the generic logic of creating a qtree in a volume, with given
+// filesystem permission and export policy.
+func (filer NetApp) createQtree(name, volume string, permission int, exportPolicy string) error {
+	// check if qtree with "username" already exists.
+	qry := url.Values{}
+	qry.Set("name", name)
+	qry.Set("volume.name", volume)
+	records, err := filer.getRecordsByQuery(qry, API_NS_QTREES)
+	if err != nil {
+		return fmt.Errorf("fail to check qtree %s of volume %s: %s", name, volume, err)
+	}
+	if len(records) != 0 {
+		return fmt.Errorf("qtree %s of volume %s already exists", name, volume)
+	}
+
+	// create qtree within the volume.
+	qtree := QTree{
+		Name:            name,
+		SVM:             Record{Name: filer.config.Vserver},
+		Volume:          Record{Name: volume},
+		SecurityStyle:   "unix",
+		UnixPermissions: permission,
+		ExportPolicy:    ExportPolicy{Name: exportPolicy},
+	}
+
+	// blocking operation to create the qtree.
+	if err := filer.createObject(&qtree, API_NS_QTREES); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setQtreeQuota implements the generic logic of setting quota rule on a given volume.
+func (filer NetApp) setQtreeQuota(name, volume string, quotaGiB int) error {
 
 	// check if the qtree exists
 	qry := url.Values{}
-	qry.Set("name", username)
-	qry.Set("volume.name", groupname)
-	records, err := filer.getRecordsByQuery(qry, API_NS_QTREES)
+	qry.Set("name", name)
+	qry.Set("volume.name", volume)
+	recQtrees, err := filer.getRecordsByQuery(qry, API_NS_QTREES)
 	if err != nil {
-		return fmt.Errorf("fail to check qtree %s of volume %s: %s", username, groupname, err)
+		return fmt.Errorf("fail to check qtree %s of volume %s: %s", name, volume, err)
 	}
-	if len(records) == 0 {
-		return fmt.Errorf("qtree %s of volume %s doesn't exit", username, groupname)
+	if len(recQtrees) == 0 {
+		return fmt.Errorf("qtree %s of volume %s doesn't exit", name, volume)
 	}
 
 	// get volume record from the qtree
 	qtree := QTree{}
-	if err := filer.getObjectByHref(records[0].Link.Self.Href, &qtree); err != nil {
-		return fmt.Errorf("fail to retrieve volume %s: %s", groupname, err)
+	if err := filer.getObjectByHref(recQtrees[0].Link.Self.Href, &qtree); err != nil {
+		return fmt.Errorf("fail to retrieve volume %s: %s", volume, err)
 	}
 	volRecord := qtree.Volume
 
 	// check if the user-specific quota rule exists
 	qry = url.Values{}
-	qry.Set("volume.name", groupname)
-	qry.Set("qtree.name", username)
-	records, err = filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
+	qry.Set("volume.name", volume)
+	qry.Set("qtree.name", name)
+	recRules, err := filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
 	if err != nil {
-		return fmt.Errorf("fail to check quota rule for volume %s qtree %s: %s", groupname, username, err)
+		return fmt.Errorf("fail to check quota rule for volume %s qtree %s: %s", volume, name, err)
 	}
 
 	// unexpected number of quota rules for the specific volume and qtree.
-	if len(records) > 1 {
-		return fmt.Errorf("more than one quota rule for volume %s qtree %s (%d)", groupname, username, len(records))
+	if len(recRules) > 1 {
+		return fmt.Errorf("more than one quota rule for volume %s qtree %s (%d)", volume, name, len(recRules))
 	}
 
-	// check if default quota rule is available.
-	rule, err := filer.getDefaultQuotaPolicy(groupname)
+	// try to get the default quota rule.
+	rule, err := filer.getDefaultQuotaPolicy(volume)
 	if err != nil {
 		return err
 	}
 
-	// determin which logic to use
-	if filer.config.UserHomeQuotaGiB == quotaGiB {
-
+	// default quota rule is available and the hard limit is identical to the quota target.
+	if rule != nil && quotaGiB == int(rule.Space.HardLimit>>30) {
+		log.Debugf("quota target is the default quota limitation.")
 		// already a default rule, should remove the user specific rule if it exists.
-		if rule != nil && len(records) == 1 {
-			if err := filer.delObjectByHref(records[0].Link.Self.Href); err != nil {
-				return fmt.Errorf("cannot delete user-specific quota rule for %s volume %s: %s", username, groupname, err)
+		if len(recRules) == 1 {
+			log.Debugf("remove specific quota policy for qtree %s, volume %s", name, volume)
+
+			if err := filer.delObjectByHref(recRules[0].Link.Self.Href); err != nil {
+				return fmt.Errorf("cannot delete user-specific quota rule for %s volume %s: %s", name, volume, err)
 			}
-			return nil
 		}
+		return nil
 	}
 
 	// switch off and on the volume quota is needed if there is no default quota rule applied on the volume.
 	if rule == nil {
 		// switch off volume quota
-		log.Debugf("turn off quota on volume %s", groupname)
+		log.Debugf("turn off quota on volume %s", volume)
 		if err := filer.patchObject(volRecord, []byte(`{"quota":{"enabled":false}}`)); err != nil {
 			return err
 		}
 
 		// ensure the volume quota will be switched on before this function is returned.
 		defer func() {
-			log.Debugf("turn on quota on volume %s", groupname)
+			log.Debugf("turn on quota on volume %s", volume)
 			if err := filer.patchObject(volRecord, []byte(`{"quota":{"enabled":true}}`)); err != nil {
-				log.Errorf("cannot turn on quota for volume %s: %s", groupname, err)
+				log.Errorf("cannot turn on quota for volume %s: %s", volume, err)
 			}
 		}()
 	}
 
-	if len(records) == 0 {
+	if len(recRules) == 0 {
 		// create new user-specific quota rule.
 		qrule := QuotaRule{
 			SVM:    Record{Name: filer.config.Vserver},
-			Volume: Record{Name: groupname},
-			QTree:  &Record{Name: username},
+			Volume: Record{Name: volume},
+			QTree:  &Record{Name: name},
 			Type:   "tree",
 			Space:  &QuotaLimit{HardLimit: int64(quotaGiB << 30)},
 		}
@@ -343,7 +352,7 @@ func (filer NetApp) SetHomeQuota(username, groupname string, quotaGiB int) error
 		// update corresponding quota rule for the qtree
 		data := []byte(fmt.Sprintf(`{"space":{"hard_limit":%d}}`, quotaGiB<<30))
 
-		if err := filer.patchObject(records[0], data); err != nil {
+		if err := filer.patchObject(recRules[0], data); err != nil {
 			return err
 		}
 	}
