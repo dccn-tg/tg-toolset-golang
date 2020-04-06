@@ -898,5 +898,5 @@ type QuotaRule struct {
 // QuotaLimit defines the quota limitation.
 type QuotaLimit struct {
 	HardLimit int64 `json:"hard_limit,omitempty"`
-	SoftLimit int64 `json:"soft_limit,omitempty"`
+	//SoftLimit int64 `json:"soft_limit,omitempty"`
 }
