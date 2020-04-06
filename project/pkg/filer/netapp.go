@@ -422,7 +422,7 @@ func (filer NetApp) getDefaultQuotaPolicy(volume string) (*QuotaRule, error) {
 	for _, rec := range records {
 		err := filer.getObjectByHref(rec.Link.Self.Href, &rule)
 		if err != nil {
-			log.Errorf("cannot retrieve quota rule: %s", err)
+			log.Errorf("cannot retrieve quota rule, %s: %s", rec.Link.Self.Href, err)
 			continue
 		}
 		if rule.QTree.Name == "" {
