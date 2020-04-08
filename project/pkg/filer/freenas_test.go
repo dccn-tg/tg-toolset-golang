@@ -44,3 +44,38 @@ func TestFreeNasGetProject(t *testing.T) {
 	}
 	t.Logf("dataset: %+v\n", d)
 }
+
+func TestFreeNasCreateProject(t *testing.T) {
+
+	freenasProjectID = "3010000.05"
+
+	if err := freenas.CreateProject(freenasProjectID, 10); err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	// check if the dataset is actually created.
+	d, err := freenas.(FreeNas).getProjectDataset(freenasProjectID)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	t.Logf("dataset: %+v\n", d)
+}
+
+func TestFreeNasSetProjectQuota(t *testing.T) {
+
+	freenasProjectID = "3010000.05"
+
+	if err := freenas.SetProjectQuota(freenasProjectID, 20); err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	// check if the dataset quota is actually set to 20 GiB.
+	d, err := freenas.(FreeNas).getProjectDataset(freenasProjectID)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	if d.RefQuota.Parsed>>30 != 20 {
+		t.Errorf("quota not set to the targeting size.")
+	}
+	t.Logf("dataset: %+v\n", d)
+}
