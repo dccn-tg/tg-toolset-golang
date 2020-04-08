@@ -9,16 +9,19 @@ import (
 )
 
 var (
-	netapp Filer
+	netapp          Filer
+	netappProjectID string
 )
 
 const (
-	projectID string = "3010000.03"
 	groupname string = "tg"
 	username  string = "test"
 )
 
 func init() {
+
+	netappProjectID = "3010000.03"
+
 	filerCfg := NetAppConfig{
 		ApiURL:              os.Getenv("NETAPP_API_SERVER"),
 		ApiUser:             os.Getenv("NETAPP_API_USERNAME"),
@@ -104,14 +107,14 @@ func TestGetDefaultQuotRule(t *testing.T) {
 }
 
 func TestCreateProject(t *testing.T) {
-	if err := netapp.CreateProject(projectID, 10); err != nil {
+	if err := netapp.CreateProject(netappProjectID, 10); err != nil {
 		t.Errorf("fail to create project volume: %s", err)
 	}
 }
 
 func TestSetProjectQuota(t *testing.T) {
-	if err := netapp.SetProjectQuota(projectID, 20); err != nil {
-		t.Errorf("fail to update quota for project %s: %s", projectID, err)
+	if err := netapp.SetProjectQuota(netappProjectID, 20); err != nil {
+		t.Errorf("fail to update quota for project %s: %s", netappProjectID, err)
 	}
 }
 
@@ -136,7 +139,7 @@ func TestGetHomeQuota(t *testing.T) {
 }
 
 func TestGetProjectQuota(t *testing.T) {
-	if quota, err := netapp.GetProjectQuotaInBytes(projectID); err != nil {
+	if quota, err := netapp.GetProjectQuotaInBytes(netappProjectID); err != nil {
 		t.Errorf("%s\n", err)
 	} else {
 		t.Logf("quota: %d\n", quota)

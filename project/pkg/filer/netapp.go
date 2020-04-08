@@ -15,18 +15,18 @@ import (
 )
 
 const (
-	// API_NS_SVMS is the API namespace for OnTAP SVM items.
-	API_NS_SVMS string = "/svm/svms"
-	// API_NS_JOBS is the API namespace for OnTAP cluster job items.
-	API_NS_JOBS string = "/cluster/jobs"
-	// API_NS_VOLUMES is the API namespace for OnTAP volume items.
-	API_NS_VOLUMES string = "/storage/volumes"
-	// API_NS_AGGREGATES is the API namespace for OnTAP aggregate items.
-	API_NS_AGGREGATES string = "/storage/aggregates"
-	// API_NS_QTREES is the API namespace for OnTAP qtree items.
-	API_NS_QTREES string = "/storage/qtrees"
-	// API_NS_QUOTA_RULES is the API namespace for OnTAP quota rule items.
-	API_NS_QUOTA_RULES string = "/storage/quota/rules"
+	// NETAPP_API_NS_SVMS is the API namespace for OnTAP SVM items.
+	NETAPP_API_NS_SVMS string = "/svm/svms"
+	// NETAPP_API_NS_JOBS is the API namespace for OnTAP cluster job items.
+	NETAPP_API_NS_JOBS string = "/cluster/jobs"
+	// NETAPP_API_NS_VOLUMES is the API namespace for OnTAP volume items.
+	NETAPP_API_NS_VOLUMES string = "/storage/volumes"
+	// NETAPP_API_NS_AGGREGATES is the API namespace for OnTAP aggregate items.
+	NETAPP_API_NS_AGGREGATES string = "/storage/aggregates"
+	// NETAPP_API_NS_QTREES is the API namespace for OnTAP qtree items.
+	NETAPP_API_NS_QTREES string = "/storage/qtrees"
+	// NETAPP_API_NS_QUOTA_RULES is the API namespace for OnTAP quota rule items.
+	NETAPP_API_NS_QUOTA_RULES string = "/storage/quota/rules"
 )
 
 // NetAppConfig implements the `Config` interface and extends it with configurations
@@ -98,7 +98,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		// check if volume with the same name doee not exist.
 		qry := url.Values{}
 		qry.Set("name", filer.volName(projectID))
-		records, err := filer.getRecordsByQuery(qry, API_NS_VOLUMES)
+		records, err := filer.getRecordsByQuery(qry, NETAPP_API_NS_VOLUMES)
 		if err != nil {
 			return fmt.Errorf("fail to check volume %s: %s", projectID, err)
 		}
@@ -109,7 +109,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		// determine which aggregate should be used for creating the new volume.
 		quota := int64(quotaGiB << 30)
 		svm := SVM{}
-		if err := filer.getObjectByName(filer.config.Vserver, API_NS_SVMS, &svm); err != nil {
+		if err := filer.getObjectByName(filer.config.Vserver, NETAPP_API_NS_SVMS, &svm); err != nil {
 			return fmt.Errorf("fail to get SVM %s: %s", filer.config.Vserver, err)
 		}
 		avail := int64(0)
@@ -119,7 +119,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 			aggr := Aggregate{}
 			href := strings.Join([]string{
 				"/api",
-				API_NS_AGGREGATES,
+				NETAPP_API_NS_AGGREGATES,
 				record.UUID,
 			}, "/")
 			if err := filer.getObjectByHref(href, &aggr); err != nil {
@@ -165,7 +165,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		}
 
 		// blocking operation to create the volume.
-		if err := filer.createObject(&vol, API_NS_VOLUMES); err != nil {
+		if err := filer.createObject(&vol, NETAPP_API_NS_VOLUMES); err != nil {
 			return err
 		}
 
@@ -200,7 +200,7 @@ func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
 		// check if volume with the same name already exists.
 		qry := url.Values{}
 		qry.Set("name", filer.volName(projectID))
-		records, err := filer.getRecordsByQuery(qry, API_NS_VOLUMES)
+		records, err := filer.getRecordsByQuery(qry, NETAPP_API_NS_VOLUMES)
 		if err != nil {
 			return fmt.Errorf("fail to check volume %s: %s", projectID, err)
 		}
@@ -237,7 +237,7 @@ func (filer NetApp) GetProjectQuotaInBytes(projectID string) (int64, error) {
 		// check if volume with the same name already exists.
 		vol := Volume{}
 
-		if err := filer.getObjectByName(filer.volName(projectID), API_NS_VOLUMES, &vol); err != nil {
+		if err := filer.getObjectByName(filer.volName(projectID), NETAPP_API_NS_VOLUMES, &vol); err != nil {
 			return 0, fmt.Errorf("cannot get project volume %s: %s", projectID, err)
 		}
 
@@ -257,7 +257,7 @@ func (filer NetApp) GetHomeQuotaInBytes(username, groupname string) (int64, erro
 	qry.Set("volume.name", groupname)
 	qry.Set("qtree.name", username)
 
-	records, err := filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
+	records, err := filer.getRecordsByQuery(qry, NETAPP_API_NS_QUOTA_RULES)
 	if err != nil {
 		return 0, fmt.Errorf("fail to check quota rule for volume %s qtree %s: %s", groupname, username, err)
 	}
@@ -280,7 +280,7 @@ func (filer NetApp) createQtree(name, volume string, permission int, exportPolic
 	qry := url.Values{}
 	qry.Set("name", name)
 	qry.Set("volume.name", volume)
-	records, err := filer.getRecordsByQuery(qry, API_NS_QTREES)
+	records, err := filer.getRecordsByQuery(qry, NETAPP_API_NS_QTREES)
 	if err != nil {
 		return fmt.Errorf("fail to check qtree %s of volume %s: %s", name, volume, err)
 	}
@@ -299,7 +299,7 @@ func (filer NetApp) createQtree(name, volume string, permission int, exportPolic
 	}
 
 	// blocking operation to create the qtree.
-	if err := filer.createObject(&qtree, API_NS_QTREES); err != nil {
+	if err := filer.createObject(&qtree, NETAPP_API_NS_QTREES); err != nil {
 		return err
 	}
 
@@ -313,7 +313,7 @@ func (filer NetApp) setQtreeQuota(name, volume string, quotaGiB int) error {
 	qry := url.Values{}
 	qry.Set("name", name)
 	qry.Set("volume.name", volume)
-	recQtrees, err := filer.getRecordsByQuery(qry, API_NS_QTREES)
+	recQtrees, err := filer.getRecordsByQuery(qry, NETAPP_API_NS_QTREES)
 	if err != nil {
 		return fmt.Errorf("fail to check qtree %s of volume %s: %s", name, volume, err)
 	}
@@ -332,7 +332,7 @@ func (filer NetApp) setQtreeQuota(name, volume string, quotaGiB int) error {
 	qry = url.Values{}
 	qry.Set("volume.name", volume)
 	qry.Set("qtree.name", name)
-	recRules, err := filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
+	recRules, err := filer.getRecordsByQuery(qry, NETAPP_API_NS_QUOTA_RULES)
 	if err != nil {
 		return fmt.Errorf("fail to check quota rule for volume %s qtree %s: %s", volume, name, err)
 	}
@@ -388,7 +388,7 @@ func (filer NetApp) setQtreeQuota(name, volume string, quotaGiB int) error {
 			Type:   "tree",
 			Space:  &QuotaLimit{HardLimit: int64(quotaGiB << 30)},
 		}
-		if err := filer.createObject(&qrule, API_NS_QUOTA_RULES); err != nil {
+		if err := filer.createObject(&qrule, NETAPP_API_NS_QUOTA_RULES); err != nil {
 			return err
 		}
 	} else {
@@ -411,7 +411,7 @@ func (filer NetApp) getDefaultQuotaPolicy(volume string) (*QuotaRule, error) {
 	qry := url.Values{}
 	qry.Set("volume.name", volume)
 
-	records, err := filer.getRecordsByQuery(qry, API_NS_QUOTA_RULES)
+	records, err := filer.getRecordsByQuery(qry, NETAPP_API_NS_QUOTA_RULES)
 	if err != nil {
 		return &rule, fmt.Errorf("fail to check quota rule for volume %s: %s", volume, err)
 	}
