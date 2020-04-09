@@ -195,6 +195,17 @@ func (filer NetApp) CreateHome(username, groupname string, quotaGiB int) error {
 
 // SetProjectQuota updates the quota of a project space.
 func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
+
+	qn, err := filer.GetProjectQuotaInBytes(projectID)
+	if err != nil {
+		return fmt.Errorf("cannot get current quota for project %s: %s", projectID, err)
+	}
+
+	if int(qn>>30) == quotaGiB {
+		log.Warnf("quota of project %s already in right size: %d", projectID, quotaGiB)
+		return nil
+	}
+
 	switch filer.config.ProjectMode {
 	case "volume":
 		// check if volume with the same name already exists.
@@ -227,6 +238,17 @@ func (filer NetApp) SetProjectQuota(projectID string, quotaGiB int) error {
 
 // SetHomeQuota updates the quota of a home directory.
 func (filer NetApp) SetHomeQuota(username, groupname string, quotaGiB int) error {
+
+	qn, err := filer.GetHomeQuotaInBytes(username, groupname)
+	if err != nil {
+		return fmt.Errorf("cannot get current quota for user home %s/%s: %s", groupname, username, err)
+	}
+
+	if int(qn>>30) == quotaGiB {
+		log.Warnf("quota of user home %s/%s already in right size: %d", groupname, username, quotaGiB)
+		return nil
+	}
+
 	return filer.setQtreeQuota(username, groupname, quotaGiB)
 }
 
