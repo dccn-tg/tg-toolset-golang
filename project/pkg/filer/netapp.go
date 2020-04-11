@@ -139,7 +139,7 @@ func (filer NetApp) CreateProject(projectID string, quotaGiB int) error {
 		vol := Volume{
 			Name: filer.volName(projectID),
 			Aggregates: []Record{
-				Record{Name: theAggr.Name},
+				{Name: theAggr.Name},
 			},
 			Size:  quota,
 			Svm:   Record{Name: filer.config.Vserver},
