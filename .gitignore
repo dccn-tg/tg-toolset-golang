@@ -1,2 +1,4 @@
 configs/config_test.yml
 go.sum
+**/.secret
+**/.pass
