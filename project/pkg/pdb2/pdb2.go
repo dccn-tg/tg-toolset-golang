@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shurcooL/graphql"
@@ -38,6 +39,10 @@ var (
 		"SetToViewer":      acl.Viewer.String(),
 		"Unset":            "none",
 	}
+
+	// apiToken is the global reusable api token before it becomes
+	// invalid.
+	apiToken token
 )
 
 func init() {
@@ -54,9 +59,10 @@ func init() {
 
 // token holds the data structure of the Core API access token.
 type token struct {
-	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"`
-	TokenType   string `json:"token_type"`
+	AccessToken string
+	TokenType   string
+	validUntil  time.Time
+	mux         sync.Mutex
 }
 
 // member is the data structure of a pending role setting on a project.
@@ -92,6 +98,22 @@ type DataProjectUpdate struct {
 // https://github.com/Donders-Institute/filer-gateway
 func GetProjectPendingActions(authClientSecret string) (map[string]DataProjectUpdate, error) {
 	actions := make(map[string]DataProjectUpdate)
+
+	pendingRoles, err := getProjectPendingRoles(authClientSecret)
+	if err != nil {
+		return actions, err
+	}
+
+	for pid, members := range pendingRoles {
+		stor, err := getProjectStorageResource(authClientSecret, pid)
+		if err != nil {
+			log.Errorf("%s", err)
+		}
+		actions[pid] = DataProjectUpdate{
+			Members: members,
+			Storage: *stor,
+		}
+	}
 
 	return actions, nil
 }
@@ -210,6 +232,17 @@ func newClient(authClientSecret string) (*graphql.Client, error) {
 // Both client id and scope are hardcoded in this function.
 func getAuthToken(clientSecret string) (*token, error) {
 
+	// lock the apiToken for eventual manipulation of it.
+	apiToken.mux.Lock()
+
+	// make sure apiToken is unlocked for concurrent processes to use it.
+	defer apiToken.mux.Unlock()
+
+	// return the global reusable token if it is still valid in 5 minutes.
+	if time.Now().Add(5 * time.Minute).Before(apiToken.validUntil) {
+		return &apiToken, nil
+	}
+
 	clientID := "project-database-admin-script"
 	clientScope := "project-database-core-api"
 
@@ -238,14 +271,22 @@ func getAuthToken(clientSecret string) (*token, error) {
 	log.Debugf("response body: %s", string(bodyBytes))
 
 	// unmarshal response body to Token struct
-	t := token{}
+	var t struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+		TokenType   string `json:"token_type"`
+	}
 	if err = json.Unmarshal(bodyBytes, &t); err != nil {
 		return nil, err
 	}
 
 	log.Debugf("auth token: %s", t)
 
-	return &t, nil
+	apiToken.AccessToken = t.AccessToken
+	apiToken.TokenType = t.TokenType
+	apiToken.validUntil = time.Now().Add(time.Second * time.Duration(t.ExpiresIn))
+
+	return &apiToken, nil
 }
 
 // newHTTPSClient initiate a HTTPS client.

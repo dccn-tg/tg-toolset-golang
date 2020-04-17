@@ -51,3 +51,14 @@ func TestGetProjectStorageResource(t *testing.T) {
 	}
 	t.Logf("storage resource: %+v\n", stor)
 }
+
+func TestGetProjectPendingActions(t *testing.T) {
+	PDB_CORE_API_URL = os.Getenv("PDB_CORE_API_URL")
+	AUTH_SERVER_URL = os.Getenv("AUTH_SERVER_URL")
+
+	acts, err := GetProjectPendingActions(os.Getenv("PDB_CORE_API_CLIENT_SECRET"))
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	t.Logf("pending actions: %+v\n", acts)
+}
