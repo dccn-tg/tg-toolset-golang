@@ -31,7 +31,7 @@ type token struct {
 	mux         sync.Mutex
 }
 
-// query is a generic function for performing the GraphQL query.
+// query is a generic function for performing a GraphQL query.
 func query(authClientSecret string, qry interface{}, vars map[string]interface{}) error {
 	// Perform query
 	client, err := newClient(authClientSecret)
@@ -67,7 +67,7 @@ func newClient(authClientSecret string) (*graphql.Client, error) {
 	return graphql.NewClient(PDB_CORE_API_URL, httpClient), nil
 }
 
-// getAuthToken retrieves a valid OAuth authentication token.
+// getAuthToken returns a valid OAuth authentication token.
 //
 // If the global `apiToken` is still valid, it is returned rightaway. Otherwise,
 // this function renews the `apiToken` using the given `clientSecret` before
@@ -134,7 +134,7 @@ func getAuthToken(clientSecret string) (*token, error) {
 	return &apiToken, nil
 }
 
-// newHTTPSClient initiate a new HTTPS client.
+// newHTTPSClient initiates a new HTTPS client.
 func newHTTPSClient(timeout time.Duration, insecure bool) (client *http.Client) {
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
