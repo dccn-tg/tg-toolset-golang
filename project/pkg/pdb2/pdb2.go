@@ -52,6 +52,13 @@ func init() {
 	log.NewLogger(cfg, log.InstanceLogrusLogger)
 }
 
+// token holds the data structure of the Core API access token.
+type token struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	TokenType   string `json:"token_type"`
+}
+
 // member is the data structure of a pending role setting on a project.
 type member struct {
 	UserID string `json:"userID"`
@@ -260,11 +267,4 @@ func newHTTPSClient(timeout time.Duration, insecure bool) (client *http.Client) 
 	}
 
 	return
-}
-
-// token holds the data structure of the Core API access token.
-type token struct {
-	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"`
-	TokenType   string `json:"token_type"`
 }
