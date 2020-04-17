@@ -31,8 +31,7 @@ type token struct {
 	mux         sync.Mutex
 }
 
-// query is a generic function for GraphQL query.  It constructs a http client with a valid
-// api token and performs graphql query to the project database's core api.
+// query is a generic function for performing the GraphQL query.
 func query(authClientSecret string, qry interface{}, vars map[string]interface{}) error {
 	// Perform query
 	client, err := newClient(authClientSecret)
@@ -50,8 +49,7 @@ func query(authClientSecret string, qry interface{}, vars map[string]interface{}
 	return nil
 }
 
-// newClient returns a GraphQL client with proper authentication via the
-// authentication server.
+// newClient returns a GraphQL client with proper and valid authentication.
 func newClient(authClientSecret string) (*graphql.Client, error) {
 
 	// retrieve API token
@@ -69,10 +67,14 @@ func newClient(authClientSecret string) (*graphql.Client, error) {
 	return graphql.NewClient(PDB_CORE_API_URL, httpClient), nil
 }
 
-// getAuthToken retrieves the OAuth client token from the authentication server,
-// using the given clientSecret.
+// getAuthToken retrieves a valid OAuth authentication token.
 //
-// Both client id and scope are hardcoded in this function.
+// If the global `apiToken` is still valid, it is returned rightaway. Otherwise,
+// this function renews the `apiToken` using the given `clientSecret` before
+// returning the `apiToken`.
+//
+// The `clientID` and `clientScope` used for renewing the `apiToken` are hardcoded
+// in this function.
 func getAuthToken(clientSecret string) (*token, error) {
 
 	// lock the apiToken for eventual manipulation of it.
@@ -132,7 +134,7 @@ func getAuthToken(clientSecret string) (*token, error) {
 	return &apiToken, nil
 }
 
-// newHTTPSClient initiate a HTTPS client.
+// newHTTPSClient initiate a new HTTPS client.
 func newHTTPSClient(timeout time.Duration, insecure bool) (client *http.Client) {
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
