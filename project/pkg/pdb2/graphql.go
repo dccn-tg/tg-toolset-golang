@@ -49,6 +49,23 @@ func query(authClientSecret string, qry interface{}, vars map[string]interface{}
 	return nil
 }
 
+// mutate is a generic function for performing a GraphQL mutation.
+func mutate(authClientSecret string, mutation interface{}, vars map[string]interface{}) error {
+	// Perform mutation
+	client, err := newClient(authClientSecret)
+	if err != nil {
+		return err
+	}
+	err = client.Mutate(context.Background(), mutation, vars)
+	if err != nil {
+		return err
+	}
+
+	// Loop over qry and feed pendingRoles
+	log.Debugf("mutation result: %+v", mutation)
+	return nil
+}
+
 // newClient returns a GraphQL client with proper and valid authentication.
 func newClient(authClientSecret string) (*graphql.Client, error) {
 
