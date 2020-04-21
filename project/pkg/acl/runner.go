@@ -147,7 +147,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 	chanOut := r.goSetRoles(roles, chanF, r.Nthreads)
 
 	// set traverse roles
-	chanFt := r.goPrintOut(chanOut, r.Traverse, rolesT, r.Nthreads*4)
+	chanFt := r.goPrintOut(chanOut, r.Traverse, rolesT, r.Nthreads*4, false)
 	chanOutt := r.goSetRoles(rolesT, chanFt, r.Nthreads)
 
 	// block main until the output is all printed, or a system signal is received
@@ -156,7 +156,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 		log.Warnf("Stopped due to received signal: %s\n", s)
 		exitcode = int(s.(syscall.Signal))
 		return
-	case <-r.goPrintOut(chanOutt, false, nil, 0):
+	case <-r.goPrintOut(chanOutt, false, nil, 0, false):
 		exitcode = 0
 		return
 	}
@@ -257,7 +257,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 
 	// channels for removing traverse roles
 	// set traverse roles
-	chanFt := r.goPrintOut(chanOut, r.Traverse, rolesT, r.Nthreads*4)
+	chanFt := r.goPrintOut(chanOut, r.Traverse, rolesT, r.Nthreads*4, true)
 	chanOutt := r.goDelRoles(rolesT, chanFt, r.Nthreads)
 
 	// block main until the output is all printed, or a system signal is received
@@ -266,7 +266,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 		log.Warnf("Stopped due to received signal: %s\n", s)
 		exitcode = int(s.(syscall.Signal))
 		return
-	case <-r.goPrintOut(chanOutt, false, nil, 0):
+	case <-r.goPrintOut(chanOutt, false, nil, 0, true):
 		exitcode = 0
 		return
 	}
@@ -510,7 +510,7 @@ func (r Runner) goDelRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 // The paths resolved for traverse role can be passed onto the goSetRoles function for
 // setting the traverse role.
 func (r Runner) goPrintOut(chanOut chan RolePathMap,
-	resolvePathForTraverse bool, rolesT map[Role][]string, bufferChanTraverse int) chan ufp.FilePathMode {
+	resolvePathForTraverse bool, rolesT map[Role][]string, bufferChanTraverse int, delFlag bool) chan ufp.FilePathMode {
 
 	chanFt := make(chan ufp.FilePathMode, bufferChanTraverse)
 	go func() {
@@ -534,11 +534,16 @@ func (r Runner) goPrintOut(chanOut chan RolePathMap,
 			for r, users := range o.RoleMap {
 				log.Debugf("%12s: %s", r, strings.Join(users, ","))
 			}
+
 			// examine the path to see if it is deviated from the ppath from
 			// the project storage perspective.  If so, it should be considered for the
 			// traverse role settings.
 			if resolvePathForTraverse && !IsSameProjectPath(o.Path, r.ppath) {
-				GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
+				if delFlag {
+					GetPathsForDelTraverse(o.Path, rolesT, &chanFt)
+				} else {
+					GetPathsForSetTraverse(o.Path, rolesT, &chanFt)
+				}
 			}
 		}
 		// enter a newline when using the silence mode
@@ -548,9 +553,16 @@ func (r Runner) goPrintOut(chanOut chan RolePathMap,
 		// examine ppath (and RootPath if it's not the same as ppath) to resolve possible
 		// parents for setting the traverse role.
 		if resolvePathForTraverse {
-			GetPathsForSetTraverse(r.ppath, rolesT, &chanFt)
-			if r.ppath != r.RootPath {
-				GetPathsForSetTraverse(r.RootPath, rolesT, &chanFt)
+			if delFlag {
+				GetPathsForDelTraverse(r.ppath, rolesT, &chanFt)
+				if r.ppath != r.RootPath {
+					GetPathsForDelTraverse(r.RootPath, rolesT, &chanFt)
+				}
+			} else {
+				GetPathsForSetTraverse(r.ppath, rolesT, &chanFt)
+				if r.ppath != r.RootPath {
+					GetPathsForSetTraverse(r.RootPath, rolesT, &chanFt)
+				}
 			}
 		}
 		defer close(chanFt)

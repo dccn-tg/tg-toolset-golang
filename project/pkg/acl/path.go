@@ -127,7 +127,7 @@ func GetPathsForDelTraverse(p string, roles RoleMap, chanF *chan ufp.FilePathMod
 
 	// function of checking whether users to be removed is exactly in the traverse
 	// role.
-	userInRole := func(rolesNow RoleMap) bool {
+	userInTraverseRole := func(rolesNow RoleMap) bool {
 		if users, ok := rolesNow[Traverse]; ok {
 			for _, u := range users {
 				if mUsersT[u] {
@@ -158,7 +158,7 @@ func GetPathsForDelTraverse(p string, roles RoleMap, chanF *chan ufp.FilePathMod
 		if err != nil {
 			log.Warnf("%s: %s", err, p)
 		}
-		if userInRole(rolesNow) {
+		if userInTraverseRole(rolesNow) {
 			*chanF <- fpm
 		}
 	}
