@@ -170,13 +170,13 @@ func newAcesFromRole(role Role, userOrGroupName string, p ufp.FilePathMode) []AC
 	switch {
 	case p.Mode.IsDir(): // in case of a directory
 		aces = []ACE{
-			ACE{
+			{
 				Type:      "A",
 				Flag:      flagD,
 				Principle: fmt.Sprintf("%s@%s", userOrGroupName, userDomain),
 				Mask:      aceMask[role],
 			},
-			ACE{
+			{
 				Type:      "A",
 				Flag:      flagF,
 				Principle: fmt.Sprintf("%s@%s", userOrGroupName, userDomain),
@@ -186,13 +186,13 @@ func newAcesFromRole(role Role, userOrGroupName string, p ufp.FilePathMode) []AC
 
 		// explicit DENY ACEs for user allow writing but not deleting files (e.g. Writer role)
 		acesDeny = []ACE{
-			ACE{
+			{
 				Type:      "D",
 				Flag:      flagD,
 				Principle: fmt.Sprintf("%s@%s", userOrGroupName, userDomain),
 				Mask:      "dD",
 			},
-			ACE{
+			{
 				Type:      "D",
 				Flag:      flagF,
 				Principle: fmt.Sprintf("%s@%s", userOrGroupName, userDomain),
@@ -201,7 +201,7 @@ func newAcesFromRole(role Role, userOrGroupName string, p ufp.FilePathMode) []AC
 		}
 	default: // in case of not a directory (assuming it's a file)
 		aces = []ACE{
-			ACE{
+			{
 				Type:      "A",
 				Flag:      strings.Replace(flagD, "d", "", 1),
 				Principle: fmt.Sprintf("%s@%s", userOrGroupName, userDomain),
@@ -209,7 +209,7 @@ func newAcesFromRole(role Role, userOrGroupName string, p ufp.FilePathMode) []AC
 			},
 		}
 		acesDeny = []ACE{
-			ACE{
+			{
 				Type:      "D",
 				Flag:      strings.Replace(flagD, "d", "", 1),
 				Principle: fmt.Sprintf("%s@%s", userOrGroupName, userDomain),
