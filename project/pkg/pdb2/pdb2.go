@@ -171,14 +171,13 @@ func delProjectPendingRoles(authClientSecret string, pendingRoles map[string][]m
 		TotalRemoved graphql.Int `graphql:"removePendingProjectMemberChanges(changes: $changes)"`
 	}
 
-	// RemovePendingProjectMemberChangeInput constructs a JSON (Un)marshable object
-	// that aligns to the input of the mutation API function of the core api:
-	// `removePendingProjectMemberChanges`.
+	// RemovePendingProjectMemberChangeInput is a JSON (Un)marshable data object that aligns to
+	// the input type of the core api function: `RemovePendingProjectMemberChangesInput`.
 	//
-	// The JSON syntax is needed to allow the graphql library convert the object into expected
-	// GraphQL input data.  Furthermore, the type name should also be the same as the GraphQL
-	// type defined by the core api, as the graphql library translates the type name directly.
-	// This seems to be an undocumented behaviour/feature of the graphql library; but it works.
+	// The JSON signature seems to be needed to allow the graphql library convert the object
+	// into expected GraphQL input data. Furthermore, the type name should also be the same as
+	// the input type defined by the core api, as the graphql library translates the type name
+	// directly, which seems to be an undocumented behaviour/feature of the graphql library ...
 	type RemovePendingProjectMemberChangeInput struct {
 		Project graphql.ID     `json:"project"`
 		Member  graphql.ID     `json:"member"`
