@@ -61,7 +61,7 @@ type Runner struct {
 	ppath string
 }
 
-// SetRoles sets roles recursively for users on a the path defined by RootPath.
+// SetRoles sets user roles recursively on a the path specified by `Runner.RootPath`.
 func (r *Runner) SetRoles() (exitcode int, err error) {
 
 	// map for role specification inputs (commad options)
@@ -162,7 +162,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 	}
 }
 
-// RemoveRoles removes roles recursively for users on a the path defined by RootPath.
+// RemoveRoles removes user roles recursively on a the path specified by `Runner.RootPath`.
 func (r *Runner) RemoveRoles() (exitcode int, err error) {
 	// map for role specification inputs (commad options)
 	roleSpec := make(map[Role]string)
@@ -272,7 +272,7 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 	}
 }
 
-// PrintRoles prints roles for users on a the path defined by RootPath to the stdout.
+// PrintRoles prints user roles on a the path specified by `Runner.RootPath` to the stdout.
 // Use the `recursion` argument to enable/disable recursion through filesystem tree.
 func (r *Runner) PrintRoles(recursion bool) error {
 
@@ -293,7 +293,7 @@ func (r *Runner) PrintRoles(recursion bool) error {
 	return nil
 }
 
-// GetRoles returns roles for users on a the path defined by RootPath via a channel.
+// GetRoles returns user roles on a the path specified by `Runner.RootPath` via a channel.
 // Use the `recursion` argument to enable/disable recursion through filesystem tree.
 func (r *Runner) GetRoles(recursion bool) (chan RolePathMap, error) {
 	// resolve any symlinks on ppath
@@ -364,7 +364,7 @@ func (r Runner) parseRoles(roleSpec map[Role]string, userUnique bool) (map[Role]
 }
 
 // goGetACL performs getting ACL on walked paths, using a go routine. The result is pushed to
-// a channel of acl.RolePathMap.  It also closes the channel when all walked paths are processed.
+// a channel of `acl.RolePathMap`.  It also closes the channel when all walked paths are processed.
 func (r Runner) goGetACL(chanD chan ufp.FilePathMode, nthreads int) chan RolePathMap {
 
 	// output channel
@@ -408,7 +408,7 @@ func (r Runner) goGetACL(chanD chan ufp.FilePathMode, nthreads int) chan RolePat
 }
 
 // goSetRoles performs actions for setting ACL (defined by roles) on paths provided
-// through the chanF channel, in a asynchronous manner. It returns a channel containing
+// through the `chanF` channel, using a go routine. It returns a channel containing
 // ACL information of paths on which the ACL setting is correctly applied.
 //
 // The returned channel can be passed onto the goPrintOut function for displaying the
@@ -457,7 +457,7 @@ func (r Runner) goSetRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 }
 
 // goSetRoles performs actions for deleting ACL (defined by roles) on paths provided
-// through the chanF channel, in a asynchronous manner. It returns a channel containing
+// through the `chanF` channel, using a go routine. It returns a channel containing
 // ACL information of paths on which the ACL deletion is correctly applied.
 //
 // The returned channel can be passed onto the goPrintOut function for displaying the
