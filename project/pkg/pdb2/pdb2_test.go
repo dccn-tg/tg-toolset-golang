@@ -62,3 +62,21 @@ func TestGetProjectPendingActions(t *testing.T) {
 	}
 	t.Logf("pending actions: %+v\n", acts)
 }
+
+func TestDelProjectPendingActions(t *testing.T) {
+	PDB_CORE_API_URL = os.Getenv("PDB_CORE_API_URL")
+	AUTH_SERVER_URL = os.Getenv("AUTH_SERVER_URL")
+
+	// get pending actions
+	acts, err := GetProjectPendingActions(os.Getenv("PDB_CORE_API_CLIENT_SECRET"))
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	t.Logf("pending actions: %+v\n", acts)
+
+	// delete pending actions
+	err = DelProjectPendingActions(os.Getenv("PDB_CORE_API_CLIENT_SECRET"), acts)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+}

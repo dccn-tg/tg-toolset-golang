@@ -56,6 +56,19 @@ type DataProjectUpdate struct {
 	Storage storage  `json:"storage"`
 }
 
+// DelProjectPendingActions performs deletion on the pending-role actions from the project
+// database.
+func DelProjectPendingActions(authClientSecret string, actions map[string]DataProjectUpdate) error {
+
+	pendingRoles := make(map[string][]member)
+
+	for pid, data := range actions {
+		pendingRoles[pid] = data.Members
+	}
+
+	return delProjectPendingRoles(authClientSecret, pendingRoles)
+}
+
 // GetProjectPendingActions performs queries to get project pending roles and project storage
 // resource, and combines the results into a data structure that can be directly used for
 // sending project update request to the filer-gateway API:
@@ -150,4 +163,66 @@ func getProjectPendingRoles(authClientSecret string) (map[string][]member, error
 	}
 
 	return pendingRoles, nil
+}
+
+// delProjectPendingRoles removes project pending role changes from the project database..
+func delProjectPendingRoles(authClientSecret string, pendingRoles map[string][]member) error {
+	var mut struct {
+		TotalRemoved graphql.Int `graphql:"removePendingProjectMemberChanges(changes: $changes)"`
+	}
+
+	// RemovePendingProjectMemberChangeInput constructs a JSON (Un)marshable object
+	// that aligns to the input of the mutation API function of the core api:
+	// `removePendingProjectMemberChanges`.
+	//
+	// The JSON syntax is needed to allow the graphql library convert the object into expected
+	// GraphQL input data.  Furthermore, the type name should also be the same as the GraphQL
+	// type defined by the core api, as the graphql library translates the type name directly.
+	// This seems to be an undocumented behaviour/feature of the graphql library; but it works.
+	type RemovePendingProjectMemberChangeInput struct {
+		Project graphql.ID     `json:"project"`
+		Member  graphql.ID     `json:"member"`
+		Action  graphql.String `json:"action"`
+	}
+
+	changes := make([]RemovePendingProjectMemberChangeInput, 0)
+	cnt := 0
+	for pid, members := range pendingRoles {
+		for _, m := range members {
+			changes = append(changes, RemovePendingProjectMemberChangeInput{
+				Project: graphql.ID(pid),
+				Member:  graphql.ID(m.UserID),
+				Action:  graphql.String(role2action(m.Role)),
+			})
+			cnt++
+		}
+	}
+	vars := map[string]interface{}{
+		"changes": changes,
+	}
+
+	if err := mutate(authClientSecret, &mut, vars); err != nil {
+		return err
+	}
+
+	if int(mut.TotalRemoved) != cnt {
+		log.Warnf("unexpected number of changes deleted, expect %d removed %d", cnt, int(mut.TotalRemoved))
+	}
+
+	return nil
+}
+
+// role2action looks up a role in the `action2role` map and returns the corresponding
+// action string.
+func role2action(role string) string {
+	action := ""
+
+	for k, v := range action2role {
+		if v == role {
+			action = k
+			break
+		}
+	}
+
+	return action
 }
