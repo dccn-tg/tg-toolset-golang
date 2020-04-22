@@ -20,9 +20,9 @@ func init() {
 	log.NewLogger(cfg, log.InstanceLogrusLogger)
 }
 
-// NewPDB returns the `PDBClient` corresponding to the given
+// New returns the `PDBClient` corresponding to the given
 // PDB `version`.
-func NewPDB(c config.PDBConfiguration) (PDB, error) {
+func New(c config.PDBConfiguration) (PDB, error) {
 	switch c.Version {
 	case 1:
 		return V1{config: c.V1}, nil

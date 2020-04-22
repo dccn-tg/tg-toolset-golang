@@ -28,7 +28,7 @@ func init() {
 		log.Fatalf("cannot log config file: %s\n", err)
 	}
 
-	testPDB, err = NewPDB(testConf.PDB)
+	testPDB, err = New(testConf.PDB)
 
 	if err != nil {
 		log.Fatalf("cannot load operator: %s\n", err)

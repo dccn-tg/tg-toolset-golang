@@ -60,7 +60,7 @@ func main() {
 		log.Fatalf("cannot load configuration file: %s", err)
 	}
 
-	pdb, err := pdb.NewPDB(conf.PDB)
+	pdb, err := pdb.New(conf.PDB)
 	if err != nil {
 		log.Fatalf("cannot connect to the project database: %s", err)
 	}
