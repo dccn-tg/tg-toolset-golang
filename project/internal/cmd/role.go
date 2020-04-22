@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 	"github.com/spf13/cobra"
 )
 
@@ -100,7 +99,7 @@ func init() {
 		"nthreads", "n", 8,
 		"number of parallel worker threads",
 	)
-	rolePdbCmd.AddCommand(rolePdbUpdateCmd, rolePdbGetPendingCmd)
+	// rolePdbCmd.AddCommand(rolePdbUpdateCmd, rolePdbGetPendingCmd)
 	roleAdminCmd.AddCommand(rolePdbCmd)
 	adminCmd.AddCommand(roleAdminCmd)
 }
@@ -219,25 +218,25 @@ var rolePdbCmd = &cobra.Command{
 	Long:  ``,
 }
 
-// rolePdbUpdateCmd is the CLI command for administrator to update project roles
-// to the project database, according to the role settings on the project storage.
-var rolePdbUpdateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Update project roles in project database",
-	Long: `
-Update project roles in project database based on the role settings on project storage.
+// // rolePdbUpdateCmd is the CLI command for administrator to update project roles
+// // to the project database, according to the role settings on the project storage.
+// var rolePdbUpdateCmd = &cobra.Command{
+// 	Use:   "update",
+// 	Short: "Update project roles in project database",
+// 	Long: `
+// Update project roles in project database based on the role settings on project storage.
 
-This command retrieves the role settings from all project directories and updates the project database accordingly.`,
-	Args: cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
+// This command retrieves the role settings from all project directories and updates the project database accordingly.`,
+// 	Args: cobra.NoArgs,
+// 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		runner := pdb.Runner{
-			Nthreads:   numThreads,
-			ConfigFile: configFile,
-		}
+// 		runner := pdb.Runner{
+// 			Nthreads:   numThreads,
+// 			ConfigFile: configFile,
+// 		}
 
-		return runner.SyncRolesWithStorage(ProjectRootPath)
-	},
-}
+// 		return runner.SyncRolesWithStorage(ProjectRootPath)
+// 	},
+// }
 
-var rolePdbGetPendingCmd = &cobra.Command{}
+// var rolePdbGetPendingCmd = &cobra.Command{}

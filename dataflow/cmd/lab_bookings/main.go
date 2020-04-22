@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"fmt"
 	"os"
@@ -9,16 +8,14 @@ import (
 	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/cdb"
-	"github.com/go-sql-driver/mysql"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 var (
 	optsDate    *string
 	optsConfig  *string
-	optsLabMod  cdb.Lab
+	optsLabMod  pdb.Lab
 	optsVerbose *bool
 )
 
@@ -58,41 +55,17 @@ func main() {
 		log.Fatalf("cannot resolve config path: %s", *optsConfig)
 	}
 
-	if _, err := os.Stat(cfg); err != nil {
-		log.Fatalf("cannot load config: %s", cfg)
-	}
-
-	viper.SetConfigFile(cfg)
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file, %s", err)
-	}
-	var conf config.Configuration
-	err = viper.Unmarshal(&conf)
+	conf, err := config.LoadConfig(cfg)
 	if err != nil {
-		log.Fatalf("unable to decode into struct, %v", err)
-	}
-	log.Debugf("loaded configuration: %+v", conf)
-
-	// connect to calendar booking database
-	dbConfig := mysql.Config{
-		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%d", conf.CDB.HostSQL, conf.CDB.PortSQL),
-		DBName:               conf.CDB.DatabaseSQL,
-		User:                 conf.CDB.UserSQL,
-		Passwd:               conf.CDB.PassSQL,
-		AllowNativePasswords: true,
-		ParseTime:            true,
+		log.Fatalf("cannot load configuration file: %s", err)
 	}
 
-	log.Debugf("db configuration: %+v", dbConfig)
-
-	db, err := sql.Open("mysql", dbConfig.FormatDSN())
+	pdb, err := pdb.NewPDB(conf.PDB)
 	if err != nil {
-		log.Errorf("Fail connecting SQL database: %+v", err)
+		log.Fatalf("cannot connect to the project database: %s", err)
 	}
-	defer db.Close()
 
-	bookings, err := cdb.SelectLabBookings(db, optsLabMod, *optsDate)
+	bookings, err := pdb.GetLabBookings(optsLabMod, *optsDate)
 	if err != nil {
 		log.Errorf("cannot retrieve labbookings, reason: %+v", err)
 		os.Exit(100)

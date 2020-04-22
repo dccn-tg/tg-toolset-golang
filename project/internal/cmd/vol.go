@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/vol"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -26,14 +25,14 @@ func init() {
 		"top-level directory of the projects",
 	)
 
-	// administrator's CLI
-	volProvisionCmd.Flags().IntVarP(
-		&numThreads,
-		"nthreads", "n", 2,
-		"number of parallel worker threads",
-	)
+	// // administrator's CLI
+	// volProvisionCmd.Flags().IntVarP(
+	// 	&numThreads,
+	// 	"nthreads", "n", 2,
+	// 	"number of parallel worker threads",
+	// )
 
-	volCmd.AddCommand(volCreateCmd, volProvisionCmd)
+	// volCmd.AddCommand(volCreateCmd, volProvisionCmd)
 	adminCmd.AddCommand(volCmd)
 }
 
@@ -79,25 +78,25 @@ var volCreateCmd = &cobra.Command{
 	},
 }
 
-var volProvisionCmd = &cobra.Command{
-	Use:   "provision [projectID]",
-	Short: "Provision storage volume and pending access roles for projects.",
-	Long: `Provision storage volume and pending access roles for projects.
-	
-If no specific "projectID" is given in the argument, it runs over all projects
-with pending access-role settings in the project database.
+// var volProvisionCmd = &cobra.Command{
+// 	Use:   "provision [projectID]",
+// 	Short: "Provision storage volume and pending access roles for projects.",
+// 	Long: `Provision storage volume and pending access roles for projects.
 
-If the namespace of the project storage doesn't exist, it will creates the
-corresponding storage volume on the file server with the calcuated quota stored
-in the project database.
+// If no specific "projectID" is given in the argument, it runs over all projects
+// with pending access-role settings in the project database.
 
-`,
-	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		runner := pdb.Runner{
-			Nthreads:   numThreads,
-			ConfigFile: configFile,
-		}
-		runner.ProvisionOrUpdateStorage(projectRootPath, args...)
-	},
-}
+// If the namespace of the project storage doesn't exist, it will creates the
+// corresponding storage volume on the file server with the calcuated quota stored
+// in the project database.
+
+// `,
+// 	Args: cobra.MaximumNArgs(1),
+// 	Run: func(cmd *cobra.Command, args []string) {
+// 		runner := pdb.Runner{
+// 			Nthreads:   numThreads,
+// 			ConfigFile: configFile,
+// 		}
+// 		runner.ProvisionOrUpdateStorage(projectRootPath, args...)
+// 	},
+// }

@@ -1,19 +1,14 @@
-package pdb2
+package pdb
 
 import (
 	"github.com/shurcooL/graphql"
 
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 )
 
 var (
-	// PDB_CORE_API_URL specifies the URL of the Core API server.
-	PDB_CORE_API_URL string
-
-	// AUTH_SERVER_URL specifies the URL of the authentication server.
-	AUTH_SERVER_URL string
-
 	// action2role maps the pending role action string of the Core API
 	// (e.g. `SetToXYZ`) to the string representation of the `acl.Role`,
 	// the value can be used directly for the API of the filer-gateway:
@@ -29,64 +24,42 @@ var (
 	}
 )
 
-// member defines the data structure of a pending role setting for a project member.
-type member struct {
-	UserID string `json:"userID"`
-	Role   string `json:"role"`
-}
-
-// storage defines the data structure for the storage resource of a project.
-type storage struct {
-	QuotaGb int    `json:"quotaGb"`
-	System  string `json:"system"`
-}
-
-// DataProjectProvision defines the data structure for sending project provision
-// request to the filer-gateway.
-type DataProjectProvision struct {
-	ProjectID string   `json:"projectID"`
-	Members   []member `json:"members"`
-	Storage   storage  `json:"storage"`
-}
-
-// DataProjectUpdate defines the data structure for sending project update request
-// to the filer-gateway.
-type DataProjectUpdate struct {
-	Members []member `json:"members"`
-	Storage storage  `json:"storage"`
+// V2 implements interfaces of the new project database implemented with GraphQL-based core-api.
+type V2 struct {
+	config config.CoreAPIConfiguration
 }
 
 // DelProjectPendingActions performs deletion on the pending-role actions from the project
 // database.
-func DelProjectPendingActions(authClientSecret string, actions map[string]DataProjectUpdate) error {
+func (v2 V2) DelProjectPendingActions(actions map[string]*DataProjectUpdate) error {
 
-	pendingRoles := make(map[string][]member)
+	pendingRoles := make(map[string][]Member)
 
 	for pid, data := range actions {
 		pendingRoles[pid] = data.Members
 	}
 
-	return delProjectPendingRoles(authClientSecret, pendingRoles)
+	return delProjectPendingRoles(v2.config, pendingRoles)
 }
 
 // GetProjectPendingActions performs queries to get project pending roles and project storage
 // resource, and combines the results into a data structure that can be directly used for
 // sending project update request to the filer-gateway API:
 // https://github.com/Donders-Institute/filer-gateway
-func GetProjectPendingActions(authClientSecret string) (map[string]DataProjectUpdate, error) {
-	actions := make(map[string]DataProjectUpdate)
+func (v2 V2) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
+	actions := make(map[string]*DataProjectUpdate)
 
-	pendingRoles, err := getProjectPendingRoles(authClientSecret)
+	pendingRoles, err := getProjectPendingRoles(v2.config)
 	if err != nil {
 		return actions, err
 	}
 
 	for pid, members := range pendingRoles {
-		stor, err := getProjectStorageResource(authClientSecret, pid)
+		stor, err := getProjectStorageResource(v2.config, pid)
 		if err != nil {
 			log.Errorf("%s", err)
 		}
-		actions[pid] = DataProjectUpdate{
+		actions[pid] = &DataProjectUpdate{
 			Members: members,
 			Storage: *stor,
 		}
@@ -95,9 +68,24 @@ func GetProjectPendingActions(authClientSecret string) (map[string]DataProjectUp
 	return actions, nil
 }
 
+// GetUser gets the user identified by the given uid in the project database.
+// It returns the pointer to the user data represented in the User data structure.
+func (v2 V2) GetUser(uid string) (*User, error) {
+
+	return &User{}, nil
+}
+
+// GetLabBookings retrieves calendar bookings concerning the given `Lab` on a given `date` string.
+// The `date` string is in the format of `2020-04-22`.
+func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
+	bookings := make([]*LabBooking, 0)
+
+	return bookings, nil
+}
+
 // getProjectStorageResource retrieves the storage resource of a given project.
-func getProjectStorageResource(authClientSecret, projectID string) (*storage, error) {
-	var stor storage
+func getProjectStorageResource(conf config.CoreAPIConfiguration, projectID string) (*Storage, error) {
+	var stor Storage
 
 	// GraphQL query construction
 	var qry struct {
@@ -110,13 +98,13 @@ func getProjectStorageResource(authClientSecret, projectID string) (*storage, er
 		"id": graphql.ID(projectID),
 	}
 
-	if err := query(authClientSecret, &qry, vars); err != nil {
+	if err := query(conf.AuthClientSecret, conf.AuthURL, conf.CoreAPIURL, &qry, vars); err != nil {
 		log.Errorf("fail to query project quota: %s", err)
 		return nil, err
 	}
 
 	// TODO: do not hardcode system to "netapp".
-	stor = storage{
+	stor = Storage{
 		QuotaGb: int(qry.Project.QuotaGb),
 		System:  "netapp",
 	}
@@ -126,9 +114,9 @@ func getProjectStorageResource(authClientSecret, projectID string) (*storage, er
 
 // getProjectPendingRoles retrieves a list of pending actions concering the project
 // member roles.
-func getProjectPendingRoles(authClientSecret string) (map[string][]member, error) {
+func getProjectPendingRoles(conf config.CoreAPIConfiguration) (map[string][]Member, error) {
 
-	pendingRoles := make(map[string][]member)
+	pendingRoles := make(map[string][]Member)
 
 	// GraphQL query construction
 	var qry struct {
@@ -143,7 +131,7 @@ func getProjectPendingRoles(authClientSecret string) (map[string][]member, error
 		} `graphql:"pendingProjectMemberChanges"`
 	}
 
-	if err := query(authClientSecret, &qry, nil); err != nil {
+	if err := query(conf.AuthClientSecret, conf.AuthURL, conf.CoreAPIURL, &qry, nil); err != nil {
 		log.Errorf("fail to query project pending roles: %s", err)
 		return pendingRoles, err
 	}
@@ -153,10 +141,10 @@ func getProjectPendingRoles(authClientSecret string) (map[string][]member, error
 		pid := string(rc.Project.Number)
 
 		if _, ok := pendingRoles[pid]; !ok {
-			pendingRoles[pid] = make([]member, 0)
+			pendingRoles[pid] = make([]Member, 0)
 		}
 
-		pendingRoles[pid] = append(pendingRoles[pid], member{
+		pendingRoles[pid] = append(pendingRoles[pid], Member{
 			UserID: string(rc.Member.Username),
 			Role:   action2role[string(rc.Action)],
 		})
@@ -166,7 +154,7 @@ func getProjectPendingRoles(authClientSecret string) (map[string][]member, error
 }
 
 // delProjectPendingRoles removes project pending role changes from the project database..
-func delProjectPendingRoles(authClientSecret string, pendingRoles map[string][]member) error {
+func delProjectPendingRoles(conf config.CoreAPIConfiguration, pendingRoles map[string][]Member) error {
 	var mut struct {
 		TotalRemoved graphql.Int `graphql:"removePendingProjectMemberChanges(changes: $changes)"`
 	}
@@ -200,7 +188,7 @@ func delProjectPendingRoles(authClientSecret string, pendingRoles map[string][]m
 		"changes": changes,
 	}
 
-	if err := mutate(authClientSecret, &mut, vars); err != nil {
+	if err := mutate(conf.AuthClientSecret, conf.AuthURL, conf.CoreAPIURL, &mut, vars); err != nil {
 		return err
 	}
 

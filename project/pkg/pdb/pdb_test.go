@@ -1,95 +1,59 @@
 package pdb
 
 import (
-	"database/sql"
-	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	"github.com/go-sql-driver/mysql"
-	"github.com/spf13/viper"
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
-var conf config.Configuration
+var testConf config.Configuration
+var testPDB PDB
 
 func init() {
-	// load configuration
-	cfg := filepath.Join(os.Getenv("GOPATH"), "src/github.com/Donders-Institute/tg-toolset-golang/configs/config_test.yml")
-	viper.SetConfigFile(cfg)
-	if err := viper.ReadInConfig(); err != nil {
-		panic(fmt.Sprintf("Error reading config file, %s", err))
+	logCfg := log.Configuration{
+		EnableConsole:     true,
+		ConsoleJSONFormat: false,
+		ConsoleLevel:      log.Debug,
 	}
-	err := viper.Unmarshal(&conf)
+
+	// initialize logger
+	log.NewLogger(logCfg, log.InstanceLogrusLogger)
+
+	var err error
+	testConf, err = config.LoadConfig(os.Getenv("TG_TOOLSET_CONFIG"))
+
 	if err != nil {
-		panic(fmt.Sprintf("unable to decode into struct, %s", err))
+		log.Fatalf("cannot log config file: %s\n", err)
+	}
+
+	testPDB, err = NewPDB(testConf.PDB)
+
+	if err != nil {
+		log.Fatalf("cannot load operator: %s\n", err)
 	}
 }
 
-func TestSelectPendingRoleMap(t *testing.T) {
-
-	config := mysql.Config{
-		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%d", conf.PDB.HostSQL, conf.PDB.PortSQL),
-		DBName:               conf.PDB.DatabaseSQL,
-		User:                 conf.PDB.UserSQL,
-		Passwd:               conf.PDB.PassSQL,
-		AllowNativePasswords: true,
-		ParseTime:            true,
-	}
-
-	db, err := sql.Open("mysql", config.FormatDSN())
+func TestGetProjectPendingActions(t *testing.T) {
+	acts, err := testPDB.GetProjectPendingActions()
 	if err != nil {
-		t.Errorf("Fail connecting SQL database: %+v", err)
+		t.Errorf("%s\n", err)
 	}
-	defer db.Close()
-
-	projectRoleActionMap, err := SelectPendingRoleMap(db)
-
-	if err != nil {
-		t.Errorf("Fail getting pending role actions: %+v", err)
-	}
-
-	for p, roleActionMap := range projectRoleActionMap {
-		t.Logf("%s: %+v", p, roleActionMap)
-	}
-
+	t.Logf("pending actions: %+v\n", acts)
 }
 
-func TestSelectPdbUser(t *testing.T) {
-
-	config := mysql.Config{
-		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%d", conf.PDB.HostSQL, conf.PDB.PortSQL),
-		DBName:               conf.PDB.DatabaseSQL,
-		User:                 conf.PDB.UserSQL,
-		Passwd:               conf.PDB.PassSQL,
-		AllowNativePasswords: true,
-		ParseTime:            true,
-	}
-	db, err := sql.Open("mysql", config.FormatDSN())
+func TestDelProjectPendingActions(t *testing.T) {
+	// get pending actions
+	acts, err := testPDB.GetProjectPendingActions()
 	if err != nil {
-		t.Errorf("Fail connecting SQL database: %+v", err)
+		t.Errorf("%s\n", err)
 	}
-	defer db.Close()
+	t.Logf("pending actions: %+v\n", acts)
 
-	// a known user in the Project database
-	knownUser := User{
-		ID:         "honlee",
-		Firstname:  "Hurng-Chun",
-		Middlename: "",
-		Lastname:   "Lee",
-		Email:      "h.lee@donders.ru.nl",
-	}
-
-	u, err := SelectUser(db, "honlee")
-
+	// delete pending actions
+	err = testPDB.DelProjectPendingActions(acts)
 	if err != nil {
-		t.Errorf("Fail finding user: %+v", err)
-	}
-
-	if *u != knownUser {
-		t.Errorf("Expect user %+v, found %+v", knownUser, *u)
+		t.Errorf("%s\n", err)
 	}
 }

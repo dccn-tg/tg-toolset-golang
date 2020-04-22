@@ -1,15 +1,15 @@
 pdb:
-  hostSQL: "db.intranet.dccn.nl"
-  portSQL: 3306
-  userSQL: "acl"
-  passSQL: ""
-  databaseSQL: "fcdc"
-cdb:
-  hostSQL: "db.intranet.dccn.nl"
-  portSQL: 3306
-  userSQL: "df"
-  passSQL: ""
-  databaseSQL: "fcdc"
+  version: 1
+  v1:
+    db_host: "db.intranet.dccn.nl"
+    db_port: 3306
+    db_user: "acl"
+    db_pass: ""
+    db_name: "fcdc"
+  v2:
+    auth_client_secret: ""
+    auth_url: "https://auth-dev.dccn.nl"
+    core_api_url: "http://dccn-pl001.dccn.nl:4334/graphql"
 pacs:
   prefixURL: "http://pacs.dccn.nl:8042"
   username: ""
