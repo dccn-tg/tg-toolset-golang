@@ -1,42 +1,43 @@
-# Golang toolset for the TG
+# TG toolset golang
 
-## CLI tools
+CLI tools and re-usable libraries for interacting and managing various ICT services provided by the DCCN technical group, written in [Golang](https://golang.org).
 
-## Libraries for managing data in the Orthanc DICOM PACS server
+## Code structure
 
-## Libraries for interfacing the Project and lab-booking databases
+Currently, the whole package is divided into two major sub-modules, each provides a set of CLI tools.  They are listed below:
 
-## Libraries for managing project data access
+- [dataflow](dataflow): tools and libraries concerning automatic dataflow from MEG/EEG labs.
+  * [lab_bookings](dataflow/cmd/lab_bookings): a CLI for retrieving MEG events from the calendar system in order to fill the MEG console with relevant information for structure MEG raw data in the project storage.
+  * [pacs_getstudies](dataflow/cmd/pacs_getstudies): a CLI for retrieving MRI studies from the Orthanc PACS server.
+  * [pacs_streamdata](dataflow/cmd/pacs_streamdata): a CLI for (re-)streaming data from the Orthanc PACS server.
+- [project](project): tools and libraries concerning managing project storage.
+  * [prj_getacl](project/cmd/prj_getacl): a CLI for getting ACLs of a project storage and translating it to data-access roles (e.g. manager, contributor, viewer).
+  * [prj_setacl](project/cmd/prj_setacl): a CLI for setting ACLs on a project storage to implement data-access roles.
+  * [prj_delacl](project/cmd/prj_delacl): a CLI for deleting ACLs from a project storage to remove data-access roles.
+  * [prj_mine](project/cmd/prj_mine): a CLI for retrieving the current user's data-access roles in all projects.
+  * [project](project/cmd/project): a CLI for system administrator to perform actions such as provisioning storage resource or changing quota for projects.
 
-This package is rewriting the existing python scripts of `prj_getacl`, `prj_setacl`, and `prj_delacl`, with the following objectives:
+Most of the re-usable libraries are written to implement the CLI tools listed above.  Those libraries are organised in various `pkg` directories:
 
-* supporting role setting and deletion on individual file/directory level so that there will be no permission "overwriting" issue when managing different access roles on sub-directories in a project storage.
-
-  In this context, the program should be fast enought to walk through all the files in a project (in an order of 10^7 - 10^9). This requirement drives the idea of writing the program with the Go language given that the concurrency model in the language can potentially be used to boost the speed of the massive setacl and getacl operations.
-
-* supporting intellegent traverse role setting while following a link referring to a path that is outside the current project storage.
-
-  Traverse role setting becomes non-trivial when the following symbolic link happens:
-  
-  ```bash
-  /project/3010000.01/symlink --> /project_ext/3010000.04/referent
-  ```
-  
-  In this situation, the traverse role setting should be applied not only on path `/project/3010000.01`, but also `/project_ext/3010000.04`.  Also note that the two root directories (`/project` and `/project_ext`) are mount points to two different storage systems.  It also requires the program to switch to an ACL-setting implementation following the logic exposed by the storage system in question.
-  
-* facilitating possibility of extending the code for different storage system supporting NFSv4 ACL.
-
-  This requires the code to be modulized and well documented so that future developers can easily extend the code for other different systems.  It is another reason to choose the Go language for the implementation.
+- [pkg](pkg): common libraries shared between the sub-modules.
+- [dataflow/pkg](dataflow/pkg): libraries used/introduced specifically for the development of the dataflow sub-module.
+- [project/pkg](project/pkg): libraries used/introduced specifically for the development of the dataflow sub-module.
 
 ## Build
+
+To build the CLIs, simply run:
 
 ```bash
 make
 ```
 
-After the build, the executable binaries are located in the `bin` directory.
+After the build, the executable binaries are located in `${GOPATH}/bin` directory.  If `${GOPATH}` is not set in the environment, default is `${HOME}/go`.
 
-## Documentation of reusable functions
+## Run
+
+All CLI commands have a `-h` option to print out a brief usage of the command.
+
+## Document for the reusable libraries
 
 ```bash
 make doc
