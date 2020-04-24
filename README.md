@@ -36,11 +36,3 @@ After the build, the executable binaries are located in `${GOPATH}/bin` director
 ## Run
 
 All CLI commands have a `-h` option to print out a brief usage of the command.
-
-## Document for the reusable libraries
-
-```bash
-make doc
-```
-
-and visit [http://localhost:6060/pkg/dccn.nl](http://localhost:6060/pkg/dccn.nl).
