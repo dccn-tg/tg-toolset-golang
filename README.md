@@ -17,7 +17,7 @@ Currently, the whole package is divided into two major parts, each provides a se
   * [prj_mine](project/cmd/prj_mine): a CLI for retrieving the current user's data-access roles in all projects.
   * [project](project/cmd/project): a CLI for system administrator to perform actions such as provisioning storage resource or changing quota for projects.
 
-Various CLIs take a YAML-based configuration file for setting up connections to, e.g., project database, filers, etc.. An example YAML file is provided [here](configs/config.yml); and the codes map YAML to configuration object are located in the [pkg/config](pkg/config) directory.
+Various CLIs take a YAML-based configuration file for setting up connections to, e.g., project database, filers, etc.. An example YAML file is provided [here](configs/config.yml); and the codes that "objectize" the YAML file are located in the [pkg/config](pkg/config) directory.
 
 Most of the re-usable libraries are written to support the CLI tools listed above.  Those libraries are organised in various `pkg` directories:
 
