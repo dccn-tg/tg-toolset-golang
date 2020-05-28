@@ -323,6 +323,21 @@ function switchVolumeQuota() {
     esac
 }
 
+# create CIFS share specific for user home
+function createShare() {
+
+    uname=$1
+    gname=$2
+
+    # create new share
+    out=$( ${CURL} -X POST -u ${API_USER}:${API_PASS} \
+            -H 'content-type: application/json' \
+            -d $(dataShareCIFS "${uname}$" "/home/${gname}/${uname}") \
+            ${API_URL}/protocols/cifs/shares )
+
+    echo $out
+}
+
 # Get job status
 function getJobState() {
     id=$1
@@ -461,6 +476,37 @@ EOF
 
 }
 
+# Compose POST data for creating cifs share 
+function dataShareCIFS() {
+    name=$1
+    path=$2
+
+    jq --arg name "$name" \
+       --arg path "$path" \
+       --arg svm "$SVM" \
+       -c -M \
+       '.|.name=$name|.path=$path|.svm.name=$svm' << EOF
+
+{
+  "home_directory": false,
+  "oplocks": true,
+  "access_based_enumeration": false,
+  "change_notify": true,
+  "encryption": false,
+  "unix_symlink": "widelink",
+  "svm": {},
+  "acls": [
+    {
+      "user_or_group": "Everyone",
+      "type": "windows",
+      "permission": "full_control"
+    }
+  ]
+}
+
+EOF
+}
+
 ## main program
 [ $# -lt 2 ] && usage $0 && exit 1
 ops=$1
@@ -494,7 +540,7 @@ new)
         # TODO: determine volume name from user's primary group
         volname=$4
         echo "Creating qtree for user $name, group $volname ..." &&
-        newQtree $name $volname || exit 1
+        newQtree $name $volname && createShare $name $volname || exit 1
 
         # set new quota rule for home qtree if non-default ($sizeGb != 0 ).
         [ $sizeGb -ne 0 ] && newQuotaRule $name $volname $sizeGb || exit 1
