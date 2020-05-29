@@ -323,16 +323,18 @@ function switchVolumeQuota() {
     esac
 }
 
-# create CIFS share specific for user home
+# curl to create CIFS share specific for user home
 function createShare() {
 
     uname=$1
     gname=$2
 
+    data=$( dataShareCIFS "${uname}$" "/home/${gname}/${uname}" )
+
     # create new share
     out=$( ${CURL} -X POST -u ${API_USER}:${API_PASS} \
             -H 'content-type: application/json' \
-            -d $(dataShareCIFS "${uname}$" "/home/${gname}/${uname}") \
+            -d "${data}" \
             ${API_URL}/protocols/cifs/shares )
 
     echo $out
@@ -490,6 +492,7 @@ function dataShareCIFS() {
 {
   "home_directory": false,
   "oplocks": true,
+  "comment": "Share users home directory",
   "access_based_enumeration": false,
   "change_notify": true,
   "encryption": false,
