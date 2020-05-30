@@ -1,4 +1,4 @@
-package cmd
+package admin
 
 import (
 	"path/filepath"
@@ -93,15 +93,15 @@ func init() {
 	roleCmd.AddCommand(roleGetCmd, roleSetCmd, roleRemoveCmd)
 	rootCmd.AddCommand(roleCmd)
 
-	// administrator's CLI
-	rolePdbCmd.PersistentFlags().IntVarP(
-		&numThreads,
-		"nthreads", "n", 8,
-		"number of parallel worker threads",
-	)
+	// // administrator's CLI
+	// rolePdbCmd.PersistentFlags().IntVarP(
+	// 	&numThreads,
+	// 	"nthreads", "n", 8,
+	// 	"number of parallel worker threads",
+	// )
 	// rolePdbCmd.AddCommand(rolePdbUpdateCmd, rolePdbGetPendingCmd)
-	roleAdminCmd.AddCommand(rolePdbCmd)
-	adminCmd.AddCommand(roleAdminCmd)
+	// roleAdminCmd.AddCommand(rolePdbCmd)
+	// pdbCmd.AddCommand(roleAdminCmd)
 }
 
 // roleCmd is the top-level CLI command for managing project roles.
@@ -204,19 +204,19 @@ var roleSetCmd = &cobra.Command{
 	},
 }
 
-// roleAdminCmd is the CLI command for administrating project roles.
-var roleAdminCmd = &cobra.Command{
-	Use:   "role",
-	Short: "Administer project roles",
-	Long:  ``,
-}
+// // roleAdminCmd is the CLI command for administrating project roles.
+// var roleAdminCmd = &cobra.Command{
+// 	Use:   "role",
+// 	Short: "Administer project roles",
+// 	Long:  ``,
+// }
 
-// rolePdbCmd is the CLI command for administrating project roles in project database.
-var rolePdbCmd = &cobra.Command{
-	Use:   "pdb",
-	Short: "Administer project roles in project database",
-	Long:  ``,
-}
+// // rolePdbCmd is the CLI command for administrating project roles in project database.
+// var rolePdbCmd = &cobra.Command{
+// 	Use:   "pdb",
+// 	Short: "Administer project roles in project database",
+// 	Long:  ``,
+// }
 
 // // rolePdbUpdateCmd is the CLI command for administrator to update project roles
 // // to the project database, according to the role settings on the project storage.

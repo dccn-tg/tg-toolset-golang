@@ -1,4 +1,4 @@
-package cmd
+package admin
 
 import (
 	"os"
@@ -19,8 +19,8 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "project",
-	Short: "Utility CLI for managing DCCN project",
+	Use:   "prj_admin",
+	Short: "administrator's CLI for managing DCCN project",
 	Long:  ``,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if cmd.Flags().Changed("verbose") {
