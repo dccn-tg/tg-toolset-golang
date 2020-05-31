@@ -8,8 +8,9 @@ import (
 
 // Member defines the data structure of a pending role setting for a project member.
 type Member struct {
-	UserID string `json:"userID"`
-	Role   string `json:"role"`
+	UserID    string `json:"userID"`
+	Role      string `json:"role"`
+	Timestamp time.Time
 }
 
 // Storage defines the data structure for the storage resource of a project.
