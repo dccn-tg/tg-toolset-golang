@@ -59,7 +59,7 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 		uid        string
 		role       string
 		action     string
-		quota      int8
+		quota      uint8
 		createTime time.Time
 	}
 
@@ -73,7 +73,7 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 			role   string
 			action string
 			ctime  time.Time
-			quota  int8
+			quota  uint8
 		)
 
 		if err := rows.Scan(&uid, &pid, &role, &ctime, &action, &quota); err != nil {
