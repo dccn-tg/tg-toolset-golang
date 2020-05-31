@@ -239,28 +239,28 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 	// loop over results of the query
 	for rows.Next() {
 		var (
-			id       string
-			pid      string
-			subj_ses string
-			stime    []uint8
-			uid      string
-			pname    string
-			labdesc  string
+			id      string
+			pid     string
+			subjSes string
+			stime   []uint8
+			uid     string
+			pname   string
+			labdesc string
 		)
 
-		err := rows.Scan(&id, &pid, &subj_ses, &stime, &uid, &pname, &labdesc)
+		err := rows.Scan(&id, &pid, &subjSes, &stime, &uid, &pname, &labdesc)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Debugf("%s %s %s %s", id, pid, subj_ses, labdesc)
+		log.Debugf("%s %s %s %s", id, pid, subjSes, labdesc)
 
 		if m := labPat.FindStringSubmatch(strings.ToUpper(labdesc)); len(m) >= 2 {
 			var (
 				subj string
 				sess string
 			)
-			if dss := subjsesSpliter.Split(subj_ses, -1); len(dss) < 2 {
+			if dss := subjsesSpliter.Split(subjSes, -1); len(dss) < 2 {
 				subj = dss[0]
 				sess = "1"
 			} else {
