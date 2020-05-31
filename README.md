@@ -15,7 +15,7 @@ Currently, the whole package is divided into two major parts, each provides a se
   * [prj_setacl](project/cmd/prj_setacl): a CLI for setting ACLs on a project storage to implement data-access roles.
   * [prj_delacl](project/cmd/prj_delacl): a CLI for deleting ACLs from a project storage to remove data-access roles.
   * [prj_mine](project/cmd/prj_mine): a CLI for retrieving the current user's data-access roles in all projects.
-  * [prj_admin](project/cmd/prj_admin): a CLI for system administrator to perform actions such as provisioning storage resource or changing quota for projects.
+  * [pdbutil](project/cmd/pdbutil): a project database utility for performing actions such as provisioning storage resource or changing quota for projects.
 
 Various CLIs take a YAML-based configuration file for setting up connections to, e.g., project database, filers, etc.. An example YAML file is provided [here](configs/config.yml); and the codes that "objectize" the YAML file are located in the [pkg/config](pkg/config) directory.
 

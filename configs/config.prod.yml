@@ -1,0 +1,24 @@
+pdb:
+  version: 1
+  v1:
+    db_host: "mysql-intranet.dccn.nl"
+    db_port: 3306
+    db_user: "acl"
+    db_pass: "test"
+    db_name: "fcdc"
+  v2:
+    auth_client_secret: "Pv8WoH65Jdpwqq5R7xoIZkDLgcHSUnOI"
+    auth_url: "https://auth-dev.dccn.nl"
+    core_api_url: "http://dccn-pl001.dccn.nl:4334/graphql"
+pacs:
+  prefixURL: "http://pacs.dccn.nl:8042"
+  username: ""
+  password: ""
+streamer:
+  prefixURL: "http://pacs.dccn.nl:3001"
+  username: ""
+  password: ""
+volumeManager:
+  managementInterface:
+    netApp: "filer-a-mi:22"
+    freeNas: "freenas:22"

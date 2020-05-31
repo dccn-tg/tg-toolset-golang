@@ -1,4 +1,4 @@
-package admin
+package pdbutil
 
 import (
 	"path/filepath"
@@ -90,8 +90,8 @@ func init() {
 		"enable recursion for getting roles",
 	)
 
-	roleCmd.AddCommand(roleGetCmd, roleSetCmd, roleRemoveCmd)
-	rootCmd.AddCommand(roleCmd)
+	// roleCmd.AddCommand(roleGetCmd, roleSetCmd, roleRemoveCmd)
+	// rootCmd.AddCommand(roleCmd)
 
 	// // administrator's CLI
 	// rolePdbCmd.PersistentFlags().IntVarP(
