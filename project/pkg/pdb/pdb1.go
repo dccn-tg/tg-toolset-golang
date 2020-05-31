@@ -45,6 +45,8 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 		a.activated='no' AND 
 		b.calculatedProjectSpace > 0 AND
 		a.project_id=b.id
+	ORDER BY
+		a.created
 	`
 
 	rows, err := db.Query(query)
@@ -114,6 +116,8 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 	}
 
 	// convert rawActions map into actions
+	// NOTE: we are missing system parameter so that all actions are assumed to be
+	//       executed on the `netapp`, the default filer system.
 	for _, a := range rawActions {
 		if _, ok := actions[a.pid]; !ok {
 			actions[a.pid] = &DataProjectUpdate{
@@ -125,9 +129,15 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 			}
 		}
 
+		// set role to "none" if the action concerns role deletion.
+		if a.action == "delete" {
+			a.role = "none"
+		}
+
 		actions[a.pid].Members = append(actions[a.pid].Members, Member{
-			UserID: a.uid,
-			Role:   a.role,
+			UserID:    a.uid,
+			Role:      a.role,
+			Timestamp: a.createTime,
 		})
 	}
 
@@ -137,6 +147,54 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 // DelProjectPendingActions performs deletion on the pending-role actions from the project
 // database.
 func (v1 V1) DelProjectPendingActions(actions map[string]*DataProjectUpdate) error {
+	db, err := newClientMySQL(v1.config)
+	if err != nil {
+		return err
+	}
+
+	// make sure the db client is closed before exiting the function.
+	defer db.Close()
+
+	type rawAction struct {
+		pid        string
+		uid        string
+		createTime time.Time
+	}
+
+	rawActions := make([]rawAction, 0)
+
+	for pid, act := range actions {
+		for _, m := range act.Members {
+			rawActions = append(rawActions, rawAction{
+				pid:        pid,
+				uid:        m.UserID,
+				createTime: m.Timestamp,
+			})
+		}
+	}
+
+	// prepare sql to set actions concerning pid/uid created before the creation timestamp of
+	// the perfomed actions.
+	query := `
+	UPDATE
+		projectmembers
+	SET
+		activated=?, updated=?
+	WHERE
+		project_id=? AND user_id=? AND created<=$?
+	`
+
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, a := range rawActions {
+		if _, err := stmt.Exec("yes", time.Now(), a.pid, a.uid, a.createTime); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
