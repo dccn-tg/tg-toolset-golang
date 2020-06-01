@@ -14,6 +14,7 @@ type Configuration struct {
 	PDB           PDBConfiguration
 	PACS          OrthancConfiguration
 	Streamer      StreamerConfiguration
+	FilerGateway  FilerGatewayConfiguration
 	VolumeManager VolumeManagerConfiguration
 }
 

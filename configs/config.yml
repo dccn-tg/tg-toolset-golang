@@ -1,3 +1,4 @@
+# configuration for connecting the project database.
 pdb:
   version: 1
   v1:
@@ -10,14 +11,23 @@ pdb:
     auth_client_secret: ""
     auth_url: "https://auth-dev.dccn.nl"
     core_api_url: "http://dccn-pl001.dccn.nl:4334/graphql"
+# configuration for connecting the filer-gateway service.
+filergateway:
+  api_key: ""
+  api_url: "https://filer-gateway.dccn.nl/v1"
+  api_user: "admin"
+  api_pass: ""
+# configuration for connecting the Orthanc PACS server.
 pacs:
   prefixURL: "http://pacs.dccn.nl:8042"
   username: ""
   password: ""
+# configuration for connecting the data-streamer service.
 streamer:
   prefixURL: "http://pacs.dccn.nl:3001"
   username: ""
   password: ""
+# configuration for legacy filer volume management via SSH + CLI.
 volumeManager:
   managementInterface:
     netApp: "filer-a-mi:22"

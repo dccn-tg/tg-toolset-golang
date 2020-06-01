@@ -1,9 +1,13 @@
 package pdbutil
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/filergateway"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 	"github.com/spf13/cobra"
 )
 
@@ -42,8 +46,11 @@ var projectActionListCmd = &cobra.Command{
 		}
 
 		for pid, act := range actions {
-			// TODO: pretty print the pending actions
-			fmt.Printf("%s: %+v", pid, act)
+			if data, err := json.Marshal(act); err != nil {
+				log.Errorf("%s", err)
+			} else {
+				fmt.Printf("%s: %s", pid, data)
+			}
 		}
 
 		return nil
@@ -57,12 +64,6 @@ var projectActionExecCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		// // load configuration yml file
-		// conf, err := config.LoadConfig(configFile)
-		// if err != nil {
-		// 	return err
-		// }
-
 		// list pending pdb actions
 		log.Debugf("list pending actions")
 		actions, err := ipdb.GetProjectPendingActions()
@@ -70,11 +71,41 @@ var projectActionExecCmd = &cobra.Command{
 			return err
 		}
 
-		for pid, act := range actions {
-			log.Debugf("executing pending action %s %+v", pid, act)
-			// TODO: perform pending actions via the filer gateway
+		actionsOK := make(map[string]*pdb.DataProjectUpdate)
 
-			// TODO: issue PDB cleanup on executed pending action
+		// load configuration yml file
+		conf, err := config.LoadConfig(configFile)
+		if err != nil {
+			return err
+		}
+
+		fgw, err := filergateway.NewClient(conf)
+		if err != nil {
+			return err
+		}
+
+		for pid, act := range actions {
+
+			// initialize actionOK entry for the visited project
+			if _, ok := actionsOK[pid]; !ok {
+				actionsOK[pid] = &pdb.DataProjectUpdate{}
+			}
+
+			log.Debugf("executing pending action %s %+v", pid, act)
+			// perform pending actions via the filer gateway; write out
+			// error if failed and continue for the next project.
+			if err := fgw.UpdateProject(pid, act); err != nil {
+				log.Errorf("failure updating project %s: %s", pid, err)
+				continue
+			}
+
+			// put successfully performed action to actionsOK map
+			actionsOK[pid] = act
+		}
+
+		// clean up PDB pending actions that has been successfully performed.
+		if err := ipdb.DelProjectPendingActions(actionsOK); err != nil {
+			return err
 		}
 
 		return nil

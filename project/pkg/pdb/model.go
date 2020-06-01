@@ -8,9 +8,13 @@ import (
 
 // Member defines the data structure of a pending role setting for a project member.
 type Member struct {
-	UserID    string `json:"userID"`
-	Role      string `json:"role"`
-	Timestamp time.Time
+	UserID string `json:"userID"`
+	Role   string `json:"role"`
+	// The `Timestamp` attribute is used for registering a timestamp concerning the
+	// time the member role request is created. Currently, this is needed for PDBv1
+	// to operate when cleaning up successfully performed pending roles in the SQL
+	// database. This attribute is ignored for JSON (un)marshal.
+	Timestamp time.Time `json:"-"`
 }
 
 // Storage defines the data structure for the storage resource of a project.
