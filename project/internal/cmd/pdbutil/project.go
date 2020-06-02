@@ -3,8 +3,8 @@ package pdbutil
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/filergateway"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
@@ -38,6 +38,10 @@ var projectActionListCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+
+		// load project database interface
+		ipdb := loadPdb()
+
 		// list pending pdb actions
 		log.Debugf("list pending actions")
 		actions, err := ipdb.GetProjectPendingActions()
@@ -64,6 +68,9 @@ var projectActionExecCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
+		// load project database interface
+		ipdb := loadPdb()
+
 		// list pending pdb actions
 		log.Debugf("list pending actions")
 		actions, err := ipdb.GetProjectPendingActions()
@@ -73,17 +80,14 @@ var projectActionExecCmd = &cobra.Command{
 
 		actionsOK := make(map[string]*pdb.DataProjectUpdate)
 
-		// load configuration yml file
-		conf, err := config.LoadConfig(configFile)
-		if err != nil {
-			return err
-		}
-
+		// load filer-gateway clien to perform pending actions.
+		conf := loadConfig()
 		fgw, err := filergateway.NewClient(conf)
 		if err != nil {
 			return err
 		}
 
+		// TODO: use concurrency for performing actions via the filer-gateway
 		for pid, act := range actions {
 
 			// initialize actionOK entry for the visited project
@@ -94,7 +98,7 @@ var projectActionExecCmd = &cobra.Command{
 			log.Debugf("executing pending action %s %+v", pid, act)
 			// perform pending actions via the filer gateway; write out
 			// error if failed and continue for the next project.
-			if err := fgw.UpdateProject(pid, act); err != nil {
+			if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
 				log.Errorf("failure updating project %s: %s", pid, err)
 				continue
 			}

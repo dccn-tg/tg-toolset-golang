@@ -11,7 +11,6 @@ import (
 
 var verbose bool
 var configFile string
-var ipdb pdb.PDB
 
 const (
 	// ProjectRootPath defines the filesystem root path of the project storage.
@@ -21,6 +20,29 @@ const (
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "config.yml", "path of the configuration YAML file.")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+}
+
+// loadConfig loads configuration YAML file specified by `configFile`.
+// This function fatals out if there is an error.
+func loadConfig() config.Configuration {
+	conf, err := config.LoadConfig(configFile)
+	if err != nil {
+		log.Fatalf("%s", err)
+	}
+	return conf
+}
+
+// loadPdb initializes the PDB interface package using the configuration YAML file.
+// This function fatals out if there is an error.
+func loadPdb() pdb.PDB {
+	// initialize pdb interface
+	conf := loadConfig()
+	ipdb, err := pdb.New(conf.PDB)
+	if err != nil {
+		log.Fatalf("%s", err)
+	}
+
+	return ipdb
 }
 
 var rootCmd = &cobra.Command{
@@ -39,17 +61,6 @@ var rootCmd = &cobra.Command{
 			cfg.ConsoleLevel = log.Debug
 		}
 		log.NewLogger(cfg, log.InstanceLogrusLogger)
-
-		// initialize pdb interface
-		conf, err := config.LoadConfig(configFile)
-		if err != nil {
-			log.Fatalf("%s", err)
-		}
-
-		ipdb, err = pdb.New(conf.PDB)
-		if err != nil {
-			log.Fatalf("%s", err)
-		}
 	},
 }
 
