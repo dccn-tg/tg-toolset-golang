@@ -3,7 +3,7 @@ package pdbutil
 import (
 	"encoding/json"
 	"fmt"
-	"time"
+	"strconv"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/filergateway"
@@ -11,11 +11,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// loadNetAppCLI initialize interface to the NetAppCLI.
+func loadNetAppCLI() filergateway.NetAppCLI {
+	conf := loadConfig()
+	return filergateway.NetAppCLI{Config: conf.NetAppCLI}
+}
+
 func init() {
 
 	projectActionCmd.AddCommand(projectActionListCmd, projectActionExecCmd)
 
-	projectCmd.AddCommand(projectActionCmd)
+	projectCmd.AddCommand(projectActionCmd, projectCreateCmd)
 	rootCmd.AddCommand(projectCmd)
 }
 
@@ -23,6 +29,31 @@ var projectCmd = &cobra.Command{
 	Use:   "project",
 	Short: "Utility for project",
 	Long:  ``,
+}
+
+var projectCreateCmd = &cobra.Command{
+	Use:   "create [projectID] [quotaGB]",
+	Short: "Utility for creating project with given quota",
+	Long:  ``,
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		conf := loadConfig()
+		cli := filergateway.NetAppCLI{Config: conf.NetAppCLI}
+
+		iquota, err := strconv.Atoi(args[1])
+		if err != nil {
+			return err
+		}
+
+		data := pdb.DataProjectUpdate{
+			Storage: pdb.Storage{
+				System:  "netapp",
+				QuotaGb: iquota,
+			},
+		}
+
+		return cli.CreateProjectQtree(args[0], &data)
+	},
 }
 
 var projectActionCmd = &cobra.Command{
@@ -80,28 +111,33 @@ var projectActionExecCmd = &cobra.Command{
 
 		actionsOK := make(map[string]*pdb.DataProjectUpdate)
 
-		// load filer-gateway clien to perform pending actions.
 		conf := loadConfig()
-		fgw, err := filergateway.NewClient(conf)
-		if err != nil {
-			return err
-		}
+		// load filer-gateway client to perform pending actions.
+		// fgw, err := filergateway.NewClient(conf)
+		// if err != nil {
+		// 	return err
+		// }
+
+		// load netappcli interface to perform pending actions.
+		cli := filergateway.NetAppCLI{Config: conf.NetAppCLI}
 
 		// TODO: use concurrency for performing actions via the filer-gateway
 		for pid, act := range actions {
 
-			// initialize actionOK entry for the visited project
-			if _, ok := actionsOK[pid]; !ok {
-				actionsOK[pid] = &pdb.DataProjectUpdate{}
-			}
-
 			log.Debugf("executing pending action %s %+v", pid, act)
 			// perform pending actions via the filer gateway; write out
 			// error if failed and continue for the next project.
-			if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
-				log.Errorf("failure updating project %s: %s", pid, err)
+			// if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
+			// 	log.Errorf("failure updating project %s: %s", pid, err)
+			// 	continue
+			// }
+
+			if err := cli.CreateProjectQtree(pid, act); err != nil {
+				log.Errorf("failure creating project %s: %s", pid, err)
 				continue
 			}
+
+			// TODO: set ACL
 
 			// put successfully performed action to actionsOK map
 			actionsOK[pid] = act

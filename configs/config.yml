@@ -17,6 +17,12 @@ filergateway:
   api_url: "https://filer-gateway.dccn.nl/v1"
   api_user: "admin"
   api_pass: ""
+# configuration for connecting and executing OnTAP commands from the CLI console.
+netappcli:
+	ssh_host: "irulan-mgmt.dccn.nl"
+	vol_name_project: "project"
+	svm_name: "fremen"
+	export_policy: "fremen-projects"
 # configuration for connecting the Orthanc PACS server.
 pacs:
   prefixURL: "http://pacs.dccn.nl:8042"

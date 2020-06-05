@@ -15,6 +15,7 @@ type Configuration struct {
 	PACS          OrthancConfiguration
 	Streamer      StreamerConfiguration
 	FilerGateway  FilerGatewayConfiguration
+	NetAppCLI     NetAppCLIConfiguration
 	VolumeManager VolumeManagerConfiguration
 }
 
