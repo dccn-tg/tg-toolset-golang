@@ -3,9 +3,14 @@ package pdbutil
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/filergateway"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 	"github.com/spf13/cobra"
@@ -99,55 +104,169 @@ var projectActionExecCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		// load project database interface
-		ipdb := loadPdb()
-
 		// list pending pdb actions
 		log.Debugf("list pending actions")
-		actions, err := ipdb.GetProjectPendingActions()
+		actions, err := loadPdb().GetProjectPendingActions()
 		if err != nil {
 			return err
 		}
 
-		actionsOK := make(map[string]*pdb.DataProjectUpdate)
-
-		conf := loadConfig()
-		// load filer-gateway client to perform pending actions.
-		// fgw, err := filergateway.NewClient(conf)
-		// if err != nil {
-		// 	return err
-		// }
-
-		// load netappcli interface to perform pending actions.
-		cli := filergateway.NetAppCLI{Config: conf.NetAppCLI}
-
-		// TODO: use concurrency for performing actions via the filer-gateway
-		for pid, act := range actions {
-
-			log.Debugf("executing pending action %s %+v", pid, act)
-			// perform pending actions via the filer gateway; write out
-			// error if failed and continue for the next project.
-			// if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
-			// 	log.Errorf("failure updating project %s: %s", pid, err)
-			// 	continue
-			// }
-
-			if err := cli.CreateProjectQtree(pid, act); err != nil {
-				log.Errorf("failure creating project %s: %s", pid, err)
-				continue
-			}
-
-			// TODO: set ACL
-
-			// put successfully performed action to actionsOK map
-			actionsOK[pid] = act
+		// perform pending actions with 4 concurrent workers,
+		// each works on a project.
+		nworkers := 4
+		pids := make(chan string, nworkers*2)
+		for w := 1; w <= nworkers; w++ {
+			go func() {
+				for pid := range pids {
+					if err := actionExec(pid, actions[pid]); err != nil {
+						log.Errorf("%s", err)
+					}
+				}
+			}()
 		}
 
-		// clean up PDB pending actions that has been successfully performed.
-		if err := ipdb.DelProjectPendingActions(actionsOK); err != nil {
-			return err
+		for pid := range actions {
+			pids <- pid
 		}
+		close(pids)
 
 		return nil
 	},
+}
+
+// actionExec implements the logic of executing the pending actions concerning a project.
+func actionExec(pid string, act *pdb.DataProjectUpdate) error {
+
+	// load project database interface
+	ipdb := loadPdb()
+	conf := loadConfig()
+
+	// METHOD1: use filer-gateway client to perform pending actions.
+	// fgw, err := filergateway.NewClient(conf)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// perform pending actions via the filer gateway; write out
+	// error if failed and continue for the next project.
+	// if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
+	// 	return fmt.Errorf("failure updating project %s: %s", pid, err)
+	// }
+
+	// METHOD2: use netappcli interface to perform pending actions.
+	cli := filergateway.NetAppCLI{Config: conf.NetAppCLI}
+
+	actionsOK := make(map[string]*pdb.DataProjectUpdate)
+
+	log.Debugf("[%s] pending actions: %+v", pid, act)
+
+	ppath := filepath.Join("/project", pid)
+
+	_, err := os.Stat(ppath)
+	newProject := !os.IsNotExist(err)
+
+	if !newProject {
+		log.Infof("[%s] project path already exists: %s", pid, ppath)
+		// try update the project quota
+		if err := cli.UpdateProjectQuota(pid, act); err != nil {
+			return fmt.Errorf("[%s] fail updating project quota: %s", pid, err)
+		}
+	} else {
+		log.Infof("[%s] creating new project on path: %s", pid, ppath)
+		if err := cli.CreateProjectQtree(pid, act); err != nil {
+			return fmt.Errorf("[%s] fail creating project: %s", pid, err)
+		}
+
+		t1 := time.Now()
+		// check until the project directory aappears
+		for {
+			if _, err := os.Stat(ppath); !os.IsNotExist(err) {
+				break
+			}
+			// timeout after 3 minutes
+			if time.Since(t1) > 3*time.Minute {
+				log.Errorf("[%s] timeout waiting for %s to appear", pid, ppath)
+				break
+			}
+			// wait for 100 millisecond for the next check.
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		// move to next project if the ppath still doesn't exist.
+		if _, err := os.Stat(ppath); os.IsNotExist(err) {
+			return fmt.Errorf("[%s] project path not found: %s", pid, ppath)
+		}
+	}
+
+	// apply ACL setting based on the given project member roles.
+	managers := []string{}
+	contributors := []string{}
+	viewers := []string{}
+	removal := []string{}
+
+	for _, m := range act.Members {
+		switch m.Role {
+		case acl.Manager.String():
+			managers = append(managers, m.UserID)
+		case acl.Contributor.String():
+			contributors = append(contributors, m.UserID)
+		case acl.Viewer.String():
+			viewers = append(viewers, m.UserID)
+		case "none":
+			removal = append(removal, m.UserID)
+		}
+	}
+
+	// set members to the project
+	runner := acl.Runner{
+		RootPath:     ppath,
+		Managers:     strings.Join(managers, ","),
+		Contributors: strings.Join(contributors, ","),
+		Viewers:      strings.Join(viewers, ","),
+		FollowLink:   false,
+		SkipFiles:    false,
+		Nthreads:     4,
+		Silence:      false,
+		Traverse:     false,
+		Force:        false,
+	}
+
+	if ec, err := runner.SetRoles(); err != nil {
+		return fmt.Errorf("[%s] fail setting member role (ec=%d): %s", pid, ec, err)
+	}
+
+	// remove members from project (only meaningful for existing project)
+	if !newProject {
+		runner = acl.Runner{
+			RootPath:     ppath,
+			Managers:     strings.Join(removal, ","),
+			Contributors: strings.Join(removal, ","),
+			Viewers:      strings.Join(removal, ","),
+			FollowLink:   false,
+			SkipFiles:    false,
+			Nthreads:     4,
+			Silence:      false,
+			Traverse:     false,
+			Force:        false,
+		}
+
+		if ec, err := runner.RemoveRoles(); err != nil {
+			return fmt.Errorf("[%s] fail removing acl (ec=%d): %s", pid, ec, err)
+		}
+	}
+	// put successfully performed action to actionsOK map
+	actionsOK[pid] = act
+
+	// clean up PDB pending actions that has been successfully performed.
+	// Note that it doesn't fail the process.
+	if err := ipdb.DelProjectPendingActions(actionsOK); err != nil {
+		log.Errorf("[%s] fail cleaning up pending actions: %s", pid, err)
+	}
+
+	// TODO: sendout email notifying manager a new project is ready to use.
+	if newProject {
+
+	}
+
+	return nil
 }
