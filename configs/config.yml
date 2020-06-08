@@ -38,3 +38,9 @@ volumeManager:
   managementInterface:
     netApp: "filer-a-mi:22"
     freeNas: "freenas:22"
+# configuration for SMTP server connection (for email notification)
+smtp:
+  host: localhost
+  port: 25
+  auth_plain_user: ""
+  auth_plain_pass: ""

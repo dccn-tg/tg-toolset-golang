@@ -17,6 +17,7 @@ type Configuration struct {
 	FilerGateway  FilerGatewayConfiguration
 	NetAppCLI     NetAppCLIConfiguration
 	VolumeManager VolumeManagerConfiguration
+	SMTP          SMTPConfiguration
 }
 
 // LoadConfig reads configuration file `cpath` and returns the
