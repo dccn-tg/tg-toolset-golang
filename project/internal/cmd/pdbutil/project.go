@@ -10,6 +10,7 @@ import (
 	"time"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/mailer"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/filergateway"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
@@ -263,9 +264,24 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		log.Errorf("[%s] fail cleaning up pending actions: %s", pid, err)
 	}
 
-	// TODO: sendout email notifying manager a new project is ready to use.
+	// sendout email notifying managers the new project storage is ready to use.
 	if newProject {
+		mailer := mailer.New(conf.SMTP)
+		for _, m := range managers {
 
+			log.Debugf("[%s] sending notification to manager %s", pid, m)
+
+			u, err := ipdb.GetUser(m)
+
+			if err != nil {
+				log.Errorf("[%s] fail getting user profile of manager %s: %s", pid, m, err)
+				continue
+			}
+
+			if err := mailer.NotifyProjectProvisioned(*u, pid); err != nil {
+				log.Errorf("[%s] fail notifying manager %s: %s", pid, m, err)
+			}
+		}
 	}
 
 	return nil
