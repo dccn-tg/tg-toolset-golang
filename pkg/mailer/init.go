@@ -36,16 +36,16 @@ The storage of your project {{.ProjectID}} has been initialised.
 	
 You may now access the storage via the following paths:
 	
-	* on Windows desktop: P:\{{.ProjectID}}
-	* in the cluster: /project/{{.ProjectID}}
+    * on Windows desktop: P:\{{.ProjectID}}
+    * in the cluster: /project/{{.ProjectID}}
 	
 For managing data access permission for project collaborators, please follow the guide:
 	
-	http://dccn-hpc-wiki.readthedocs.io/en/latest/docs/project_storage/access_management.html
+    http://dccn-hpc-wiki.readthedocs.io/en/latest/docs/project_storage/access_management.html
 	
-For more information about the project storage, please refer to
+For more information about the project storage, please refer to the intranet page:
 	
-	https://intranet.donders.ru.nl/index.php?id=4733
+    https://intranet.donders.ru.nl/index.php?id=4733
 	
 Should you have any questions, please don't hesitate to contact the TG helpdesk <helpdesk@fcdonders.ru.nl>.
 	

@@ -9,7 +9,10 @@ import (
 )
 
 func TestNotifyProjectProvisioned(t *testing.T) {
-	manager := pdb.User{
+
+	var manager *pdb.User
+
+	manager = &pdb.User{
 		Firstname: "Hurng-Chun",
 		Lastname:  "Lee",
 		Email:     "h.lee@donders.ru.nl",
@@ -22,7 +25,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 	}
 
 	mailer := New(conf.SMTP)
-	if mailer.NotifyProjectProvisioned(manager, pid); err != nil {
+	if mailer.NotifyProjectProvisioned(*manager, pid); err != nil {
 		t.Errorf("%s", err)
 	}
 }
