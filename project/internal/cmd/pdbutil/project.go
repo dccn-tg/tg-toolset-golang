@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -17,6 +18,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var execNthreads int
+
 // loadNetAppCLI initialize interface to the NetAppCLI.
 func loadNetAppCLI() filergateway.NetAppCLI {
 	conf := loadConfig()
@@ -24,6 +27,8 @@ func loadNetAppCLI() filergateway.NetAppCLI {
 }
 
 func init() {
+
+	projectActionExecCmd.Flags().IntVarP(&execNthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
 
 	projectActionCmd.AddCommand(projectActionListCmd, projectActionExecCmd)
 
@@ -114,10 +119,12 @@ var projectActionExecCmd = &cobra.Command{
 
 		// perform pending actions with 4 concurrent workers,
 		// each works on a project.
-		nworkers := 4
-		pids := make(chan string, nworkers*2)
-		for w := 1; w <= nworkers; w++ {
+		var wg sync.WaitGroup
+		pids := make(chan string, execNthreads*2)
+		for w := 0; w < execNthreads; w++ {
+			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				for pid := range pids {
 					if err := actionExec(pid, actions[pid]); err != nil {
 						log.Errorf("%s", err)
@@ -130,6 +137,9 @@ var projectActionExecCmd = &cobra.Command{
 			pids <- pid
 		}
 		close(pids)
+
+		// wait for all workers to finish
+		wg.Wait()
 
 		return nil
 	},
