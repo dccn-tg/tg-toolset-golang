@@ -168,10 +168,10 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 
 	if !newProject {
 		log.Infof("[%s] project path already exists: %s", pid, ppath)
-		// try update the project quota
-		if err := cli.UpdateProjectQuota(pid, act); err != nil {
-			return fmt.Errorf("[%s] fail updating project quota: %s", pid, err)
-		}
+		// // try update the project quota
+		// if err := cli.UpdateProjectQuota(pid, act); err != nil {
+		// 	return fmt.Errorf("[%s] fail updating project quota: %s", pid, err)
+		// }
 	} else {
 		log.Infof("[%s] creating new project on path: %s", pid, ppath)
 		if err := cli.CreateProjectQtree(pid, act); err != nil {
