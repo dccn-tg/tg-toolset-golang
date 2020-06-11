@@ -265,6 +265,41 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 			return fmt.Errorf("[%s] fail removing acl (ec=%d): %s", pid, ec, err)
 		}
 	}
+
+	// For PDBv1, get ACL from the project and update the active members into the database.
+	if v1, ok := ipdb.(pdb.V1); ok {
+
+		// let the runner to follow link, this allows to get acl from project directories
+		// hosted outside the /project folder. In this case, the returnning `acl.RolePathMap`
+		// from the runner will use the symlink target as path.
+		runner.FollowLink = true
+
+		// get roles associated with the project directory, do not iterate over files/sub-directories.
+		rolePathMap, err := runner.GetRoles(false)
+		if err != nil {
+			return fmt.Errorf("[%s] fail getting acl: %s", pid, err)
+		}
+
+		// construct data structure for updating PDB v1 database.
+		members := make(map[string][]pdb.Member)
+		members[pid] = []pdb.Member{}
+		for rolePath := range rolePathMap {
+			for r, uids := range rolePath.RoleMap {
+				for _, u := range uids {
+					members[pid] = append(members[pid], pdb.Member{
+						Role:   r.String(),
+						UserID: u,
+					})
+				}
+			}
+		}
+
+		// update PDB v1 database with the up-to-date active members.
+		if err := v1.UpdateProjectMembers(members, 1); err != nil {
+			return fmt.Errorf("[%s] fail updating acl in PDB: %s", pid, err)
+		}
+	}
+
 	// put successfully performed action to actionsOK map
 	actionsOK[pid] = act
 
