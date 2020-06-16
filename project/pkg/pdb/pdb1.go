@@ -248,7 +248,20 @@ func (v1 V1) GetUser(uid string) (*User, error) {
 	}
 	defer db.Close()
 
-	return selectUser(db, uid)
+	return selectUser(db, "id = ?", []string{uid})
+}
+
+// GetUserByEmail gets the user identified by the given email address.
+func (v1 V1) GetUserByEmail(email string) (*User, error) {
+	db, err := newClientMySQL(v1.config)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// TODO: the case conversion may not be needes as MariaDB may just do the
+	//       query in case insensitive way.  To be checked!!
+	return selectUser(db, "LOWER(email) = ?", []string{strings.ToLower(email)})
 }
 
 // GetLabBookings retrieves calendar bookings concerning the given `Lab` on a given `date` string.
@@ -439,35 +452,37 @@ func updateProjectRoles(db *sql.DB, project string, members []Member) error {
 }
 
 // selectUser gets the user identified by the given uid in the project database.
+//
+// The input `clauseCond` and `clauseValue` should
 // It returns the pointer to the user data represented in the User data structure.
-func selectUser(db *sql.DB, uid string) (*User, error) {
+func selectUser(db *sql.DB, clauseCond string, clauseValues ...interface{}) (*User, error) {
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("PDB not connected: %+v", err)
 	}
 
-	query := `
+	query := fmt.Sprintf(`
 	SELECT
-		firstName,middleName,lastName,email
+		id,firstName,middleName,lastName,email
 	FROM
 		users
-	WHERE
-		id = ?
-	`
+	WHERE %s
+	`, clauseCond)
 
 	var (
+		id         string
 		firstname  string
 		middlename string
 		lastname   string
 		email      string
 	)
 
-	if err := db.QueryRow(query, uid).Scan(&firstname, &middlename, &lastname, &email); err != nil {
+	if err := db.QueryRow(query, clauseValues).Scan(&firstname, &middlename, &lastname, &email); err != nil {
 		return nil, err
 	}
 
 	return &User{
-		ID:         uid,
+		ID:         id,
 		Firstname:  firstname,
 		Middlename: middlename,
 		Lastname:   lastname,

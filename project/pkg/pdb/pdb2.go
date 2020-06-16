@@ -1,6 +1,8 @@
 package pdb
 
 import (
+	"fmt"
+
 	"github.com/shurcooL/graphql"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
@@ -73,6 +75,12 @@ func (v2 V2) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 func (v2 V2) GetUser(uid string) (*User, error) {
 
 	return &User{}, nil
+}
+
+// GetUserByEmail gets the user identified by the given email address.
+func (v2 V2) GetUserByEmail(email string) (*User, error) {
+
+	return nil, fmt.Errorf("not implemented")
 }
 
 // GetLabBookings retrieves calendar bookings concerning the given `Lab` on a given `date` string.
