@@ -25,7 +25,7 @@ var userInfoCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pdb := loadPdb()
-		uinfo, err := pdb.GetUser(args[1])
+		uinfo, err := pdb.GetUser(args[0])
 		if err != nil {
 			return err
 		}
