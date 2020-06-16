@@ -259,9 +259,8 @@ func (v1 V1) GetUserByEmail(email string) (*User, error) {
 	}
 	defer db.Close()
 
-	// TODO: the case conversion may not be needes as MariaDB may just do the
-	//       query in case insensitive way.  To be checked!!
-	return selectUser(db, "LOWER(email) = ?", strings.ToLower(email))
+	// MariaDB query in case insensitive way; no need for case conversion.
+	return selectUser(db, "email = ?", email)
 }
 
 // GetLabBookings retrieves calendar bookings concerning the given `Lab` on a given `date` string.
@@ -477,7 +476,7 @@ func selectUser(db *sql.DB, clauseCond string, clauseValues ...interface{}) (*Us
 		email      string
 	)
 
-	if err := db.QueryRow(query, clauseValues...).Scan(&firstname, &middlename, &lastname, &email); err != nil {
+	if err := db.QueryRow(query, clauseValues...).Scan(&id, &firstname, &middlename, &lastname, &email); err != nil {
 		return nil, err
 	}
 

@@ -41,7 +41,7 @@ var userInfoCmd = &cobra.Command{
 		}
 
 		// TODO: pretty print marshaled json string.
-		fmt.Printf("%s", b)
+		fmt.Printf("%s\n", b)
 		return nil
 	},
 }
@@ -59,7 +59,7 @@ var userFindCmd = &cobra.Command{
 		}
 
 		// for the simplicity, just print the user id.
-		fmt.Printf("%s", uinfo.ID)
+		fmt.Printf("%s\n", uinfo.ID)
 		return nil
 	},
 }
