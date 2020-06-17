@@ -42,28 +42,80 @@ func init() {
 
 	cwd, _ := os.Getwd()
 
-	exportCmd.Flags().IntVarP(&exportNthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
-	exportCmd.Flags().StringVarP(
+	exportUpdateCmd.Flags().IntVarP(&exportNthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
+	exportUpdateCmd.Flags().StringVarP(
 		&exportOUs,
 		"ou", "", "dccn",
 		"comma-separated repository OUs from which the collections are exported.",
 	)
-	exportCmd.Flags().StringVarP(
+	exportUpdateCmd.Flags().StringVarP(
 		&exportCollPat,
 		"pat", "", "*:v*",
 		"name pattern of collections to be exported.",
 	)
-	exportCmd.Flags().StringVarP(
+	exportUpdateCmd.Flags().StringVarP(
 		&viewerDbPath,
 		"db", "", filepath.Join(cwd, ".export.db"),
 		"path of the local viewer db.",
 	)
+
+	exportCmd.AddCommand(exportUpdateCmd, exportStatusCmd)
+
 	rootCmd.AddCommand(exportCmd)
 }
 
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Utility for exporting repository collections to local users",
+	Long:  ``,
+}
+
+var exportStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show the current export status",
+	Long:  ``,
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// load viewerdb
+		vdb := store{
+			path: viewerDbPath,
+		}
+
+		// connect to db
+		if err := vdb.connect(); err != nil {
+			return err
+		}
+		defer vdb.disconnect()
+
+		// always run vdb.init() to make sure buckets are created.
+		if err := vdb.init(); err != nil {
+			return err
+		}
+
+		// load data map of the currently exported collections.
+		cms := make(map[string]interface{})
+		if err := vdb.getAll("cmap", cms); err != nil {
+			return fmt.Errorf("fail to load existing collmap: %s", err)
+		}
+
+		// TODO: improve the output format!!
+		for n, c := range cms {
+			coll := c.(*CollExport)
+			fmt.Printf("%s:\n", n)
+			fmt.Printf("  - path: %s\n", coll.Path)
+			for _, u := range coll.ViewersRepo {
+				um := Umap{}
+				vdb.get("umap", u, &um)
+				fmt.Printf("  - %s: %s <%s>\n", um.UIDLocal, um.UIDRepo, um.Email)
+			}
+		}
+		return nil
+	},
+}
+
+var exportUpdateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Upate export to match the repository authorisation",
 	Long:  ``,
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -268,6 +320,10 @@ func findUmap(pdb pdb.PDB, vdb store, uidRepo string) (Umap, error) {
 	go repo.IcommandChanOut(cmd, &cout, true)
 	for l := range cout {
 		um.Email = l
+	}
+
+	if um.Email == "" {
+		return um, fmt.Errorf("no email for repo user: %s", uidRepo)
 	}
 
 	// try to get user's local uid via search email.
