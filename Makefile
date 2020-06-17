@@ -34,6 +34,9 @@ test_filer:
 	#       appears in a new object queried from the HTTP call to the filer APIs.
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -count 1 -v github.com/Donders-Institute/tg-toolset-golang/project/pkg/filer/...
 
+test_repo_db:
+	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/project/internal/cmd/repoutil/...
+
 test:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/...
 
