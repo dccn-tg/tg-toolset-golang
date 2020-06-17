@@ -56,7 +56,7 @@ func init() {
 	exportCmd.PersistentFlags().StringVarP(
 		&viewerDbPath,
 		"db", "", filepath.Join(cwd, ".export.db"),
-		"path of the local viewer db.",
+		"`path` of the local viewer db.",
 	)
 
 	exportCmd.AddCommand(exportUpdateCmd, exportStatusCmd)
