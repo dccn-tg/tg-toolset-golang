@@ -92,6 +92,7 @@ var exportCmd = &cobra.Command{
 		if err := vdb.getAll("cmap", cms); err != nil {
 			return fmt.Errorf("fail to load existing collmap: %s", err)
 		}
+		log.Debugf("currently exported: %+v", cms)
 
 		// retrieve current collection roles of collections to be exported concurrently.
 		chanCollExport := make(chan CollExport, 2*exportNthreads)
@@ -132,13 +133,14 @@ var exportCmd = &cobra.Command{
 					// uloc is a list of repo users who have local access to the collection.
 					uloc := make(map[string]bool)
 					if cexp, ok := cms[n]; ok {
-						for _, u := range cexp.(CollExport).ViewersRepo {
+						for _, u := range cexp.(*CollExport).ViewersRepo {
 							uloc[u] = true
 						}
 					}
 
 					// uadd is a list of users to be added for local access.
 					uadd := []Umap{}
+					acl := ""
 					for u := range urep {
 
 						// user already has local access, skip.
@@ -147,14 +149,35 @@ var exportCmd = &cobra.Command{
 						}
 
 						// resolve umap of the user.
-						if um, err := findUmap(pdb, vdb, u); err == nil {
-							uadd = append(uadd, um)
+						um, err := findUmap(pdb, vdb, u)
+						if err != nil {
+							log.Warnf("[%s] cannot map repo user to local user: %s", n, u)
+							continue
+						}
+						log.Debugf("[%s] umap: %+v", um)
+
+						uadd = append(uadd, um)
+						acl = fmt.Sprintf("%s:r-x,%s", um.UIDLocal, acl)
+					}
+
+					log.Debugf("[%s] users to be added: %+v", n, uadd)
+
+					// run the `setfacl -m` command.
+					if acl != "" {
+						cmd = fmt.Sprintf("setfacl -m %s %s", acl, coll.Path)
+						if err := repo.IcommandFileOut(cmd, ""); err != nil {
+							log.Errorf("[%s] fail setting acl: %s", n, err)
+						} else {
+							// update uloc with users being added for accecc.
+							for _, u := range uadd {
+								uloc[u.UIDRepo] = true
+							}
 						}
 					}
-					log.Debugf("[%s] users to be added: %+v", n, uadd)
 
 					// udel is a list of users to be removed from local access.
 					udel := []Umap{}
+					acl = ""
 					for u := range uloc {
 
 						// user has repo access, no need to remove the user from local access.
@@ -163,11 +186,40 @@ var exportCmd = &cobra.Command{
 						}
 
 						// resolve umap of the user.
-						if um, err := findUmap(pdb, vdb, u); err == nil {
-							udel = append(udel, um)
+						um, err := findUmap(pdb, vdb, u)
+						if err != nil {
+							log.Warnf("[%s] cannot map repo user to local user: %s", n, u)
+							continue
 						}
+						log.Debugf("[%s] umap: %+v", um)
+
+						udel = append(udel, um)
+						acl = fmt.Sprintf("%s,%s", um.UIDLocal, acl)
 					}
 					log.Debugf("[%s] users to be removed: %+v", n, udel)
+
+					// run `setacl -x` command
+					if acl != "" {
+						cmd = fmt.Sprintf("setfacl -x %s %s", acl, coll.Path)
+						if err := repo.IcommandFileOut(cmd, ""); err != nil {
+							log.Errorf("[%s] fail setting acl: %s", n, err)
+						} else {
+							// update uloc with users being removed from access.
+							for _, u := range udel {
+								delete(uloc, u.UIDRepo)
+							}
+						}
+					}
+
+					// update vdb with the new coll
+					coll.ViewersRepo = []string{}
+					for k := range uloc {
+						coll.ViewersRepo = append(coll.ViewersRepo, k)
+					}
+					log.Debugf("[%s] collExport: %+v", n, coll)
+					if err := vdb.set("cmap", n, &coll); err != nil {
+						log.Errorf("[%s] cannot update viewerdb: %s", err)
+					}
 				}
 			}()
 		}
@@ -181,19 +233,12 @@ var exportCmd = &cobra.Command{
 				log.Errorf("%s", err)
 				continue
 			}
-			i := 0
 			for _, c := range colls {
-
-				if i > 2 {
-					break
-				}
-
 				chanCollExport <- CollExport{
 					Path: c,
 					OU:   ou,
 				}
 				log.Debugf("%s", c)
-				i++
 			}
 		}
 		close(chanCollExport)
@@ -208,6 +253,8 @@ var exportCmd = &cobra.Command{
 func findUmap(pdb pdb.PDB, vdb store, uidRepo string) (Umap, error) {
 
 	um := Umap{}
+
+	log.Debugf("uidRepo: %s", uidRepo)
 
 	// umap found in db, return it directly.
 	if err := vdb.get("umap", uidRepo, &um); err == nil {
