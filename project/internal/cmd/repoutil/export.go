@@ -53,7 +53,7 @@ func init() {
 		"pat", "", "*:v*",
 		"name pattern of collections to be exported.",
 	)
-	exportUpdateCmd.Flags().StringVarP(
+	exportCmd.PersistentFlags().StringVarP(
 		&viewerDbPath,
 		"db", "", filepath.Join(cwd, ".export.db"),
 		"path of the local viewer db.",
