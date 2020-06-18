@@ -201,7 +201,7 @@ var exportUpdateCmd = &cobra.Command{
 						}
 
 						// resolve umap of the user.
-						um, err := findUmap(pdb, vdb, u)
+						um, err := findUmap(pdb, &vdb, u)
 						if err != nil {
 							log.Warnf("[%s] cannot map repo user to local user: %s", n, u)
 							continue
@@ -238,7 +238,7 @@ var exportUpdateCmd = &cobra.Command{
 						}
 
 						// resolve umap of the user.
-						um, err := findUmap(pdb, vdb, u)
+						um, err := findUmap(pdb, &vdb, u)
 						if err != nil {
 							log.Warnf("[%s] cannot map repo user to local user: %s", n, u)
 							continue
@@ -302,7 +302,14 @@ var exportUpdateCmd = &cobra.Command{
 	},
 }
 
-func findUmap(pdb pdb.PDB, vdb store, uidRepo string) (Umap, error) {
+// findUmap returns a Umap data structure of the repo user `uidRepo`.
+// It firstly tries to find one registered in `vdb` database.
+// If it is not found, it gets the email of repo user and matches it
+// with the project database `pdb` to resolve the local user id.
+//
+// When the Umap is correctly resolved, it then registered into the `vdb`
+// database for later usage.
+func findUmap(pdb pdb.PDB, vdb *store, uidRepo string) (Umap, error) {
 
 	um := Umap{}
 
