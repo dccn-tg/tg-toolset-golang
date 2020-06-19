@@ -5,7 +5,6 @@ go 1.14
 require (
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/naegelejd/go-acl v0.0.0-20200406162857-ebe394c522e5
 	github.com/pkg/errors v0.8.1
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
 	github.com/sirupsen/logrus v1.4.0
