@@ -53,28 +53,35 @@ func PosixGetfacl(path string) ([]string, error) {
 	outScanner.Split(bufio.ScanLines)
 
 	for outScanner.Scan() {
+		l := outScanner.Text()
 		// skip lines starts with `#` or `default`.
-		if l := outScanner.Text(); !strings.HasPrefix(l, "#") && !strings.HasPrefix(l, "default") {
-			// skip entry where the qualifier is empty or invalid
-			d := strings.Split(l, ":")
-			if d[1] == "" {
-				continue
-			}
-
-			switch d[0] {
-			case "user":
-				if _, err := user.Lookup(d[1]); err != nil {
-					continue
-				}
-			case "group":
-				if _, err := user.LookupGroup(d[1]); err != nil {
-					continue
-				}
-			default:
-				continue
-			}
-			out = append(out, l)
+		if strings.HasPrefix(l, "#") || strings.HasPrefix(l, "default") {
+			continue
 		}
+		// skip entry where the qualifier is empty or invalid
+		d := strings.Split(l, ":")
+
+		if len(d) < 3 {
+			log.Warnf("cannot parse ACL entry: %s", l)
+		}
+
+		if d[1] == "" {
+			continue
+		}
+
+		switch d[0] {
+		case "user":
+			if _, err := user.Lookup(d[1]); err != nil {
+				continue
+			}
+		case "group":
+			if _, err := user.LookupGroup(d[1]); err != nil {
+				continue
+			}
+		default:
+			continue
+		}
+		out = append(out, l)
 	}
 
 	if err = outScanner.Err(); err != nil {
