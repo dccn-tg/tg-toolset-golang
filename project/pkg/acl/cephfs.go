@@ -1,11 +1,14 @@
 package acl
 
 import (
+	"bufio"
 	"fmt"
+	"os/exec"
+	"os/user"
+	"strings"
 
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
-
-	pacl "github.com/naegelejd/go-acl"
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
 // CephFsRoler implements roler interface for the CephFS.
@@ -33,20 +36,56 @@ func (CephFsRoler) DelRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive boo
 // extended ACEs.
 func PosixGetfacl(path string) ([]string, error) {
 
-	a, err := pacl.GetFileAccess(path)
+	out := []string{}
 
+	cmd := exec.Command("getfacl", path)
+
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return []string{}, err
-	}
-	defer a.Free()
-
-	for e := a.FirstEntry(); e != nil; e = a.NextEntry() {
-		p, _ := e.GetPermset()
-		t, _ := e.GetTag()
-		q, _ := e.GetQualifier()
-
-		fmt.Printf("p: %v, t: %v, q: %d\n", p, t, q)
+		return out, err
 	}
 
-	return []string{}, fmt.Errorf("not implemented")
+	if err = cmd.Start(); err != nil {
+		return out, err
+	}
+
+	outScanner := bufio.NewScanner(stdout)
+	outScanner.Split(bufio.ScanLines)
+
+	for outScanner.Scan() {
+		// skip lines starts with `#` or `default`.
+		if l := outScanner.Text(); !strings.HasPrefix(l, "#") && !strings.HasPrefix(l, "default") {
+			// skip entry where the qualifier is empty or invalid
+			d := strings.Split(l, ":")
+			if d[1] == "" {
+				continue
+			}
+
+			switch d[0] {
+			case "user":
+				if _, err := user.Lookup(d[1]); err != nil {
+					continue
+				}
+			case "group":
+				if _, err := user.LookupGroup(d[1]); err != nil {
+					continue
+				}
+			default:
+				continue
+			}
+			out = append(out, l)
+		}
+	}
+
+	if err = outScanner.Err(); err != nil {
+		log.Errorf("error reading output of command: %s", err)
+	}
+
+	// wait the cmd to finish and the IO pipes are closed.
+	// write out error if the command execution is failed.
+	if err = cmd.Wait(); err != nil {
+		log.Errorf("%s fail: %s", cmd.String(), err)
+	}
+
+	return []string{}, nil
 }
