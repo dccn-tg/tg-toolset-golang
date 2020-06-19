@@ -79,6 +79,7 @@ var RolerMap = map[string]Roler{
 	"/project":         NetAppRoler{},
 	"/groupshare":      NetAppRoler{},
 	"/project_freenas": FreeNasRoler{},
+	"/project_cephfs":  CephFsRoler{},
 }
 
 // GetRoler returns a proper roler determined from the given path.
