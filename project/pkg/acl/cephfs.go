@@ -7,6 +7,9 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"syscall"
+
+	"github.com/pkg/xattr"
 
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -26,7 +29,8 @@ func (CephFsRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
 		Traverse:    {},
 	}
 
-	aces, err := getfacl(pinfo.Path)
+	// skip the permission mask
+	aces, _, err := getfacl(pinfo.Path)
 	if err != nil {
 		return rmap, err
 	}
@@ -106,15 +110,19 @@ func isManager(path, username string) bool {
 	}
 
 	for {
-		d, err := getfattr(path, "user.project.managers")
+
+		d, err := xattr.Get(path, "user.project.managers")
+		//d, err := getfattr(path, "user.project.managers")
 		if err != nil {
 			// use debugf since it is fine that files/sub-directories do not have
 			// the `user.project.managers` attribute.
-			log.Debugf("cannot get manager list %s: %s", path, err)
+			log.Debugf("cannot get manager list of %s: %s", path, err)
 		}
 
+		log.Debugf("manager list of %s: %s", path, d)
+
 		// found current user on the manager list.
-		if strings.Contains(d, username) {
+		if strings.Contains(string(d), username) {
 			out = true
 			break
 		}
@@ -139,33 +147,48 @@ func isManager(path, username string) bool {
 
 // getfattr is a wrapper of `getfattr` command to get extended attribute of
 // `key` associated with the given `path`.
-func getfattr(path, key string) (string, error) {
+func getfattr(path, key string) ([]byte, error) {
 
-	out := ""
-	cmd := exec.Command("getfattr", "-n", key, "--only-values", path)
-
-	stdout, err := cmd.Output()
+	// find size.
+	size, err := syscall.Getxattr(path, key, nil)
 	if err != nil {
-		return out, err
+		return nil, err
 	}
-	return string(stdout), nil
+	buf := make([]byte, size)
+	// Read into buffer of that size.
+	read, err := syscall.Getxattr(path, key, buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf[:read], nil
+
+	// out := ""
+	// cmd := exec.Command("getfattr", "-n", key, "--only-values", path)
+
+	// stdout, err := cmd.Output()
+	// if err != nil {
+	// 	return out, err
+	// }
+	// return stdout, nil
 }
 
 // getfacl is a wrapper of `getfacl` command and returns only the
 // non-default extended ACEs applied on the `path`.
-func getfacl(path string) ([]PosixACE, error) {
+func getfacl(path string) ([]PosixACE, string, error) {
 
 	out := []PosixACE{}
 
-	cmd := exec.Command("getfacl", path)
+	mask := ""
+
+	cmd := exec.Command("getfacl", "--omit-header", path)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return out, err
+		return out, mask, err
 	}
 
 	if err = cmd.Start(); err != nil {
-		return out, err
+		return out, mask, err
 	}
 
 	outScanner := bufio.NewScanner(stdout)
@@ -200,6 +223,9 @@ func getfacl(path string) ([]PosixACE, error) {
 			if _, err := user.LookupGroup(d[1]); err != nil {
 				continue
 			}
+		case "mask":
+			mask = d[2]
+			continue
 		default:
 			continue
 		}
@@ -221,5 +247,5 @@ func getfacl(path string) ([]PosixACE, error) {
 		log.Errorf("%s fail: %s", cmd.String(), err)
 	}
 
-	return out, nil
+	return out, mask, nil
 }

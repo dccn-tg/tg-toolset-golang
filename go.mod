@@ -6,6 +6,7 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/pkg/errors v0.8.1
+	github.com/pkg/xattr v0.4.1
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
 	github.com/sirupsen/logrus v1.4.0
 	github.com/spf13/cobra v0.0.3
