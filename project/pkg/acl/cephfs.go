@@ -7,7 +7,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/pkg/xattr"
 
@@ -145,32 +144,32 @@ func isManager(path, username string) bool {
 	return out
 }
 
-// getfattr is a wrapper of `getfattr` command to get extended attribute of
-// `key` associated with the given `path`.
-func getfattr(path, key string) ([]byte, error) {
+// // getfattr is a wrapper of `getfattr` command to get extended attribute of
+// // `key` associated with the given `path`.
+// func getfattr(path, key string) ([]byte, error) {
 
-	// find size.
-	size, err := syscall.Getxattr(path, key, nil)
-	if err != nil {
-		return nil, err
-	}
-	buf := make([]byte, size)
-	// Read into buffer of that size.
-	read, err := syscall.Getxattr(path, key, buf)
-	if err != nil {
-		return nil, err
-	}
-	return buf[:read], nil
+// 	// find size.
+// 	size, err := syscall.Getxattr(path, key, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	buf := make([]byte, size)
+// 	// Read into buffer of that size.
+// 	read, err := syscall.Getxattr(path, key, buf)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return buf[:read], nil
 
-	// out := ""
-	// cmd := exec.Command("getfattr", "-n", key, "--only-values", path)
+// 	// out := ""
+// 	// cmd := exec.Command("getfattr", "-n", key, "--only-values", path)
 
-	// stdout, err := cmd.Output()
-	// if err != nil {
-	// 	return out, err
-	// }
-	// return stdout, nil
-}
+// 	// stdout, err := cmd.Output()
+// 	// if err != nil {
+// 	// 	return out, err
+// 	// }
+// 	// return stdout, nil
+// }
 
 // getfacl is a wrapper of `getfacl` command and returns only the
 // non-default extended ACEs applied on the `path`.
