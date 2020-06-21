@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strings"
 
 	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
@@ -17,7 +18,26 @@ type CephFsRoler struct{}
 // GetRoles implements interface for getting user roles on a given path mounted to
 // an endpoint of the CephFS.
 func (CephFsRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
-	return nil, fmt.Errorf("not implemented")
+
+	rmap := map[Role][]string{
+		Manager:     {},
+		Contributor: {},
+		Viewer:      {},
+		Traverse:    {},
+	}
+
+	aces, err := getfacl(pinfo.Path)
+	if err != nil {
+		return rmap, err
+	}
+
+	for _, ace := range aces {
+		log.Debugf("%s", ace)
+		r := ace.ToRole()
+		rmap[r] = append(rmap[r], ace.Qualifier)
+	}
+
+	return rmap, nil
 }
 
 // SetRoles implements interface for setting user roles to a given path mounted to
@@ -32,11 +52,110 @@ func (CephFsRoler) DelRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive boo
 	return nil, fmt.Errorf("not implemented")
 }
 
-// PosixGetfacl is a wrapper of `getfacl` command and returns only the
-// extended ACEs.
-func PosixGetfacl(path string) ([]string, error) {
+// PosixACE is the posix-style access-control entry
+type PosixACE struct {
+	Tag        string
+	Qualifier  string
+	Permission string
+	path       string
+}
 
-	out := []string{}
+// ToRole maps the permission to project role.
+func (ace PosixACE) ToRole() Role {
+	var role Role
+
+	switch ace.Permission {
+	case "--x":
+		role = Traverse
+	case "r-x":
+		role = Viewer
+	case "r--":
+		role = Viewer
+	case "rwx":
+		role = Contributor
+		if isManager(ace.path, ace.Qualifier) {
+			role = Manager
+		}
+	case "rw-":
+		role = Contributor
+		if isManager(ace.path, ace.Qualifier) {
+			role = Manager
+		}
+	default:
+	}
+
+	return role
+}
+
+// isManager checks if the given `username` is listed as a manager in the extended attribute
+// `user.project.managers` of the given `path` and its predecending paths up to the
+// project's top directory.
+//
+// It will check on current user if the `username` is an empty string.
+func isManager(path, username string) bool {
+
+	out := false
+
+	if username == "" {
+		me, err := user.Current()
+		if err != nil {
+			log.Errorf("cannot get current  user: %s", err)
+			return out
+		}
+		username = me.Username
+	}
+
+	for {
+		d, err := getfattr(path, "user.project.managers")
+		if err != nil {
+			// use debugf since it is fine that files/sub-directories do not have
+			// the `user.project.managers` attribute.
+			log.Debugf("cannot get manager list %s: %s", path, err)
+		}
+
+		// found current user on the manager list.
+		if strings.Contains(d, username) {
+			out = true
+			break
+		}
+
+		// move to parent directory
+		path = filepath.Dir(path)
+
+		// path reaches one of the root directories in which projects
+		// are organized.
+		if _, ok := RolerMap[path]; ok {
+			break
+		}
+
+		// path reaches the absolute or relative root.
+		if path == "/" || path == "." || path == ".." {
+			break
+		}
+	}
+
+	return out
+}
+
+// getfattr is a wrapper of `getfattr` command to get extended attribute of
+// `key` associated with the given `path`.
+func getfattr(path, key string) (string, error) {
+
+	out := ""
+	cmd := exec.Command("getfattr", "-n", key, "--only-values", path)
+
+	stdout, err := cmd.Output()
+	if err != nil {
+		return out, err
+	}
+	return string(stdout), nil
+}
+
+// getfacl is a wrapper of `getfacl` command and returns only the
+// non-default extended ACEs applied on the `path`.
+func getfacl(path string) ([]PosixACE, error) {
+
+	out := []PosixACE{}
 
 	cmd := exec.Command("getfacl", path)
 
@@ -54,13 +173,16 @@ func PosixGetfacl(path string) ([]string, error) {
 
 	for outScanner.Scan() {
 		l := outScanner.Text()
-		// skip lines starts with `#` or `default`.
-		if strings.HasPrefix(l, "#") || strings.HasPrefix(l, "default") {
+
+		// skip lines starts with `#` or `default` or empty lines
+		if strings.HasPrefix(l, "#") || strings.HasPrefix(l, "default") || l == "" {
 			continue
 		}
-		// skip entry where the qualifier is empty or invalid
-		d := strings.Split(l, ":")
 
+		// trim the effective permission and split the ACE fields
+		d := strings.Split(strings.Split(l, "\t")[0], ":")
+
+		// skip entry where the qualifier is empty or invalid
 		if len(d) < 3 {
 			log.Warnf("cannot parse ACL entry: %s", l)
 		}
@@ -81,7 +203,12 @@ func PosixGetfacl(path string) ([]string, error) {
 		default:
 			continue
 		}
-		out = append(out, l)
+		out = append(out, PosixACE{
+			Tag:        d[0],
+			Qualifier:  d[1],
+			Permission: d[2],
+			path:       path,
+		})
 	}
 
 	if err = outScanner.Err(); err != nil {
@@ -94,5 +221,5 @@ func PosixGetfacl(path string) ([]string, error) {
 		log.Errorf("%s fail: %s", cmd.String(), err)
 	}
 
-	return []string{}, nil
+	return out, nil
 }

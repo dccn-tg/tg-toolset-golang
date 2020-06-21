@@ -10,7 +10,6 @@ import (
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
-	//log "github.com/sirupsen/logrus"
 )
 
 var path *string
@@ -43,15 +42,6 @@ func init() {
 
 	// initialize logger
 	log.NewLogger(cfg, log.InstanceLogrusLogger)
-
-	// // set logging
-	// log.SetOutput(os.Stderr)
-	// // set logging level
-	// llevel := log.InfoLevel
-	// if *verbose {
-	// 	llevel = log.DebugLevel
-	// }
-	// log.SetLevel(llevel)
 }
 
 func usage() {
