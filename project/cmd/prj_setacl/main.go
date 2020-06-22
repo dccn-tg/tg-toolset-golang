@@ -1,3 +1,15 @@
+// Depending on the targeting filesystem path, the `prj_setacl` executable
+// may employ the linux capability trick to set the CAP_FOWNER for calling
+// the `setfacl` program to set POSIX ACL.  This allows manager to run this
+// exeutable to adjust data access permission on files/directories without
+// being the owner of the files/directories.
+//
+// In order to allow this trick to work, this executable should be set in
+// advance to allow using the linux capability using the following command.
+//
+// ```
+// $ sudo setcap cap_fowner+eip prj_setacl
+// ```
 package main
 
 import (
