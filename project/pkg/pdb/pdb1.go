@@ -345,7 +345,7 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 				continue
 			}
 
-			pdbUser, err := selectUser(db, uid)
+			pdbUser, err := selectUser(db, "id = ?", uid)
 			if err != nil {
 				log.Errorf("cannot find user in PDB: %s", uid)
 				continue
@@ -435,7 +435,7 @@ func updateProjectRoles(db *sql.DB, project string, members []Member) error {
 	}
 	for _, m := range members {
 		// check if the user in question is available in the project database.
-		if _, err := selectUser(db, m.UserID); err != nil {
+		if _, err := selectUser(db, "id = ?", m.UserID); err != nil {
 			// ignore user cannot be found in the project database.
 			log.Warnf("cannot found users in pdb: %s, reason: %+v", m.UserID, err)
 			continue
