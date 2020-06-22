@@ -7,6 +7,8 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"unsafe"
 
 	"github.com/pkg/xattr"
 
@@ -14,12 +16,18 @@ import (
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
+// file attribute for registering managers
+const fattrManagers string = "user.project.managers"
+
 // CephFsRoler implements roler interface for the CephFS.
 type CephFsRoler struct{}
 
 // GetRoles implements interface for getting user roles on a given path mounted to
 // an endpoint of the CephFS.
 func (CephFsRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
+
+	// make pinfo.Path "clean"
+	pinfo.Path = filepath.Clean(pinfo.Path)
 
 	rmap := map[Role][]string{
 		Manager:     {},
@@ -45,14 +53,154 @@ func (CephFsRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
 
 // SetRoles implements interface for setting user roles to a given path mounted to
 // an endpoint of the CephFS.
-func (CephFsRoler) SetRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive bool, followLink bool) (RoleMap, error) {
-	return nil, fmt.Errorf("not implemented")
+func (r CephFsRoler) SetRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive bool, followLink bool) (RoleMap, error) {
+
+	// make pinfo.Path "clean"
+	pinfo.Path = filepath.Clean(pinfo.Path)
+
+	// don't recalculate the mask.
+	args := []string{"-n"}
+
+	// recursion
+	if recursive && pinfo.Mode.IsDir() {
+		args = append(args, "-R")
+	}
+
+	// compose the -m argument
+	marg := ""
+	noManagers := []string{}
+	for r, users := range roles {
+		switch r {
+		case Manager:
+			for _, u := range users {
+				marg = fmt.Sprintf("u:%s:rwX,d:u:%s:rwX,%s", u, u, marg)
+			}
+		case Contributor:
+			noManagers = append(noManagers, users...)
+			for _, u := range users {
+				marg = fmt.Sprintf("u:%s:rwX,d:u:%s:rwX,%s", u, u, marg)
+			}
+		case Viewer:
+			noManagers = append(noManagers, users...)
+			for _, u := range users {
+				marg = fmt.Sprintf("u:%s:rX,d:u:%s:rX,%s", u, u, marg)
+			}
+		default:
+			noManagers = append(noManagers, users...)
+		}
+	}
+
+	if marg == "" {
+		log.Debugf("empty -m argument, skip setfacl.")
+		return r.GetRoles(pinfo)
+	}
+
+	args = append(args, "-m", marg)
+	log.Debugf("setfacl -m arguments: %s", marg)
+
+	if err := setfacl(pinfo.Path, args); err != nil {
+		log.Errorf("%s", err)
+	} else {
+		// set fattrManagers for the newly added managers.
+		r.setManagers(pinfo.Path, roles[Manager])
+		// del fattrManagers in case managers are downgraded to other roles.
+		r.delManagers(pinfo.Path, noManagers)
+	}
+
+	return r.GetRoles(pinfo)
 }
 
 // DelRoles implements interface for removing users from the specified roles on a path
 // mounted to an endpoint of the CephFS.
-func (CephFsRoler) DelRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive bool, followLink bool) (RoleMap, error) {
+func (r CephFsRoler) DelRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive bool, followLink bool) (RoleMap, error) {
+
+	// make pinfo.Path "clean"
+	pinfo.Path = filepath.Clean(pinfo.Path)
+
 	return nil, fmt.Errorf("not implemented")
+}
+
+// setManagers sets list of `users` into the `user.project.managers` file
+// attribute of the `path`.
+func (r CephFsRoler) setManagers(path string, users []string) {
+
+	// get managers already in the user.project.managers file attribute.
+	d, err := xattr.Get(path, fattrManagers)
+	if err != nil {
+		// use debugf since it is fine that files/sub-directories do not have
+		// the `user.project.managers` attribute.
+		log.Debugf("cannot get manager list of %s: %s", path, err)
+	}
+	m := strings.Split(string(d), ",")
+
+	// construct a new list of managers to be set on this path.
+	// Note: if the user is already a manager of the parent path, it will not
+	// be added to the manager of this path.
+	for _, u := range users {
+		if !isManager(path, u) {
+			m = append(m, u)
+		}
+	}
+
+	// set fattrManagers file attribute with the new list of managers
+	if err := xattr.Set(path, fattrManagers, []byte(strings.Join(m, ","))); err != nil {
+		log.Errorf("cannot set manager list of %s: %s", path, err)
+	}
+
+	return
+}
+
+// delManagers removes list of `users` from the `user.project.managers` file
+// attribute of the `path` and its parents.
+func (r CephFsRoler) delManagers(path string, users []string) {
+
+	// get managers in the user.project.managers file attribute.
+	d, err := xattr.Get(path, fattrManagers)
+	if err != nil {
+		// use debugf since it is fine that files/sub-directories do not have
+		// the `user.project.managers` attribute.
+		log.Debugf("cannot get manager list of %s: %s", path, err)
+	}
+
+	m := make(map[string]bool)
+	for _, u := range strings.Split(string(d), ",") {
+		m[u] = true
+	}
+
+	// construct a new list of managers to be applied on this path
+	for _, u := range users {
+		if _, ok := m[u]; ok { // user to be deleted is found in the current manager list
+			delete(m, u)
+		}
+	}
+	nm := make([]string, 0, len(m))
+	for u := range m {
+		nm = append(nm, u)
+	}
+
+	// set fattrManagers file attribute with the new list of managers
+	if err := xattr.Set(path, fattrManagers, []byte(strings.Join(nm, ","))); err != nil {
+		log.Errorf("cannot set manager list of %s: %s", path, err)
+	}
+
+	// move to parent directory
+	path = filepath.Dir(path)
+
+	// path reaches one of the root directories in which projects
+	// are organized.
+	if _, ok := RolerMap[path]; ok {
+		return
+	}
+
+	// path reaches the absolute or relative root.
+	if path == "/" || path == "." || path == ".." {
+		return
+	}
+
+	// delete managers from the parent.
+	r.delManagers(path, users)
+
+	return
 }
 
 // PosixACE is the posix-style access-control entry
@@ -110,8 +258,8 @@ func isManager(path, username string) bool {
 
 	for {
 
-		d, err := xattr.Get(path, "user.project.managers")
-		//d, err := getfattr(path, "user.project.managers")
+		d, err := xattr.Get(path, fattrManagers)
+		//d, err := getfattr(path, fattrManagers)
 		if err != nil {
 			// use debugf since it is fine that files/sub-directories do not have
 			// the `user.project.managers` attribute.
@@ -247,4 +395,100 @@ func getfacl(path string) ([]PosixACE, string, error) {
 	}
 
 	return out, mask, nil
+}
+
+type capHeader struct {
+	version uint32
+	pid     int
+}
+
+type capData struct {
+	effective   uint32
+	permitted   uint32
+	inheritable uint32
+}
+
+type caps struct {
+	hdr  capHeader
+	data [2]capData
+}
+
+func getCaps() (caps, error) {
+	var c caps
+
+	// Get capability version
+	if _, _, errno := syscall.Syscall(syscall.SYS_CAPGET, uintptr(unsafe.Pointer(&c.hdr)), uintptr(unsafe.Pointer(nil)), 0); errno != 0 {
+		return c, fmt.Errorf("SYS_CAPGET: %v", errno)
+	}
+
+	// Get current capabilities
+	if _, _, errno := syscall.Syscall(syscall.SYS_CAPGET, uintptr(unsafe.Pointer(&c.hdr)), uintptr(unsafe.Pointer(&c.data[0])), 0); errno != 0 {
+		return c, fmt.Errorf("SYS_CAPGET: %v", errno)
+	}
+
+	return c, nil
+}
+
+// func mustSupportAmbientCaps() {
+// 	var uname syscall.Utsname
+// 	if err := syscall.Uname(&uname); err != nil {
+// 		log.Fatalf("Uname: %v", err)
+// 	}
+// 	var buf [65]byte
+// 	for i, b := range uname.Release {
+// 		buf[i] = byte(b)
+// 	}
+// 	ver := string(buf[:])
+// 	if i := strings.Index(ver, "\x00"); i != -1 {
+// 		ver = ver[:i]
+// 	}
+// 	if strings.HasPrefix(ver, "2.") ||
+// 		strings.HasPrefix(ver, "3.") ||
+// 		strings.HasPrefix(ver, "4.1.") ||
+// 		strings.HasPrefix(ver, "4.2.") {
+// 		log.Fatalf("kernel version %q predates required 4.3; skipping test", ver)
+// 	}
+// }
+
+// setfacl is a wrapper of executing the `setfacl` command on the given `path`
+// with the arguments `args`.
+//
+// It employees the Linux capability `CAP_OWNER` to allow managers of the `path`
+// to modify the ACLs.
+func setfacl(path string, args []string) error {
+
+	if !isManager(path, "") {
+		return fmt.Errorf("permission denied: not a manager")
+	}
+
+	// get current user's linux capability
+	caps, err := getCaps()
+	if err != nil {
+		return fmt.Errorf("cannot get capability: %s", err)
+	}
+
+	// add CAP_FOWNER capability to the permitted and inheritable capability mask.
+	const capFowner = 3
+	caps.data[0].permitted |= 1 << uint(capFowner)
+	caps.data[0].inheritable |= 1 << uint(capFowner)
+	if _, _, errno := syscall.Syscall(syscall.SYS_CAPSET, uintptr(unsafe.Pointer(&caps.hdr)), uintptr(unsafe.Pointer(&caps.data[0])), 0); errno != 0 {
+		return fmt.Errorf("cannot set CAP_FOWNER capability: %v", errno)
+	}
+
+	// execute the setfacl command
+	// try running the setfacl on a file the current user is not the owner
+	cmd := exec.Command("setfacl", append(args, path)...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		AmbientCaps: []uintptr{capFowner},
+	}
+
+	stdout, err := cmd.Output()
+	log.Debugf("setfacl stdout: %s", string(stdout))
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			log.Errorf("setfacl stderr: %s", string(ee.Stderr))
+		}
+	}
+
+	return err
 }
