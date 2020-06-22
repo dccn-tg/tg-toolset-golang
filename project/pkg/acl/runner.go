@@ -265,12 +265,25 @@ func (r *Runner) RemoveRoles() (exitcode int, err error) {
 	rolesT := make(map[Role][]string)
 	rolesT[Traverse] = usersT
 
+	var chanF chan ufp.FilePathMode
+
+	if _, ok := roler.(CephFsRoler); ok {
+		// for CephFS (POSIX ACL), the setacl acts only on
+		// the top-level directory recursively given the better
+		// performance and permission correctness it automatically applies.
+		chanF = make(chan ufp.FilePathMode, r.Nthreads*4)
+		chanF <- *fpinfo
+		close(chanF)
+	} else {
+		// for other rolers (mostly NFS4ACL), the setacl acts on individual
+		// files and sub-directories so that permission can be applied correctly.
+		chanF = ufp.GoFastWalk(r.ppath, r.FollowLink, r.SkipFiles, r.Nthreads*4)
+	}
+
 	// remove specified user roles
-	chanF := ufp.GoFastWalk(r.ppath, r.FollowLink, r.SkipFiles, r.Nthreads*4)
 	chanOut := r.goDelRoles(roles, chanF, r.Nthreads)
 
 	// channels for removing traverse roles
-	// set traverse roles
 	chanFt := r.goPrintOut(chanOut, r.Traverse, rolesT, r.Nthreads*4, true)
 	chanOutt := r.goDelRoles(rolesT, chanFt, r.Nthreads)
 
@@ -446,6 +459,13 @@ func (r Runner) goSetRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 		// set recursion to true if the roler is implemented for CephFS.
 		_, recursion := roler.(CephFsRoler)
 
+		// set recursion to false if it is only about setting Traverse role
+		// because setting traverse role walks upwards in the directory tree
+		// and therefore there is no reason for recursion.
+		if _, ok := roles[Traverse]; ok && len(roles) == 1 {
+			recursion = false
+		}
+
 		if rolesNew, err := roler.SetRoles(f, roles, recursion, false); err == nil {
 			chanOut <- RolePathMap{Path: f.Path, RoleMap: rolesNew}
 		} else {
@@ -494,7 +514,17 @@ func (r Runner) goDelRoles(roles RoleMap, chanF chan ufp.FilePathMode, nthreads 
 			return
 		}
 
-		if rolesNew, err := roler.DelRoles(f, roles, false, false); err == nil {
+		// set recursion to true if the roler is implemented for CephFS.
+		_, recursion := roler.(CephFsRoler)
+
+		// set recursion to false if it is only about setting Traverse role
+		// because setting traverse role walks upwards in the directory tree
+		// and therefore there is no reason for recursion.
+		if _, ok := roles[Traverse]; ok && len(roles) == 1 {
+			recursion = false
+		}
+
+		if rolesNew, err := roler.DelRoles(f, roles, recursion, false); err == nil {
 			chanOut <- RolePathMap{Path: f.Path, RoleMap: rolesNew}
 		} else {
 			log.Errorf("%s: %s", err, f.Path)

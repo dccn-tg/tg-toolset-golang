@@ -117,7 +117,40 @@ func (r CephFsRoler) DelRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive b
 	// make pinfo.Path "clean"
 	pinfo.Path = filepath.Clean(pinfo.Path)
 
-	return nil, fmt.Errorf("not implemented")
+	// don't recalculate the mask.
+	args := []string{"-n"}
+
+	// recursion
+	if recursive && pinfo.Mode.IsDir() {
+		args = append(args, "-R")
+	}
+
+	// compose the -x argument
+	marg := ""
+	noManagers := []string{}
+	for _, users := range roles {
+		log.Debugf("%+v", users)
+		noManagers = append(noManagers, users...)
+		for _, u := range users {
+			marg = fmt.Sprintf("u:%s,d:u:%s,%s", u, u, marg)
+		}
+	}
+	if marg == "" {
+		log.Debugf("empty -x argument, skip setfacl.")
+		return r.GetRoles(pinfo)
+	}
+
+	args = append(args, "-x", marg)
+	log.Debugf("setfacl -x arguments: %s", marg)
+
+	if err := setfacl(pinfo.Path, args); err != nil {
+		log.Errorf("%s", err)
+	} else {
+		// del fattrManagers in case managers are downgraded to other roles.
+		r.delManagers(pinfo.Path, noManagers)
+	}
+
+	return r.GetRoles(pinfo)
 }
 
 // setManagers sets list of `users` into the `user.project.managers` file
