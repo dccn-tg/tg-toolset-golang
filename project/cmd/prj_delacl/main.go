@@ -110,9 +110,9 @@ func main() {
 
 	runner := acl.Runner{
 		RootPath:     ppathSym,
-		Managers:     strings.Join([]string{*optsManager, uidsAll}, ","),
-		Contributors: strings.Join([]string{*optsContributor, uidsAll}, ","),
-		Viewers:      strings.Join([]string{*optsViewer, uidsAll}, ","),
+		Managers:     strings.TrimSuffix(strings.Join([]string{*optsManager, uidsAll}, ","), ","),
+		Contributors: strings.TrimSuffix(strings.Join([]string{*optsContributor, uidsAll}, ","), ","),
+		Viewers:      strings.TrimSuffix(strings.Join([]string{*optsViewer, uidsAll}, ","), ","),
 		Traversers:   uidsAll,
 		FollowLink:   *optsFollowLink,
 		SkipFiles:    *optsSkipFiles,
