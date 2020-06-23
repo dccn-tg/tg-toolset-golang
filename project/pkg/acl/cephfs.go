@@ -17,7 +17,7 @@ import (
 )
 
 // file attribute for registering managers
-const fattrManagers string = "user.project.managers"
+const fattrManagers string = "trusted.managers"
 
 // CephFsRoler implements roler interface for the CephFS.
 type CephFsRoler struct{}

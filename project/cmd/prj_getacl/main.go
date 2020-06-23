@@ -1,3 +1,16 @@
+// This program employees a linux capabilities for operations granted to
+// project managers when POSIX ACL system is used on the filesystem (e.g.
+// CephFs). These two capababilities are:
+//
+// - CAP_SYS_ADMIN: for accessing the `trusted.managers` xattr that maintains
+//                  a list of project managers.
+//
+// In order to allow this trick to work, this executable should be set in
+// advance to allow using the linux capability using the following command.
+//
+// ```
+// $ sudo setcap cap_sys_admin+eip prj_getacl
+// ```
 package main
 
 import (

@@ -1,14 +1,18 @@
-// Depending on the targeting filesystem path, the `prj_setacl` executable
-// may employ the linux capability trick to set the CAP_FOWNER for calling
-// the `setfacl` program to set POSIX ACL.  This allows manager to run this
-// exeutable to adjust data access permission on files/directories without
-// being the owner of the files/directories.
+// This program employees two linux capabilities for operations granted to
+// project managers when POSIX ACL system is used on the filesystem (e.g.
+// CephFs). These two capababilities are:
+//
+// - CAP_SYS_ADMIN: for accessing the `trusted.managers` xattr that maintains
+//                  a list of project managers.
+//
+// - CAP_FOWNER: for allowing managers to set ACLs via the `setfacl` command
+//               without being the owner of files and directories.
 //
 // In order to allow this trick to work, this executable should be set in
 // advance to allow using the linux capability using the following command.
 //
 // ```
-// $ sudo setcap cap_fowner+eip prj_setacl
+// $ sudo setcap cap_fowner,cap_sys_admin+eip prj_setacl
 // ```
 package main
 
