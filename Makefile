@@ -10,6 +10,10 @@ ifndef GO111MODULE
 	GO111MODULE := on
 endif
 
+VERSION ?= "master"
+
+.PHONY: build
+
 all: build
 
 build_dataflow:
@@ -39,6 +43,9 @@ test_repo_db:
 
 test:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/...
+
+release:
+	VERSION=$(VERSION) rpmbuild --undefine=_disable_source_fetch -bb build/rpm/centos7.spec
 
 clean:
 	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb_*
