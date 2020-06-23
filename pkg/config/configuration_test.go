@@ -44,3 +44,13 @@ func TestPDBV1Config(t *testing.T) {
 		t.Errorf("fail to load db_host from configuration: %s\n", os.Getenv("TG_TOOLSET_CONFIG"))
 	}
 }
+
+func TestRepositoryConfig(t *testing.T) {
+
+	t.Logf("Repository config: %+v\n", testConf.Repository)
+
+	for _, domain := range testConf.Repository.UmapDomains {
+		t.Logf("domain: %s", *domain)
+	}
+
+}

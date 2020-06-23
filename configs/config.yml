@@ -19,10 +19,10 @@ filergateway:
   api_pass: ""
 # configuration for connecting and executing OnTAP commands from the CLI console.
 netappcli:
-	ssh_host: "irulan-mgmt.dccn.nl"
-	vol_name_project: "project"
-	svm_name: "fremen"
-	export_policy: "fremen-projects"
+  ssh_host: "irulan-mgmt.dccn.nl"
+  vol_name_project: "project"
+  svm_name: "fremen"
+  export_policy: "fremen-projects"
 # configuration for connecting the Orthanc PACS server.
 pacs:
   prefixURL: "http://pacs.dccn.nl:8042"
@@ -33,6 +33,12 @@ streamer:
   prefixURL: "http://pacs.dccn.nl:3001"
   username: ""
   password: ""
+# configuration for managing repository data.
+repository:
+  umap_domains:
+    - ru.nl
+    - umcn.nl
+    - mpi.nl
 # configuration for legacy filer volume management via SSH + CLI.
 volumeManager:
   managementInterface:

@@ -120,6 +120,13 @@ var exportUpdateCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
+		// load list of umap domains. Only Repo users from those
+		// domains are allowed for local access.
+		umapDomains := make(map[string]bool)
+		for _, d := range loadConfig().Repository.UmapDomains {
+			umapDomains[*d] = true
+		}
+
 		// load pdb
 		pdb := loadPdb()
 
@@ -179,7 +186,10 @@ var exportUpdateCmd = &cobra.Command{
 					// urep is a map with repo users who have repo access to the the collection.
 					urep := make(map[string]bool)
 					for u := range cout {
-						urep[u] = true
+						d := strings.Split(u, "@")
+						if _, ok := umapDomains[d[len(d)-1]]; ok {
+							urep[u] = true
+						}
 					}
 
 					// uloc is a list of repo users who have local access to the collection.

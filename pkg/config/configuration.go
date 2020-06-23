@@ -16,6 +16,7 @@ type Configuration struct {
 	Streamer      StreamerConfiguration
 	FilerGateway  FilerGatewayConfiguration
 	NetAppCLI     NetAppCLIConfiguration
+	Repository    RepositoryConfiguration
 	VolumeManager VolumeManagerConfiguration
 	SMTP          SMTPConfiguration
 }
