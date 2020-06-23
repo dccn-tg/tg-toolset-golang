@@ -11,7 +11,7 @@ import (
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/repo"
+	"github.com/Donders-Institute/tg-toolset-golang/repository/pkg/repo"
 	"github.com/spf13/cobra"
 
 	bolt "go.etcd.io/bbolt"
