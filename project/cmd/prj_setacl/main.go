@@ -1,4 +1,4 @@
-// This program employees two linux capabilities for operations granted to
+// This program uses the linux capabilities for operations granted to
 // project managers when POSIX ACL system is used on the filesystem (e.g.
 // CephFs). These two capababilities are:
 //
