@@ -47,6 +47,6 @@ if [ "$uids" != "" ]; then
     for uid in $(echo $uids | sed 's/,/ /g'); do
         acl="$uid:rwx,d:$uid:rwx,$acl"
     done
-    setfacl -m $acl $ppath &&
+    setfacl -n -m $acl $ppath &&
       setfattr -n trusted.managers -v $uids $ppath
 fi
