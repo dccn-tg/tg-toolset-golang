@@ -1,6 +1,6 @@
 // This program uses the linux capabilities for operations granted to
 // project managers when POSIX ACL system is used on the filesystem (e.g.
-// CephFs). These two capababilities are:
+// CephFs). Specific capababilities are:
 //
 // - CAP_SYS_ADMIN: for accessing the `trusted.managers` xattr that maintains
 //                  a list of project managers.
