@@ -15,7 +15,7 @@ Currently, the whole package is divided into three major parts, each provides a 
   * [prj_setacl](project/cmd/prj_setacl): a CLI for setting ACLs on a project storage to implement data-access roles.
   * [prj_delacl](project/cmd/prj_delacl): a CLI for deleting ACLs from a project storage to remove data-access roles.
   * [prj_mine](project/cmd/prj_mine): a CLI for retrieving the current user's data-access roles in all projects.
-  * [pdbutil](project/cmd/pdbutil): a project database utility for performing actions such as provisioning storage resource or changing quota for projects.
+  * [pdbutil](project/cmd/pdbutil): a project database utility for performing actions such as provisioning storage resource or changing storage quota of project.
 - [repository](repository) contains tools and libraries for repository data management.
   * [repoutil](repository/cmd/repoutil): a CLI for managing local access to repository collections.
 
