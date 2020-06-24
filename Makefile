@@ -47,6 +47,9 @@ test:
 release:
 	VERSION=$(VERSION) rpmbuild --undefine=_disable_source_fetch -bb build/rpm/centos7.spec
 
+github-release:
+	scripts/gh-release.sh $(VERSION) false
+
 clean:
 	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb_*
 	@rm -rf $(GOPATH)/pkg/$(GOOS)*
