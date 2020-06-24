@@ -7,7 +7,7 @@ CLI tools and re-usable libraries for interacting and managing various ICT servi
 Currently, the whole package is divided into three major parts, each provides a set of CLI tools.  They are:
 
 - [dataflow](dataflow) contains tools and libraries for automatic MEG/MRI dataflow.
-  * [lab_bookings](dataflow/cmd/lab_bookings): a CLI for retrieving MEG events from the calendar system in order to fill the MEG console with relevant information for structure MEG raw data in the project storage.
+  * [lab_bookings](dataflow/cmd/lab_bookings): a CLI for retrieving lab-booking events from the calendar system. It is utilized on the MEG console to provide information for structuring MEG raw data in the project storage.
   * [pacs_getstudies](dataflow/cmd/pacs_getstudies): a CLI for retrieving MRI studies from the Orthanc PACS server.
   * [pacs_streamdata](dataflow/cmd/pacs_streamdata): a CLI for (re-)streaming data from the Orthanc PACS server.
 - [project](project) contains tools and libraries for project storage management.
