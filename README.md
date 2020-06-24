@@ -19,7 +19,7 @@ Currently, the whole package is divided into three major parts, each provides a 
 - [repository](repository) contains tools and libraries for repository data management.
   * [repoutil](repository/cmd/repoutil): a CLI for managing local access to repository collections.
 
-Various CLIs take a YAML-based configuration file for setting up connections to, e.g., project database, filers, etc.. An example YAML file is provided [here](configs/config.yml); and the codes that "objectize" the YAML file are located in the [pkg/config](pkg/config) directory.
+Various CLIs take a YAML-based configuration file (via the `-c` option) for setting up connections to, e.g., project database, filers, etc.. An example YAML file is provided [here](configs/config.yml); and the codes that "objectize" the YAML file are located in the [pkg/config](pkg/config) directory.
 
 Most of the re-usable libraries are written to support the CLI tools listed above.  Those libraries are organised in various `pkg` directories:
 
