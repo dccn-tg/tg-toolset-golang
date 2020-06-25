@@ -287,7 +287,7 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		// perform pending actions via the filer gateway; write out
 		// error if failed and continue for the next project.
 		if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
-			return fmt.Errorf("failure updating project %s: %s", pid, err)
+			return fmt.Errorf("[%s] failure updating project: %s", pid, err)
 		}
 	}
 
@@ -296,12 +296,12 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		projectOwner := "project"
 		u, err := user.Lookup(projectOwner)
 		if err != nil {
-			log.Errorf("cannot find system user %s: %s", projectOwner, err)
+			log.Errorf("[%s] cannot find system user %s: %s", pid, projectOwner, err)
 		}
 		uid, _ := strconv.Atoi(u.Uid)
 		gid, _ := strconv.Atoi(u.Gid)
 		if err := os.Chown(ppath, uid, gid); err != nil {
-			log.Errorf("cannot change owner of %s: %s", ppath, err)
+			log.Errorf("[%s] cannot change owner of %s: %s", pid, ppath, err)
 		}
 	}
 
