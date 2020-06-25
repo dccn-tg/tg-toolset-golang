@@ -40,8 +40,10 @@ func init() {
 
 	// get supported storage systems from the `projectRoots`.
 	supportedStorSystems := make([]string, len(projectRoots))
+	i := 0
 	for sys := range projectRoots {
-		supportedStorSystems = append(supportedStorSystems, sys)
+		supportedStorSystems[i] = sys
+		i++
 	}
 
 	projectActionExecCmd.Flags().IntVarP(&execNthreads, "nthreads", "n", 4,
