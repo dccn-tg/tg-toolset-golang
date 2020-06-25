@@ -9,16 +9,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var uidsManager string
-var uidsContributor string
-var uidsViewer string
-var uidsAll string
-var forceFlag bool
-var numThreads int
-var followSymlink bool
-var skipFiles bool
-var silenceFlag bool
-var recursion bool
+const projectRootPath string = "/project"
+
+var (
+	uidsManager     string
+	uidsContributor string
+	uidsViewer      string
+	uidsAll         string
+	forceFlag       bool
+	numThreads      int
+	followSymlink   bool
+	skipFiles       bool
+	silenceFlag     bool
+	recursion       bool
+)
 
 func init() {
 	roleSetCmd.PersistentFlags().StringVarP(
@@ -121,7 +125,7 @@ var roleGetCmd = &cobra.Command{
 		// the input argument starts with 7 digits (considered as project number)
 		ppathSym := args[0]
 		if matched, _ := regexp.MatchString("^[0-9]{7,}", ppathSym); matched {
-			ppathSym = filepath.Join(ProjectRootPath, ppathSym)
+			ppathSym = filepath.Join(projectRootPath, ppathSym)
 		} else {
 			ppathSym, _ = filepath.Abs(ppathSym)
 		}
@@ -147,7 +151,7 @@ var roleRemoveCmd = &cobra.Command{
 		// the input argument starts with 7 digits (considered as project number)
 		ppathSym := args[0]
 		if matched, _ := regexp.MatchString("^[0-9]{7,}", ppathSym); matched {
-			ppathSym = filepath.Join(ProjectRootPath, ppathSym)
+			ppathSym = filepath.Join(projectRootPath, ppathSym)
 		} else {
 			ppathSym, _ = filepath.Abs(ppathSym)
 		}
@@ -181,7 +185,7 @@ var roleSetCmd = &cobra.Command{
 		// the input argument starts with 7 digits (considered as project number)
 		ppathSym := args[0]
 		if matched, _ := regexp.MatchString("^[0-9]{7,}", ppathSym); matched {
-			ppathSym = filepath.Join(ProjectRootPath, ppathSym)
+			ppathSym = filepath.Join(projectRootPath, ppathSym)
 		} else {
 			ppathSym, _ = filepath.Abs(ppathSym)
 		}
@@ -235,7 +239,7 @@ var roleSetCmd = &cobra.Command{
 // 			ConfigFile: configFile,
 // 		}
 
-// 		return runner.SyncRolesWithStorage(ProjectRootPath)
+// 		return runner.SyncRolesWithStorage(projectRootPath)
 // 	},
 // }
 
