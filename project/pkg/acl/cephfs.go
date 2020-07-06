@@ -289,6 +289,11 @@ func isManager(path, username string) bool {
 		username = me.Username
 	}
 
+	// user `root` is always a manager.
+	if username == "root" {
+		return true
+	}
+
 	for {
 
 		d, err := xattr.Get(path, fattrManagers)
