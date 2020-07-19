@@ -11,6 +11,7 @@ import (
 
 var verbose bool
 var configFile string
+var cfg log.Configuration
 
 const (
 	// RepoRootPath defines the filesystem root path of the repository data collections.
@@ -24,6 +25,13 @@ const (
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "config.yml", "`path` of the configuration YAML file.")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	// initiate default logger
+	cfg = log.Configuration{
+		EnableConsole:     true,
+		ConsoleJSONFormat: false,
+		ConsoleLevel:      log.Info,
+	}
+	log.NewLogger(cfg, log.InstanceLogrusLogger)
 }
 
 // loadConfig loads configuration YAML file specified by `configFile`.
@@ -54,13 +62,7 @@ var rootCmd = &cobra.Command{
 	Short: "The data repository utility",
 	Long:  ``,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// initialize logger
-		cfg := log.Configuration{
-			EnableConsole:     true,
-			ConsoleJSONFormat: false,
-			ConsoleLevel:      log.Info,
-		}
-
+		// reset logger level
 		if cmd.Flags().Changed("verbose") {
 			cfg.ConsoleLevel = log.Debug
 		}
