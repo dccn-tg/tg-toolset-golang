@@ -58,5 +58,5 @@ github-release:
 	scripts/gh-release.sh $(VERSION) false
 
 clean:
-	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb_* $(GOPATH)/bin/repo*
+	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb* $(GOPATH)/bin/repo*
 	@rm -rf $(GOPATH)/pkg/$(GOOS)*
