@@ -24,6 +24,13 @@ build_project:
 
 build:
 	GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go install github.com/Donders-Institute/tg-toolset-golang/...
+
+build_repocli_macosx:
+	GOPATH=$(GOPATH) GOOS=darwin GOARCH=amd64 GO111MODULE=$(GO111MODULE) go build -o $(GOPATH)/bin/repocli.darwin repository/cmd/repocli/main.go
+
+build_repocli_windows:
+	GOPATH=$(GOPATH) GOOS=windows GOARCH=amd64 GO111MODULE=$(GO111MODULE) go build -o $(GOPATH)/bin/repocli.exe repository/cmd/repocli/main.go
+
 test_mailer:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/pkg/mailer/...
 
@@ -51,5 +58,5 @@ github-release:
 	scripts/gh-release.sh $(VERSION) false
 
 clean:
-	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb_*
+	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb_* $(GOPATH)/bin/repo*
 	@rm -rf $(GOPATH)/pkg/$(GOOS)*
