@@ -17,8 +17,9 @@ Currently, the whole package is divided into three major parts, each provides a 
   * [prj_mine](project/cmd/prj_mine): a CLI for retrieving the current user's data-access roles in all projects.
   * [pdbutil](project/cmd/pdbutil): a project database utility for performing actions such as provisioning storage resource or changing storage quota of project.
 - [repository](repository) contains tools and libraries for repository data management.
-  * [repoutil](repository/cmd/repoutil): a CLI for managing local access to repository collections.
-
+  * [repoadm](repository/cmd/repoadm): administrator's CLI for manage the Donders Repository collections.
+  * [repocli](repository/cmd/repocli): user's CLI for managing the Donders Repository collections.
+ 
 Various CLIs take a YAML-based configuration file (via the `-c` option) for setting up connections to, e.g., project database, filers, etc.. An example YAML file is provided [here](configs/config.yml); and the codes that "objectize" the YAML file are located in the [pkg/config](pkg/config) directory.
 
 Most of the re-usable libraries are written to support the CLI tools listed above.  Those libraries are organised in various `pkg` directories:

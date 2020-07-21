@@ -61,7 +61,7 @@ func loadConfig() config.Configuration {
 
 var rootCmd = &cobra.Command{
 	Use:   "repocli",
-	Short: "CLI for managing repository collection content using the WebDAV interface.",
+	Short: "The user's CLI for managing data content of the Donders Repository collections.",
 	Long:  ``,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// reset logger level based on command flag
