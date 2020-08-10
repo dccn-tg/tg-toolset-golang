@@ -21,6 +21,7 @@ var exportNthreads int
 var exportOUs string
 var exportCollPat string
 var viewerDbPath string
+var enableAnonymous bool
 
 // CollExport maintains a data structure for operating on
 // a repository collection to be exported.
@@ -52,6 +53,11 @@ func init() {
 		&exportCollPat,
 		"pat", "", "*:v*",
 		"name pattern of collections to be exported.",
+	)
+	exportUpdateCmd.Flags().BoolVarP(
+		&enableAnonymous,
+		"with-anonymous", "", false,
+		"export anonymously accessible DSCs to everyone.",
 	)
 	exportCmd.PersistentFlags().StringVarP(
 		&viewerDbPath,
@@ -173,14 +179,36 @@ var exportUpdateCmd = &cobra.Command{
 						}
 					}
 
+					// get the filesAnonymousAccess attribute of the collection
+					anonymousAccess := false
+					collName := filepath.Join(RepoNamespace, coll.OU, n)
+					cmd := fmt.Sprintf(`iquest --no-page "%%s" "select META_COLL_ATTR_VALUE where COLL_NAME = '%s' and META_COLL_ATTR_NAME = 'filesAnonymousAccess'"`, collName)
+					cout := make(chan string)
+					go repo.IcommandChanOut(cmd, &cout, true)
+					for l := range cout {
+						if l == "true" || l == "1" {
+							anonymousAccess = true
+						}
+					}
+
+					// make collection with anonymousAccess flag public to all users.
+					log.Debugf("[%s] anonymously accessible: %t", n, anonymousAccess)
+					if enableAnonymous && anonymousAccess {
+						cmd = fmt.Sprintf("chmod o+rx %s", coll.Path)
+						if err := repo.IcommandFileOut(cmd, ""); err != nil {
+							log.Errorf("[%s] fail chmod for anonymously accessible collection: %s", n, err)
+						}
+						continue
+					}
+
 					// get users with a role in the collection
 					collHead := filepath.Join(
 						RepoNamespace,
 						coll.OU,
 						n[0:strings.Index(n, ":v")],
 					)
-					cmd := fmt.Sprintf(`iquest --no-page "%%s" "select META_COLL_ATTR_VALUE where COLL_NAME = '%s' and META_COLL_ATTR_NAME in ('manager','contributor','viewerByDUA','viewerByManager')" | sort`, collHead)
-					cout := make(chan string)
+					cmd = fmt.Sprintf(`iquest --no-page "%%s" "select META_COLL_ATTR_VALUE where COLL_NAME = '%s' and META_COLL_ATTR_NAME in ('manager','contributor','viewerByDUA','viewerByManager')" | sort`, collHead)
+					cout = make(chan string)
 					go repo.IcommandChanOut(cmd, &cout, true)
 
 					// urep is a map with repo users who have repo access to the the collection.
