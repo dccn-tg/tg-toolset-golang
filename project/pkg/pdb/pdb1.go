@@ -211,13 +211,6 @@ func (v1 V1) UpdateProjectMembers(members map[string][]Member, nthreads int) err
 
 	chanPrj := make(chan string, nthreads*2)
 
-	// go rountine to fill project numbers into the channel.
-	go func() {
-		for p := range members {
-			chanPrj <- p
-		}
-	}()
-
 	// go routines to update project roles in the project database.
 	var wg sync.WaitGroup
 	wg.Add(nthreads)
@@ -231,6 +224,12 @@ func (v1 V1) UpdateProjectMembers(members map[string][]Member, nthreads int) err
 			}
 		}()
 	}
+
+	// fill up project ids of which the member list to be updated in PDB.
+	for p := range members {
+		chanPrj <- p
+	}
+	close(chanPrj)
 
 	// wait until all projects are updated.
 	wg.Wait()
