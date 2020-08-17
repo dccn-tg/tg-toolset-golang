@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
@@ -181,7 +180,7 @@ func (v1 V1) DelProjectPendingActions(actions map[string]*DataProjectUpdate) err
 	SET
 		activated=?, updated=?
 	WHERE
-		project_id=? AND user_id=? AND created<=$?
+		project_id=? AND user_id=? AND created<=?
 	`
 
 	stmt, err := db.Prepare(query)
@@ -199,9 +198,8 @@ func (v1 V1) DelProjectPendingActions(actions map[string]*DataProjectUpdate) err
 	return nil
 }
 
-// UpdateProjectMembers updates the project database with the given project roles.  This function uses
-// go routine to update database for multiple projects concurrently.
-func (v1 V1) UpdateProjectMembers(members map[string][]Member, nthreads int) error {
+// UpdateProjectMembers updates the project database with the given project roles.
+func (v1 V1) UpdateProjectMembers(project string, members []Member) error {
 
 	db, err := newClientMySQL(v1.config)
 	if err != nil {
@@ -209,32 +207,7 @@ func (v1 V1) UpdateProjectMembers(members map[string][]Member, nthreads int) err
 	}
 	defer db.Close()
 
-	chanPrj := make(chan string, nthreads*2)
-
-	// go routines to update project roles in the project database.
-	var wg sync.WaitGroup
-	wg.Add(nthreads)
-	for i := 0; i < nthreads; i++ {
-		go func() {
-			defer wg.Done()
-			for p := range chanPrj {
-				if err := updateProjectRoles(db, p, members[p]); err != nil {
-					log.Errorf("failed to update roles in project database: %s", err)
-				}
-			}
-		}()
-	}
-
-	// fill up project ids of which the member list to be updated in PDB.
-	for p := range members {
-		chanPrj <- p
-	}
-	close(chanPrj)
-
-	// wait until all projects are updated.
-	wg.Wait()
-
-	return nil
+	return updateProjectRoles(db, project, members)
 }
 
 // GetUser gets the user identified by the given uid in the project database.
@@ -428,7 +401,7 @@ func updateProjectRoles(db *sql.DB, project string, members []Member) error {
 	}
 
 	// insert new roles into the project
-	setStmt, err = tx.Prepare("INSERT INTO acls (project, user, projectRole) VALUES (?,?,?)")
+	setStmt, err = tx.Prepare("INSERT INTO acls (project, projectRole, user) VALUES (?,?,?)")
 	if err != nil {
 		return err
 	}
