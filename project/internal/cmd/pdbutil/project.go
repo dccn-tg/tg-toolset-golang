@@ -69,6 +69,7 @@ var projectCmd = &cobra.Command{
 		if _, ok := projectRoots[storSystem]; !ok {
 			log.Fatalf("unsupported storage system: %s", storSystem)
 		}
+		rootCmd.PersistentPreRun(cmd, args)
 	},
 }
 
@@ -122,7 +123,7 @@ var projectActionListCmd = &cobra.Command{
 			if data, err := json.Marshal(act); err != nil {
 				log.Errorf("%s", err)
 			} else {
-				fmt.Printf("%s: %s", pid, data)
+				fmt.Printf("%s: %s\n", pid, data)
 			}
 		}
 

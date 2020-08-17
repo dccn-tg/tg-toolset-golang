@@ -21,6 +21,9 @@ var userCmd = &cobra.Command{
 	Use:   "user",
 	Short: "Utility for user",
 	Long:  ``,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		rootCmd.PersistentPreRun(cmd, args)
+	},
 }
 
 var userInfoCmd = &cobra.Command{

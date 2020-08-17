@@ -11,10 +11,19 @@ import (
 
 var verbose bool
 var configFile string
+var cfg log.Configuration
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "config.yml", "`path` of the configuration YAML file.")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+
+	// initiate default logger
+	cfg = log.Configuration{
+		EnableConsole:     true,
+		ConsoleJSONFormat: false,
+		ConsoleLevel:      log.Info,
+	}
+	log.NewLogger(cfg, log.InstanceLogrusLogger)
 }
 
 // loadConfig loads configuration YAML file specified by `configFile`.
@@ -45,13 +54,7 @@ var rootCmd = &cobra.Command{
 	Short: "The project database utility",
 	Long:  ``,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// initialize logger
-		cfg := log.Configuration{
-			EnableConsole:     true,
-			ConsoleJSONFormat: false,
-			ConsoleLevel:      log.Info,
-		}
-
+		// renew the logger with overwritten configuration.
 		if cmd.Flags().Changed("verbose") {
 			cfg.ConsoleLevel = log.Debug
 		}

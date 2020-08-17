@@ -136,7 +136,7 @@ func (f *Client) SyncUpdateProject(projectID string, data *pdb.DataProjectUpdate
 	for {
 		// sleep for given `timeGapPoll` and make the next poll on task status
 		time.Sleep(timeGapPoll)
-		task, err = f.GetTaskStatus(task.TaskID)
+		task, err = f.GetTaskStatus(task.TaskID, "project")
 
 		// break the loop if task status polling is failed
 		if err != nil {
@@ -154,13 +154,13 @@ func (f *Client) SyncUpdateProject(projectID string, data *pdb.DataProjectUpdate
 }
 
 // GetTaskStatus performs a query to retrieve the status of a filer-gateway task.
-func (f *Client) GetTaskStatus(taskID string) (*ServiceTask, error) {
+func (f *Client) GetTaskStatus(taskID string, taskType string) (*ServiceTask, error) {
 
 	// new http client with timeout of 5 seconds
 	c := newHTTPSClient(time.Second*5, false)
 
 	// create request
-	req, err := http.NewRequest("GET", strings.Join([]string{f.apiURL, "tasks", taskID}, "/"), nil)
+	req, err := http.NewRequest("GET", strings.Join([]string{f.apiURL, "tasks", taskType, taskID}, "/"), nil)
 	if err != nil {
 		return nil, err
 	}
