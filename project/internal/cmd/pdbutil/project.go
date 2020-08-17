@@ -186,7 +186,7 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 	// TODO: the project directory prefix should depends on storSystem
 	ppath := filepath.Join("/project", pid)
 	_, err := os.Stat(ppath)
-	newProject := !os.IsNotExist(err)
+	newProject := os.IsNotExist(err)
 
 	// extract member roles from the `act`
 	managers := []string{}
