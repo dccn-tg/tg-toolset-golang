@@ -70,6 +70,11 @@ func (v2 V2) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 	return actions, nil
 }
 
+// GetProjects retrieves list of project identifiers from the project database.
+func (v2 V2) GetProjects(activeOnly bool) ([]string, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // GetUser gets the user identified by the given uid in the project database.
 // It returns the pointer to the user data represented in the User data structure.
 func (v2 V2) GetUser(uid string) (*User, error) {

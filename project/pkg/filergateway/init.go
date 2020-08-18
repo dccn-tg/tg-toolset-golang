@@ -9,11 +9,16 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
+
+	fgwcli "github.com/Donders-Institute/filer-gateway/pkg/swagger/client/client"
+	fgwops "github.com/Donders-Institute/filer-gateway/pkg/swagger/client/client/operations"
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
 // NewClient returns a new `filerGateway` instance with settings
@@ -68,6 +73,37 @@ type Client struct {
 	apiURL  string
 	apiUser string
 	apiPass string
+}
+
+// GetProject returns storage information of a project retrieved from the filer-gateway.
+func (f *Client) GetProject(projectID string) error {
+
+	url, err := url.Parse(f.apiURL)
+	if err != nil {
+		return err
+	}
+
+	c := fgwcli.NewHTTPClientWithConfig(
+		nil,
+		&fgwcli.TransportConfig{
+			Host:     url.Host,
+			BasePath: url.Path,
+			Schemes:  []string{url.Scheme},
+		},
+	)
+
+	// request data with timeout
+	req := fgwops.NewGetProjectsIDParamsWithTimeout(10 * time.Second)
+	req.ID = projectID
+
+	res, err := c.Operations.GetProjectsID(req)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("%+v", res.Payload)
+
+	return nil
 }
 
 // UpdateProject updates or creates filer storage with information given by the `data`.

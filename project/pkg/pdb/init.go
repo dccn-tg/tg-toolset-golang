@@ -37,6 +37,7 @@ func New(c config.PDBConfiguration) (PDB, error) {
 type PDB interface {
 	GetProjectPendingActions() (map[string]*DataProjectUpdate, error)
 	DelProjectPendingActions(map[string]*DataProjectUpdate) error
+	GetProjects(activeOnly bool) ([]string, error)
 	GetUser(userID string) (*User, error)
 	GetUserByEmail(email string) (*User, error)
 	GetLabBookings(lab Lab, date string) ([]*LabBooking, error)

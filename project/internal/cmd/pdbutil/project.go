@@ -20,10 +20,11 @@ import (
 )
 
 var (
-	execNthreads int
-	storSystem   string
-	useNetappCLI bool
-	projectRoots map[string]string = map[string]string{
+	execNthreads      int
+	storSystem        string
+	useNetappCLI      bool
+	activeProjectOnly bool
+	projectRoots      map[string]string = map[string]string{
 		"netapp":  "/project",
 		"freenas": "/project_freenas",
 		"cephfs":  "/project_cephfs",
@@ -56,7 +57,12 @@ func init() {
 	projectCmd.PersistentFlags().BoolVarP(&useNetappCLI, "netapp-cli", "", false,
 		"use NetApp ONTAP CLI to apply changes on the NetApp filer. Only applicable for the netapp storage system.")
 
-	projectCmd.AddCommand(projectActionCmd, projectCreateCmd)
+	projectUpdateMembersCmd.Flags().BoolVarP(&activeProjectOnly, "active-only", "a", false,
+		"only update members on the active projects")
+
+	projectUpdateCmd.AddCommand(projectUpdateMembersCmd)
+
+	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd)
 
 	rootCmd.AddCommand(projectCmd)
 }
@@ -92,6 +98,66 @@ var projectCreateCmd = &cobra.Command{
 		}
 
 		return actionExec(args[0], &data)
+	},
+}
+
+var projectUpdateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Updates project attributes in the project database",
+	Long:  ``,
+}
+
+var projectUpdateMembersCmd = &cobra.Command{
+	Use:   "members",
+	Short: "Updates project members with access roles in the project storage",
+	Long:  ``,
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ipdb := loadPdb()
+		conf := loadConfig()
+
+		pids, err := ipdb.GetProjects(true)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("%+v", pids)
+
+		// initialize filergateway client
+		fgw, err := filergateway.NewClient(conf)
+		if err != nil {
+			return err
+		}
+
+		// perform pending actions with 4 concurrent workers,
+		// each works on a project.
+		var wg sync.WaitGroup
+		cpids := make(chan string, execNthreads*2)
+		for w := 0; w < execNthreads; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				for pid := range cpids {
+					// get members from filer gateway
+					if err := fgw.GetProject(pid); err != nil {
+						log.Errorf("%s", err)
+					}
+
+					// update project database
+				}
+			}()
+		}
+
+		for _, pid := range pids {
+			cpids <- pid
+		}
+		close(cpids)
+
+		// wait for all workers to finish
+		wg.Wait()
+
+		return nil
 	},
 }
 

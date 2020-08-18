@@ -198,6 +198,54 @@ func (v1 V1) DelProjectPendingActions(actions map[string]*DataProjectUpdate) err
 	return nil
 }
 
+// GetProjects retrieves list of project identifiers from the project database.
+func (v1 V1) GetProjects(activeOnly bool) ([]string, error) {
+
+	db, err := newClientMySQL(v1.config)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// prepare db query
+	query := `
+	SELECT
+		id
+	FROM
+		projects
+	`
+
+	if activeOnly {
+		query += `
+		WHERE
+			calculatedProjectSpace > 0
+		`
+	}
+
+	pids := []string{}
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var pid string
+		err := rows.Scan(&pid)
+		if err != nil {
+			return nil, err
+		}
+		pids = append(pids, pid)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return pids, nil
+}
+
 // UpdateProjectMembers updates the project database with the given project roles.
 func (v1 V1) UpdateProjectMembers(project string, members []Member) error {
 
