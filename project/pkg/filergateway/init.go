@@ -185,6 +185,11 @@ func (f *Client) SyncUpdateProject(projectID string, data *pdb.DataProjectUpdate
 		}
 	}
 
+	// analyze task result and return error if the task is not succeeded.
+	if task.TaskStatus.Status != "succeeded" {
+		return task, fmt.Errorf("task %s not succeeded", task.TaskID)
+	}
+
 	// return the final version of task and err
 	return task, err
 }
