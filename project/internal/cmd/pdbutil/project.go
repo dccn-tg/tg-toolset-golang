@@ -227,8 +227,8 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 				if _, err := os.Stat(ppath); !os.IsNotExist(err) {
 					break
 				}
-				// timeout after 3 minutes
-				if time.Since(t1) > 3*time.Minute {
+				// timeout after 5 minutes
+				if time.Since(t1) > 5*time.Minute {
 					log.Errorf("[%s] timeout waiting for %s to appear", pid, ppath)
 					break
 				}
@@ -291,6 +291,21 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		// error if failed and continue for the next project.
 		if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
 			return fmt.Errorf("[%s] failure updating project: %s", pid, err)
+		}
+
+		t1 := time.Now()
+		// check until the project directory aappears
+		for {
+			if _, err := os.Stat(ppath); !os.IsNotExist(err) {
+				break
+			}
+			// timeout after 5 minutes
+			if time.Since(t1) > 5*time.Minute {
+				log.Errorf("[%s] timeout waiting for %s to appear", pid, ppath)
+				break
+			}
+			// wait for 100 millisecond for the next check.
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 
