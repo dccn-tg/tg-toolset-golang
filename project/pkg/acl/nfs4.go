@@ -68,6 +68,11 @@ func (ace *ACE) IsSysPermission() bool {
 	return aceSysPrinciple[ace.Principle]
 }
 
+// IsDeny checks if the ACE is a deny-type ACE.
+func (ace *ACE) IsDeny() bool {
+	return ace.Type == "D"
+}
+
 // ForceInheritance modifies the `Flag` to ensure the `f` and `d` flags
 // are added.
 func (ace *ACE) ForceInheritance() {

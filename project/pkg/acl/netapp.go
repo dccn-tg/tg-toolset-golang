@@ -70,6 +70,12 @@ func (NetAppRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
 		return nil, err
 	}
 	for _, ace := range aces {
+
+		// ignore deny type ACE
+		if ace.IsDeny() {
+			continue
+		}
+
 		r := ace.ToRole()
 		roles[r] = append(roles[r], getPrincipleName(ace))
 	}
