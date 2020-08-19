@@ -76,11 +76,11 @@ type Client struct {
 }
 
 // GetProject returns storage information of a project retrieved from the filer-gateway.
-func (f *Client) GetProject(projectID string) error {
+func (f *Client) GetProject(projectID string) (*pdb.DataProjectProvision, error) {
 
 	url, err := url.Parse(f.apiURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	c := fgwcli.NewHTTPClientWithConfig(
@@ -98,12 +98,23 @@ func (f *Client) GetProject(projectID string) error {
 
 	res, err := c.Operations.GetProjectsID(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	log.Debugf("%+v", res.Payload)
+	// serialize response payload to byte data.
+	data, err := json.Marshal(res.Payload)
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("response data: %s", data)
 
-	return nil
+	// serialize byte data into pdb.DataProjectProvision
+	var info pdb.DataProjectProvision
+	if err := json.Unmarshal(data, &info); err != nil {
+		return nil, err
+	}
+
+	return &info, nil
 }
 
 // UpdateProject updates or creates filer storage with information given by the `data`.

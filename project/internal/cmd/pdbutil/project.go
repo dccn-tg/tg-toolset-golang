@@ -121,7 +121,7 @@ var projectUpdateMembersCmd = &cobra.Command{
 			return err
 		}
 
-		log.Debugf("%+v", pids)
+		log.Debugf("updating members for %d projects", len(pids))
 
 		// initialize filergateway client
 		fgw, err := filergateway.NewClient(conf)
@@ -137,14 +137,23 @@ var projectUpdateMembersCmd = &cobra.Command{
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-
 				for pid := range cpids {
 					// get members from filer gateway
-					if err := fgw.GetProject(pid); err != nil {
-						log.Errorf("%s", err)
+					info, err := fgw.GetProject(pid)
+					if err != nil {
+						log.Errorf("[%s] cannot get project storage info: %s", pid, err)
+						continue
 					}
+					log.Debugf("[%s] project storage info: %+v", pid, info)
 
-					// update project database
+					// update project database only for pdb V1.
+					if v1, ok := ipdb.(pdb.V1); ok {
+						if err := v1.UpdateProjectMembers(pid, info.Members); err != nil {
+							log.Errorf("[%s] cannot update members in pdb: %s", pid, err)
+						}
+					} else {
+						log.Warnf("[%s] not pdb V1: skip updating members.")
+					}
 				}
 			}()
 		}
