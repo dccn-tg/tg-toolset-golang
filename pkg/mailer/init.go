@@ -3,6 +3,7 @@ package mailer
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"net/smtp"
 	"text/template"
@@ -90,6 +91,12 @@ func composeMessageTempstr(tempstr string, data interface{}) (string, error) {
 	return buf.String(), nil
 }
 
+// func encodeRFC2047(String string) string {
+// 	// use mail's rfc2047 to encode any string
+// 	addr := mail.Address{String, ""}
+// 	return strings.Trim(addr.String(), " <>")
+// }
+
 // sendMail sends out a email with given `from`, `to`, `subject` and `body` content
 // using the SMTP server configuration provided by `config`.
 func sendMail(config config.SMTPConfiguration, from, to, subject, body string) error {
@@ -97,16 +104,26 @@ func sendMail(config config.SMTPConfiguration, from, to, subject, body string) e
 	// SMTP server address
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 
-	// RFC-822 style email message
-	msg := []byte("Subject: " + subject + "\r\n" +
-		body + "\r\n")
+	header := make(map[string]string)
+	header["From"] = from
+	header["To"] = to
+	header["Subject"] = subject
+	header["MIME-Version"] = "1.0"
+	header["Content-Type"] = "text/plain; charset=\"utf-8\""
+	header["Content-Transfer-Encoding"] = "base64"
+
+	message := ""
+	for k, v := range header {
+		message += fmt.Sprintf("%s: %s\r\n", k, v)
+	}
+	message += "\r\n" + base64.StdEncoding.EncodeToString([]byte(body))
 
 	// SMTP plain auth with username/password
 	if config.AuthPlainUser != "" && config.AuthPlainPass != "" {
 		auth := smtp.PlainAuth("", config.AuthPlainUser, config.AuthPlainPass, config.Host)
-		return smtp.SendMail(addr, auth, from, []string{to}, msg)
+		return smtp.SendMail(addr, auth, from, []string{to}, []byte(message))
 	}
 
 	// no SMTP authentication
-	return smtp.SendMail(addr, nil, from, []string{to}, msg)
+	return smtp.SendMail(addr, nil, from, []string{to}, []byte(message))
 }
