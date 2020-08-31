@@ -60,7 +60,7 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 		uid        string
 		role       string
 		action     string
-		quota      uint8
+		quota      int
 		createTime time.Time
 	}
 
@@ -74,7 +74,7 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 			role   string
 			action string
 			ctime  time.Time
-			quota  uint8
+			quota  int
 		)
 
 		if err := rows.Scan(&uid, &pid, &role, &ctime, &action, &quota); err != nil {
@@ -122,7 +122,7 @@ func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 			actions[a.pid] = &DataProjectUpdate{
 				Members: []Member{},
 				Storage: Storage{
-					QuotaGb: int(a.quota),
+					QuotaGb: a.quota,
 					System:  "netapp",
 				},
 			}
