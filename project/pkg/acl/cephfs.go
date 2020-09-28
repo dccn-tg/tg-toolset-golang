@@ -73,17 +73,29 @@ func (r CephFsRoler) SetRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive b
 		switch r {
 		case Manager:
 			for _, u := range users {
-				marg = fmt.Sprintf("u:%s:rwX,d:u:%s:rwX,%s", u, u, marg)
+				if pinfo.Mode.IsDir() {
+					marg = fmt.Sprintf("u:%s:rwX,d:u:%s:rwX,%s", u, u, marg)
+				} else {
+					marg = fmt.Sprintf("u:%s:rwX,%s", u, marg)
+				}
 			}
 		case Contributor:
 			noManagers = append(noManagers, users...)
 			for _, u := range users {
-				marg = fmt.Sprintf("u:%s:rwX,d:u:%s:rwX,%s", u, u, marg)
+				if pinfo.Mode.IsDir() {
+					marg = fmt.Sprintf("u:%s:rwX,d:u:%s:rwX,%s", u, u, marg)
+				} else {
+					marg = fmt.Sprintf("u:%s:rwX,%s", u, marg)
+				}
 			}
 		case Viewer:
 			noManagers = append(noManagers, users...)
 			for _, u := range users {
-				marg = fmt.Sprintf("u:%s:rX,d:u:%s:rX,%s", u, u, marg)
+				if pinfo.Mode.IsDir() {
+					marg = fmt.Sprintf("u:%s:rX,d:u:%s:rX,%s", u, u, marg)
+				} else {
+					marg = fmt.Sprintf("u:%s:rX,%s", u, marg)
+				}
 			}
 		default:
 			noManagers = append(noManagers, users...)
