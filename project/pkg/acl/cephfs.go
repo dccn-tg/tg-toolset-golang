@@ -101,7 +101,7 @@ func (r CephFsRoler) SetRoles(pinfo ufp.FilePathMode, roles RoleMap, recursive b
 			noManagers = append(noManagers, users...)
 			for _, u := range users {
 				if pinfo.Mode.IsDir() {
-					marg = fmt.Sprintf("d:u:%s:--x,%s", u, marg)
+					marg = fmt.Sprintf("u:%s:--X,%s", u, marg)
 				}
 			}
 		default:
