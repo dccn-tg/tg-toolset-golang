@@ -62,7 +62,9 @@ func init() {
 
 	projectUpdateCmd.AddCommand(projectUpdateMembersCmd)
 
-	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd)
+	projectNotifyCmd.AddCommand(projectNotifyOutOfQuota)
+
+	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd, projectNotifyCmd)
 
 	rootCmd.AddCommand(projectCmd)
 }
@@ -246,6 +248,95 @@ var projectActionExecCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+var projectNotifyCmd = &cobra.Command{
+	Use:   "notify",
+	Short: "Utility for sending project-related notification",
+	Long:  ``,
+}
+
+// submcommand to notify manager/contributor/owner when project is (close to) running out of quota.
+var projectNotifyOutOfQuota = &cobra.Command{
+	Use:   "ooq",
+	Short: "Sends notification concerning project running out of quota",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		ipdb := loadPdb()
+		conf := loadConfig()
+
+		pids, err := ipdb.GetProjects(true)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("retriving storage usage for %d projects", len(pids))
+
+		// initialize filergateway client
+		fgw, err := filergateway.NewClient(conf)
+		if err != nil {
+			return err
+		}
+
+		// channel containing list of projects being notified for OOQ.
+		npids := make(chan string)
+
+		// perform pending actions with 4 concurrent workers,
+		// each works on a project.
+		var wg sync.WaitGroup
+		cpids := make(chan string, execNthreads*2)
+		for w := 0; w < execNthreads; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for pid := range cpids {
+					// get members from filer gateway
+					info, err := fgw.GetProject(pid)
+					if err != nil {
+						log.Errorf("[%s] cannot get project storage info: %s", pid, err)
+						continue
+					}
+					log.Debugf("[%s] project storage info: %+v", pid, info)
+
+					// check and send notification
+					switch npid, err := notifyOoq(info); err.(type) {
+					case nil:
+						// notification sent, push the notified project to channel `npids`
+						npids <- npid
+					case *pdb.OpsIgnored:
+						// notification ignored
+						log.Debugf("[%s] %s", pid, err)
+					default:
+						// something wrong
+						log.Errorf("[%s] fail to send notification for project out-of-quota: +%v", pid, err)
+					}
+				}
+			}()
+		}
+
+		for _, pid := range pids {
+			cpids <- pid
+		}
+		close(cpids)
+
+		// wait for all workers to finish
+		wg.Wait()
+
+		return nil
+	},
+}
+
+// notifyOoq checks whether notification concerning project storage out-of-quota
+// is to be sent based on the project storage information `info`.
+//
+// If the notification email is sent, the returning string is the concerning project id;
+// otherwise an empty string is returned with an error.
+//
+// If the notification sending is ignored by design, the returned error is `OpsIgnored`.
+func notifyOoq(info *pdb.DataProjectProvision) (string, error) {
+
+	return "", &pdb.OpsIgnored{Message: "notification ignored"}
 }
 
 // actionExec implements the logic of executing the pending actions concerning a project.

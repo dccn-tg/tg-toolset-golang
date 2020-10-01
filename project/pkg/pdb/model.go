@@ -40,11 +40,12 @@ type DataProjectUpdate struct {
 
 // User defines the data structure of a user in the project database.
 type User struct {
-	ID         string
-	Firstname  string
-	Middlename string
-	Lastname   string
-	Email      string
+	ID         string `json:"userID"`
+	Firstname  string `json:"firstName"`
+	Middlename string `json:"middleName"`
+	Lastname   string `json:"lastName"`
+	Email      string `json:"email"`
+	Status     string `json:"status"`
 }
 
 // Lab defines an enumerator for the lab categories.
@@ -120,4 +121,14 @@ type LabBooking struct {
 	ProjectTitle string
 	// StartTime is the time the experiment starts.
 	StartTime time.Time
+}
+
+// OpsIgnored is a specific error referring ignored operation.
+type OpsIgnored struct {
+	// Message is the detail information of the ignored operation.
+	Message string
+}
+
+func (e *OpsIgnored) Error() string {
+	return e.Message
 }
