@@ -13,6 +13,7 @@ import (
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/mailer"
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/store"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/filergateway"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
@@ -29,12 +30,37 @@ var (
 		"freenas": "/project_freenas",
 		"cephfs":  "/project_cephfs",
 	}
+	ooqNotificationDbPath string
 )
 
 // loadNetAppCLI initialize interface to the NetAppCLI.
 func loadNetAppCLI() filergateway.NetAppCLI {
 	conf := loadConfig()
 	return filergateway.NetAppCLI{Config: conf.NetAppCLI}
+}
+
+// ooqNotificationFrequency determines the max ooq notification frequency
+// in terms of the duration between two subsequent notifications, based on
+// the current storage usage in percentage.
+//
+// if the return duration is 0, it means "never".
+//
+// TODO: make the usage range and the frequency configurable
+func ooqNotificationFrequency(usage int) time.Duration {
+
+	if usage >= 90 && usage < 95 {
+		return time.Hour * 24 * 14 // every 14 days
+	}
+
+	if usage >= 95 && usage < 99 {
+		return time.Hour * 24 * 7 // every 7 days
+	}
+
+	if usage >= 99 {
+		return time.Hour * 24 * 2 // every 2 days
+	}
+
+	return 0
 }
 
 func init() {
@@ -61,6 +87,9 @@ func init() {
 		"only update members on the active projects")
 
 	projectUpdateCmd.AddCommand(projectUpdateMembersCmd)
+
+	projectNotifyOutOfQuota.Flags().StringVarP(&ooqNotificationDbPath, "dbpath", "", "ooq-notification.db",
+		"`path` of the out-of-quota notification history")
 
 	projectNotifyCmd.AddCommand(projectNotifyOutOfQuota)
 
@@ -279,8 +308,22 @@ var projectNotifyOutOfQuota = &cobra.Command{
 			return err
 		}
 
-		// channel containing list of projects being notified for OOQ.
-		npids := make(chan string)
+		// connect to internal database for last sent
+		store := store.KVStore{
+			Path: ooqNotificationDbPath,
+		}
+		err = store.Connect()
+		if err != nil {
+			return err
+		}
+		defer store.Disconnect()
+
+		// initialize kvstore with bucket "ooqLastNotifications"
+		dbBucket := "ooqLastNotifications"
+		err = store.Init([]string{dbBucket})
+		if err != nil {
+			return err
+		}
 
 		// perform pending actions with 4 concurrent workers,
 		// each works on a project.
@@ -290,6 +333,7 @@ var projectNotifyOutOfQuota = &cobra.Command{
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+
 				for pid := range cpids {
 					// get members from filer gateway
 					info, err := fgw.GetProject(pid)
@@ -299,11 +343,26 @@ var projectNotifyOutOfQuota = &cobra.Command{
 					}
 					log.Debugf("[%s] project storage info: %+v", pid, info)
 
+					// get last sent timestamp from the local db
+					tsd, err := store.Get(dbBucket, []byte(pid))
+					if err != nil {
+						log.Debugf("[%s] fail to get last ooq notification time: %s", pid, err)
+					}
+
+					// default ts of the last sent (0001-01-01 00:00:00 +0000 UTC)
+					ts := time.Time{}
+					if tsd != nil {
+						if err := json.Unmarshal(tsd, &ts); err != nil {
+							log.Debugf("[%s] cannot interpret last ooq notification time: %s", pid, err)
+						}
+					}
+
 					// check and send notification
-					switch npid, err := notifyOoq(info); err.(type) {
+					switch npid, err := notifyOoq(ipdb, info, &ts); err.(type) {
 					case nil:
-						// notification sent, push the notified project to channel `npids`
-						npids <- npid
+						// notification sent, update store db with new last sent timestamp
+						tsb, _ := json.Marshal(ts)
+						store.Set(dbBucket, []byte(npid), tsb)
 					case *pdb.OpsIgnored:
 						// notification ignored
 						log.Debugf("[%s] %s", pid, err)
@@ -334,9 +393,38 @@ var projectNotifyOutOfQuota = &cobra.Command{
 // otherwise an empty string is returned with an error.
 //
 // If the notification sending is ignored by design, the returned error is `OpsIgnored`.
-func notifyOoq(info *pdb.DataProjectProvision) (string, error) {
+func notifyOoq(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastSent *time.Time) (string, error) {
 
-	return "", &pdb.OpsIgnored{Message: "notification ignored"}
+	uratio := 100 * info.Storage.UsageGb / info.Storage.UsageGb
+
+	duration := ooqNotificationFrequency(uratio)
+	if duration == 0 {
+		return "", &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the ooq threshold.", uratio)}
+	}
+
+	now := time.Now()
+	next := lastSent.Add(duration)
+	if now.Before(next) { // current time is in between
+		return "", &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next notification %s.", now, next)}
+	}
+
+	// sending notifications
+	for _, m := range info.Members {
+		if m.Role == acl.Manager.String() || m.Role == acl.Contributor.String() {
+			u, err := ipdb.GetUser(m.UserID)
+			if err != nil {
+				log.Errorf("[%s] cannot get user from project database: %s", m.UserID)
+				continue
+			}
+			log.Debugf("[%s] notify %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
+			// TODO: implement email sending
+		}
+	}
+
+	// set lastSent to now
+	lastSent = &now
+
+	return info.ProjectID, nil
 }
 
 // actionExec implements the logic of executing the pending actions concerning a project.

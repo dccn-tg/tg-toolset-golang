@@ -76,7 +76,7 @@ type Client struct {
 }
 
 // GetProject returns storage information of a project retrieved from the filer-gateway.
-func (f *Client) GetProject(projectID string) (*pdb.DataProjectProvision, error) {
+func (f *Client) GetProject(projectID string) (*pdb.DataProjectInfo, error) {
 
 	url, err := url.Parse(f.apiURL)
 	if err != nil {
@@ -109,7 +109,7 @@ func (f *Client) GetProject(projectID string) (*pdb.DataProjectProvision, error)
 	log.Debugf("response data: %s", data)
 
 	// serialize byte data into pdb.DataProjectProvision
-	var info pdb.DataProjectProvision
+	var info pdb.DataProjectInfo
 	if err := json.Unmarshal(data, &info); err != nil {
 		return nil, err
 	}

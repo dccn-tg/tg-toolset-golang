@@ -23,6 +23,14 @@ type Storage struct {
 	System  string `json:"system"`
 }
 
+// StorageInfo defines the data structure for the storage resource information of a project,
+// including the actual storage usage.
+type StorageInfo struct {
+	QuotaGb int    `json:"quotaGb"`
+	UsageGb int    `json:"usageGb"`
+	System  string `json:"system"`
+}
+
 // DataProjectProvision defines the data structure for sending project provision
 // request to the filer-gateway.
 type DataProjectProvision struct {
@@ -36,6 +44,14 @@ type DataProjectProvision struct {
 type DataProjectUpdate struct {
 	Members []Member `json:"members"`
 	Storage Storage  `json:"storage"`
+}
+
+// DataProjectInfo defines the data structure for received project storage information
+// returned from the filer-gateway.
+type DataProjectInfo struct {
+	ProjectID string      `json:"projectID"`
+	Members   []Member    `json:"members"`
+	Storage   StorageInfo `json:"storage"`
 }
 
 // User defines the data structure of a user in the project database.
