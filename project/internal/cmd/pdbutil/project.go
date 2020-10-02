@@ -359,11 +359,11 @@ var projectNotifyOutOfQuota = &cobra.Command{
 					log.Debugf("[%s] last ooq notifiction time: %s", pid, ts)
 
 					// check and send notification
-					switch npid, err := notifyOoq(ipdb, info, &ts); err.(type) {
+					switch nts, err := notifyOoq(ipdb, info, ts); err.(type) {
 					case nil:
 						// notification sent, update store db with new last sent timestamp
-						tsb, _ := json.Marshal(ts)
-						store.Set(dbBucket, []byte(npid), tsb)
+						ntsb, _ := json.Marshal(nts)
+						store.Set(dbBucket, []byte(pid), ntsb)
 					case *pdb.OpsIgnored:
 						// notification ignored
 						log.Debugf("[%s] %s", pid, err)
@@ -390,23 +390,22 @@ var projectNotifyOutOfQuota = &cobra.Command{
 // notifyOoq checks whether notification concerning project storage out-of-quota
 // is to be sent based on the project storage information `info`.
 //
-// If the notification email is sent, the returning string is the concerning project id;
-// otherwise an empty string is returned with an error.
+// If the notification email is sent, it returns the time at which the emails were sent.
 //
 // If the notification sending is ignored by design, the returned error is `OpsIgnored`.
-func notifyOoq(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastSent *time.Time) (string, error) {
+func notifyOoq(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastSent time.Time) (time.Time, error) {
 
 	uratio := 100 * info.Storage.UsageGb / info.Storage.QuotaGb
 
 	duration := ooqNotificationFrequency(uratio)
 	if duration == 0 {
-		return "", &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the ooq threshold.", uratio)}
+		return lastSent, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the ooq threshold.", uratio)}
 	}
 
 	now := time.Now()
 	next := lastSent.Add(duration)
 	if now.Before(next) { // current time is in between
-		return "", &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next notification %s.", now, next)}
+		return lastSent, &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next notification %s.", now, next)}
 	}
 
 	// sending notifications
@@ -422,10 +421,7 @@ func notifyOoq(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastSent *time.Time) (st
 		}
 	}
 
-	// set lastSent to now
-	lastSent = &now
-
-	return info.ProjectID, nil
+	return now, nil
 }
 
 // actionExec implements the logic of executing the pending actions concerning a project.
