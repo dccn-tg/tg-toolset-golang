@@ -34,6 +34,9 @@ build_repocli_windows:
 test_mailer:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/pkg/mailer/...
 
+test_store:
+	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/pkg/store/...
+
 test_dataflow:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/dataflow/...
 

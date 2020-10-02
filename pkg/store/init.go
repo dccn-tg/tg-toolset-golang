@@ -16,7 +16,7 @@ type KVPair struct {
 // KVStore provides interface to interact with a local database for
 // managing/bookkeeping user map and exported collections.
 type KVStore struct {
-	path  string
+	Path  string
 	mutex sync.Mutex
 	db    *bolt.DB
 }
@@ -27,7 +27,7 @@ func (s *KVStore) Connect() (err error) {
 		return nil
 	}
 
-	if s.db, err = bolt.Open(s.path, 0600, nil); err != nil {
+	if s.db, err = bolt.Open(s.Path, 0600, nil); err != nil {
 		return fmt.Errorf("cannot connect blot db: %s", err)
 	}
 	return nil
@@ -67,7 +67,7 @@ func (s *KVStore) Init(buckets []string) error {
 
 // Get returns a value of the given key within the given bucket
 // in the bolt database.
-func (s *KVStore) Get(bucket, key []byte) ([]byte, error) {
+func (s *KVStore) Get(bucket string, key []byte) ([]byte, error) {
 
 	if s.db == nil {
 		return nil, fmt.Errorf("no connected db")
@@ -118,7 +118,7 @@ func (s *KVStore) GetAll(bucket string) ([]KVPair, error) {
 }
 
 // Set insert/update a key-value pair in the given bucket.
-func (s *KVStore) set(bucket, key []byte, value []byte) error {
+func (s *KVStore) Set(bucket string, key []byte, value []byte) error {
 
 	if s.db == nil {
 		return fmt.Errorf("no connected db")
