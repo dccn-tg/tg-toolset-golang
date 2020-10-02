@@ -356,6 +356,7 @@ var projectNotifyOutOfQuota = &cobra.Command{
 							log.Debugf("[%s] cannot interpret last ooq notification time: %s", pid, err)
 						}
 					}
+					log.Debugf("[%s] last ooq notifiction time: %s", pid, ts)
 
 					// check and send notification
 					switch npid, err := notifyOoq(ipdb, info, &ts); err.(type) {
