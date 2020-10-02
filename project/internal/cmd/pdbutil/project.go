@@ -395,7 +395,7 @@ var projectNotifyOutOfQuota = &cobra.Command{
 // If the notification sending is ignored by design, the returned error is `OpsIgnored`.
 func notifyOoq(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastSent *time.Time) (string, error) {
 
-	uratio := 100 * info.Storage.UsageGb / info.Storage.UsageGb
+	uratio := 100 * info.Storage.UsageGb / info.Storage.QuotaGb
 
 	duration := ooqNotificationFrequency(uratio)
 	if duration == 0 {
