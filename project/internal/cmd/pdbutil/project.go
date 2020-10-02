@@ -346,7 +346,7 @@ var projectNotifyOutOfQuota = &cobra.Command{
 					// get last sent timestamp from the local db
 					tsd, err := store.Get(dbBucket, []byte(pid))
 					if err != nil {
-						log.Debugf("[%s] fail to get last ooq notification time: %s", pid, err)
+						log.Debugf("[%s] cannot get last ooq notification time: %s", pid, err)
 					}
 
 					// default ts of the last sent (0001-01-01 00:00:00 +0000 UTC)
