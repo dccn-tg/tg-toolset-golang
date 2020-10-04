@@ -88,10 +88,12 @@ func init() {
 
 	projectUpdateCmd.AddCommand(projectUpdateMembersCmd)
 
-	projectAlertOutOfQuota.Flags().StringVarP(&alertDbPath, "dbpath", "", "ooq-alert.db",
-		"`path` of the out-of-quota alert history")
+	projectAlertOoqCmd.PersistentFlags().StringVarP(&alertDbPath, "dbpath", "", "alert.db",
+		"`path` of the internal alert history database")
 
-	projectAlertCmd.AddCommand(projectAlertOutOfQuota)
+	projectAlertOoqCmd.AddCommand(projectAlertOoqInfo, projectAlertOoqSend)
+
+	projectAlertCmd.AddCommand(projectAlertOoqCmd)
 
 	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd, projectAlertCmd)
 
@@ -285,6 +287,12 @@ var projectAlertCmd = &cobra.Command{
 	Long:  ``,
 }
 
+var projectAlertOoqCmd = &cobra.Command{
+	Use:   "ooq",
+	Short: "Utility for project-storage out-of-quota alerts",
+	Long:  ``,
+}
+
 // ooqLastAlert is the internal data structure
 // containing timestamp (`ts`) and storage usage
 // ratio (`uratio`) the last ooq alert was sent.
@@ -293,9 +301,61 @@ type ooqLastAlert struct {
 	uratio int
 }
 
+// submcommand to show last alerts sent for projects (close to) running out of quota.
+var projectAlertOoqInfo = &cobra.Command{
+	Use:   "info",
+	Short: "Shows information of the last alerts sent concerning project running out of quota",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		// check availability of the `alertDbPath`
+		if _, err := os.Stat(alertDbPath); os.IsNotExist(err) {
+			return fmt.Errorf("alert db not found: %s", alertDbPath)
+		}
+
+		// connect to internal database for last sent
+		store := store.KVStore{
+			Path: alertDbPath,
+		}
+		err := store.Connect()
+		if err != nil {
+			return err
+		}
+		defer store.Disconnect()
+
+		// initialize kvstore with bucket "ooqLastAlerts"
+		dbBucket := "ooqLastAlerts"
+		err = store.Init([]string{dbBucket})
+		if err != nil {
+			return err
+		}
+
+		// gets all last alerts
+		kvpairs, err := store.GetAll(dbBucket)
+		if err != nil {
+			return err
+		}
+
+		for _, kvpair := range kvpairs {
+			pid := string(kvpair.Key)
+
+			lastSent := ooqLastAlert{}
+			err := json.Unmarshal(kvpair.Value, &lastSent)
+			if err != nil {
+				log.Errorf("[%s] cannot interpret ooq alert data: %s", pid, err)
+				continue
+			}
+
+			log.Infof("%12s: %3d%% %s", pid, lastSent.uratio, lastSent.ts)
+		}
+
+		return nil
+	},
+}
+
 // submcommand to notify manager/contributor/owner when project is (close to) running out of quota.
-var projectAlertOutOfQuota = &cobra.Command{
-	Use:   "ooq",
+var projectAlertOoqSend = &cobra.Command{
+	Use:   "send",
 	Short: "Sends alerts concerning project running out of quota",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
