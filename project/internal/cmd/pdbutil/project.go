@@ -418,8 +418,12 @@ var projectAlertOoqSend = &cobra.Command{
 					}
 
 					// default lastAlert with timestamp (0001-01-01 00:00:00 +0000 UTC), uratio 0.
-					lastAlert := ooqLastAlert{}
+					lastAlert := ooqLastAlert{
+						ts:     time.Time{},
+						uratio: 0,
+					}
 					if data != nil {
+						log.Debugf("[%s] %s", string(data))
 						if err := json.Unmarshal(data, &lastAlert); err != nil {
 							log.Debugf("[%s] cannot interpret last ooq alert data: %s", pid, err)
 						}
@@ -431,8 +435,9 @@ var projectAlertOoqSend = &cobra.Command{
 					case nil:
 						log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
 						// alert sent, update store db with new last alert information
-						data, _ = json.Marshal(lastAlert)
-						store.Set(dbBucket, []byte(pid), data)
+						data1, _ := json.Marshal(&lastAlert)
+						log.Debugf("[%s] %s", string(data1))
+						store.Set(dbBucket, []byte(pid), data1)
 					case *pdb.OpsIgnored:
 						// alert ignored
 						log.Debugf("[%s] %s", pid, err)
