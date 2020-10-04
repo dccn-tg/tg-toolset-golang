@@ -148,3 +148,11 @@ type OpsIgnored struct {
 func (e *OpsIgnored) Error() string {
 	return e.Message
 }
+
+// OoqLastAlert is the internal data structure.
+type OoqLastAlert struct {
+	// Timestamp is the moment the alert was sent.
+	Timestamp time.Time
+	// UsagePercent is the storage usage ratio in percent at the moment the alert was sent.
+	UsagePercent int
+}

@@ -293,14 +293,6 @@ var projectAlertOoqCmd = &cobra.Command{
 	Long:  ``,
 }
 
-// ooqLastAlert is the internal data structure
-// containing timestamp (`ts`) and storage usage
-// ratio (`uratio`) the last ooq alert was sent.
-type ooqLastAlert struct {
-	ts     time.Time
-	uratio int
-}
-
 // submcommand to show last alerts sent for projects (close to) running out of quota.
 var projectAlertOoqInfo = &cobra.Command{
 	Use:   "info",
@@ -339,14 +331,14 @@ var projectAlertOoqInfo = &cobra.Command{
 		for _, kvpair := range kvpairs {
 			pid := string(kvpair.Key)
 
-			lastSent := ooqLastAlert{}
+			lastSent := pdb.OoqLastAlert{}
 			err := json.Unmarshal(kvpair.Value, &lastSent)
 			if err != nil {
 				log.Errorf("[%s] cannot interpret ooq alert data: %s", pid, err)
 				continue
 			}
 
-			log.Infof("%12s: %3d%% %s", pid, lastSent.uratio, lastSent.ts)
+			log.Infof("%12s: %3d%% %s", pid, lastSent.UsagePercent, lastSent.Timestamp)
 		}
 
 		return nil
@@ -418,10 +410,7 @@ var projectAlertOoqSend = &cobra.Command{
 					}
 
 					// default lastAlert with timestamp (0001-01-01 00:00:00 +0000 UTC), uratio 0.
-					lastAlert := ooqLastAlert{
-						ts:     time.Time{},
-						uratio: 0,
-					}
+					lastAlert := pdb.OoqLastAlert{}
 					if data != nil {
 						log.Debugf("[%s] %s", pid, string(data))
 						if err := json.Unmarshal(data, &lastAlert); err != nil {
@@ -435,9 +424,9 @@ var projectAlertOoqSend = &cobra.Command{
 					case nil:
 						log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
 						// alert sent, update store db with new last alert information
-						data1, _ := json.Marshal(&lastAlert)
-						log.Debugf("[%s] %s", pid, string(data1))
-						store.Set(dbBucket, []byte(pid), data1)
+						data, _ := json.Marshal(&lastAlert)
+						log.Debugf("[%s] %s", pid, string(data))
+						store.Set(dbBucket, []byte(pid), data)
 					case *pdb.OpsIgnored:
 						// alert ignored
 						log.Debugf("[%s] %s", pid, err)
@@ -467,7 +456,7 @@ var projectAlertOoqSend = &cobra.Command{
 // If the alert email is sent, it returns the time at which the emails were sent.
 //
 // If the alert sending is ignored by design, the returned error is `OpsIgnored`.
-func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert ooqLastAlert) (ooqLastAlert, error) {
+func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert) (pdb.OoqLastAlert, error) {
 
 	uratio := 100 * info.Storage.UsageGb / info.Storage.QuotaGb
 
@@ -478,13 +467,13 @@ func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert ooqLastAlert) (
 	}
 
 	// check if current usage ratio is higher than the usage ratio at the time the last alert was sent.
-	if uratio < lastAlert.uratio {
-		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the usage (%d%%) at the last alert.", uratio, lastAlert.uratio)}
+	if uratio < lastAlert.UsagePercent {
+		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the usage (%d%%) at the last alert.", uratio, lastAlert.UsagePercent)}
 	}
 
 	// check if a new alert should be sent according to the alert frequency.
 	now := time.Now()
-	next := lastAlert.ts.Add(duration)
+	next := lastAlert.Timestamp.Add(duration)
 	if now.Before(next) { // current time is in between
 		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next alert %s.", now, next)}
 	}
@@ -502,9 +491,9 @@ func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert ooqLastAlert) (
 		}
 	}
 
-	return ooqLastAlert{
-		ts:     now,
-		uratio: uratio,
+	return pdb.OoqLastAlert{
+		Timestamp:    now,
+		UsagePercent: uratio,
 	}, nil
 }
 
