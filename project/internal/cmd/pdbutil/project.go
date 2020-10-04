@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/mailer"
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/store"
@@ -419,7 +420,7 @@ var projectAlertOoqSend = &cobra.Command{
 					log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
 
 					// check and send alert
-					switch lastAlert, err = ooqAlert(ipdb, info, lastAlert); err.(type) {
+					switch lastAlert, err = ooqAlert(ipdb, info, lastAlert, conf.SMTP); err.(type) {
 					case nil:
 						log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
 						// alert sent, update store db with new last alert information
@@ -454,7 +455,7 @@ var projectAlertOoqSend = &cobra.Command{
 // If the alert email is sent, it returns the time at which the emails were sent.
 //
 // If the alert sending is ignored by design, the returned error is `OpsIgnored`.
-func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert) (pdb.OoqLastAlert, error) {
+func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OoqLastAlert, error) {
 
 	uratio := 100 * info.Storage.UsageGb / info.Storage.QuotaGb
 
@@ -477,6 +478,7 @@ func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAler
 	}
 
 	// sending alerts
+	mailer := mailer.New(smtpConfig)
 	for _, m := range info.Members {
 		if m.Role == acl.Manager.String() || m.Role == acl.Contributor.String() {
 			u, err := ipdb.GetUser(m.UserID)
@@ -484,8 +486,12 @@ func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAler
 				log.Errorf("[%s] cannot get user from project database: %s", m.UserID)
 				continue
 			}
-			log.Debugf("[%s] notify %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
-			// TODO: implement email sending
+			log.Debugf("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
+
+			// sending alert
+			if err := mailer.AlertProjectStorageOoq(*u, info.Storage, info.ProjectID); err != nil {
+				log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
+			}
 		}
 	}
 
