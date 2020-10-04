@@ -423,7 +423,7 @@ var projectAlertOoqSend = &cobra.Command{
 						uratio: 0,
 					}
 					if data != nil {
-						log.Debugf("[%s] %s", string(data))
+						log.Debugf("[%s] %s", pid, string(data))
 						if err := json.Unmarshal(data, &lastAlert); err != nil {
 							log.Debugf("[%s] cannot interpret last ooq alert data: %s", pid, err)
 						}
@@ -436,7 +436,7 @@ var projectAlertOoqSend = &cobra.Command{
 						log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
 						// alert sent, update store db with new last alert information
 						data1, _ := json.Marshal(&lastAlert)
-						log.Debugf("[%s] %s", string(data1))
+						log.Debugf("[%s] %s", pid, string(data1))
 						store.Set(dbBucket, []byte(pid), data1)
 					case *pdb.OpsIgnored:
 						// alert ignored
