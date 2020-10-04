@@ -30,7 +30,7 @@ var (
 		"freenas": "/project_freenas",
 		"cephfs":  "/project_cephfs",
 	}
-	ooqNotificationDbPath string
+	alertDbPath string
 )
 
 // loadNetAppCLI initialize interface to the NetAppCLI.
@@ -39,14 +39,14 @@ func loadNetAppCLI() filergateway.NetAppCLI {
 	return filergateway.NetAppCLI{Config: conf.NetAppCLI}
 }
 
-// ooqNotificationFrequency determines the max ooq notification frequency
-// in terms of the duration between two subsequent notifications, based on
+// ooqAlertFrequency determines the max ooq alert frequency
+// in terms of the duration between two subsequent alerts, based on
 // the current storage usage in percentage.
 //
 // if the return duration is 0, it means "never".
 //
 // TODO: make the usage range and the frequency configurable
-func ooqNotificationFrequency(usage int) time.Duration {
+func ooqAlertFrequency(usage int) time.Duration {
 
 	if usage >= 90 && usage < 95 {
 		return time.Hour * 24 * 14 // every 14 days
@@ -88,12 +88,12 @@ func init() {
 
 	projectUpdateCmd.AddCommand(projectUpdateMembersCmd)
 
-	projectNotifyOutOfQuota.Flags().StringVarP(&ooqNotificationDbPath, "dbpath", "", "ooq-notification.db",
-		"`path` of the out-of-quota notification history")
+	projectAlertOutOfQuota.Flags().StringVarP(&alertDbPath, "dbpath", "", "ooq-alert.db",
+		"`path` of the out-of-quota alert history")
 
-	projectNotifyCmd.AddCommand(projectNotifyOutOfQuota)
+	projectAlertCmd.AddCommand(projectAlertOutOfQuota)
 
-	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd, projectNotifyCmd)
+	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd, projectAlertCmd)
 
 	rootCmd.AddCommand(projectCmd)
 }
@@ -279,16 +279,24 @@ var projectActionExecCmd = &cobra.Command{
 	},
 }
 
-var projectNotifyCmd = &cobra.Command{
-	Use:   "notify",
-	Short: "Utility for sending project-related notification",
+var projectAlertCmd = &cobra.Command{
+	Use:   "alert",
+	Short: "Utility for sending project-related alerts",
 	Long:  ``,
 }
 
+// ooqLastAlert is the internal data structure
+// containing timestamp (`ts`) and storage usage
+// ratio (`uratio`) the last ooq alert was sent.
+type ooqLastAlert struct {
+	ts     time.Time
+	uratio int
+}
+
 // submcommand to notify manager/contributor/owner when project is (close to) running out of quota.
-var projectNotifyOutOfQuota = &cobra.Command{
+var projectAlertOutOfQuota = &cobra.Command{
 	Use:   "ooq",
-	Short: "Sends notification concerning project running out of quota",
+	Short: "Sends alerts concerning project running out of quota",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -310,7 +318,7 @@ var projectNotifyOutOfQuota = &cobra.Command{
 
 		// connect to internal database for last sent
 		store := store.KVStore{
-			Path: ooqNotificationDbPath,
+			Path: alertDbPath,
 		}
 		err = store.Connect()
 		if err != nil {
@@ -318,8 +326,8 @@ var projectNotifyOutOfQuota = &cobra.Command{
 		}
 		defer store.Disconnect()
 
-		// initialize kvstore with bucket "ooqLastNotifications"
-		dbBucket := "ooqLastNotifications"
+		// initialize kvstore with bucket "ooqLastAlerts"
+		dbBucket := "ooqLastAlerts"
 		err = store.Init([]string{dbBucket})
 		if err != nil {
 			return err
@@ -343,33 +351,33 @@ var projectNotifyOutOfQuota = &cobra.Command{
 					}
 					log.Debugf("[%s] project storage info: %+v", pid, info)
 
-					// get last sent timestamp from the local db
-					tsd, err := store.Get(dbBucket, []byte(pid))
+					// get last alert information from the local db
+					data, err := store.Get(dbBucket, []byte(pid))
 					if err != nil {
-						log.Debugf("[%s] cannot get last ooq notification time: %s", pid, err)
+						log.Debugf("[%s] cannot get last ooq alert data: %s", pid, err)
 					}
 
-					// default ts of the last sent (0001-01-01 00:00:00 +0000 UTC)
-					ts := time.Time{}
-					if tsd != nil {
-						if err := json.Unmarshal(tsd, &ts); err != nil {
-							log.Debugf("[%s] cannot interpret last ooq notification time: %s", pid, err)
+					// default lastAlert with timestamp (0001-01-01 00:00:00 +0000 UTC), uratio 0.
+					lastAlert := ooqLastAlert{}
+					if data != nil {
+						if err := json.Unmarshal(data, &lastAlert); err != nil {
+							log.Debugf("[%s] cannot interpret last ooq alert data: %s", pid, err)
 						}
 					}
-					log.Debugf("[%s] last ooq notifiction time: %s", pid, ts)
+					log.Debugf("[%s] last ooq alert data: %+v", pid, lastAlert)
 
-					// check and send notification
-					switch nts, err := notifyOoq(ipdb, info, ts); err.(type) {
+					// check and send alert
+					switch lastAlert, err = ooqAlert(ipdb, info, lastAlert); err.(type) {
 					case nil:
-						// notification sent, update store db with new last sent timestamp
-						ntsb, _ := json.Marshal(nts)
-						store.Set(dbBucket, []byte(pid), ntsb)
+						// alert sent, update store db with new last alert information
+						data, _ = json.Marshal(lastAlert)
+						store.Set(dbBucket, []byte(pid), data)
 					case *pdb.OpsIgnored:
-						// notification ignored
+						// alert ignored
 						log.Debugf("[%s] %s", pid, err)
 					default:
 						// something wrong
-						log.Errorf("[%s] fail to send notification for project out-of-quota: +%v", pid, err)
+						log.Errorf("[%s] fail to send alert for project out-of-quota: +%v", pid, err)
 					}
 				}
 			}()
@@ -387,28 +395,35 @@ var projectNotifyOutOfQuota = &cobra.Command{
 	},
 }
 
-// notifyOoq checks whether notification concerning project storage out-of-quota
+// ooqAlert checks whether alert concerning project storage out-of-quota
 // is to be sent based on the project storage information `info`.
 //
-// If the notification email is sent, it returns the time at which the emails were sent.
+// If the alert email is sent, it returns the time at which the emails were sent.
 //
-// If the notification sending is ignored by design, the returned error is `OpsIgnored`.
-func notifyOoq(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastSent time.Time) (time.Time, error) {
+// If the alert sending is ignored by design, the returned error is `OpsIgnored`.
+func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert ooqLastAlert) (ooqLastAlert, error) {
 
 	uratio := 100 * info.Storage.UsageGb / info.Storage.QuotaGb
 
-	duration := ooqNotificationFrequency(uratio)
+	// check if the usage is above the alert threshold.
+	duration := ooqAlertFrequency(uratio)
 	if duration == 0 {
-		return lastSent, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the ooq threshold.", uratio)}
+		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the ooq threshold.", uratio)}
 	}
 
+	// check if current usage ratio is higher than the usage ratio at the time the last alert was sent.
+	if uratio < lastAlert.uratio {
+		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the usage (%d%%) at the last alert.", uratio, lastAlert.uratio)}
+	}
+
+	// check if a new alert should be sent according to the alert frequency.
 	now := time.Now()
-	next := lastSent.Add(duration)
+	next := lastAlert.ts.Add(duration)
 	if now.Before(next) { // current time is in between
-		return lastSent, &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next notification %s.", now, next)}
+		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next alert %s.", now, next)}
 	}
 
-	// sending notifications
+	// sending alerts
 	for _, m := range info.Members {
 		if m.Role == acl.Manager.String() || m.Role == acl.Contributor.String() {
 			u, err := ipdb.GetUser(m.UserID)
@@ -421,7 +436,10 @@ func notifyOoq(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastSent time.Time) (tim
 		}
 	}
 
-	return now, nil
+	return ooqLastAlert{
+		ts:     now,
+		uratio: uratio,
+	}, nil
 }
 
 // actionExec implements the logic of executing the pending actions concerning a project.
