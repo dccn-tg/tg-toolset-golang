@@ -424,11 +424,12 @@ var projectAlertOoqSend = &cobra.Command{
 							log.Debugf("[%s] cannot interpret last ooq alert data: %s", pid, err)
 						}
 					}
-					log.Debugf("[%s] last ooq alert data: %+v", pid, lastAlert)
+					log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
 
 					// check and send alert
 					switch lastAlert, err = ooqAlert(ipdb, info, lastAlert); err.(type) {
 					case nil:
+						log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
 						// alert sent, update store db with new last alert information
 						data, _ = json.Marshal(lastAlert)
 						store.Set(dbBucket, []byte(pid), data)
