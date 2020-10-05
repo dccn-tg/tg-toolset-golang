@@ -56,13 +56,57 @@ type DataProjectInfo struct {
 
 // User defines the data structure of a user in the project database.
 type User struct {
-	ID         string `json:"userID"`
-	Firstname  string `json:"firstName"`
-	Middlename string `json:"middleName"`
-	Lastname   string `json:"lastName"`
-	Email      string `json:"email"`
-	Status     string `json:"status"`
+	ID         string       `json:"userID"`
+	Firstname  string       `json:"firstName"`
+	Middlename string       `json:"middleName"`
+	Lastname   string       `json:"lastName"`
+	Email      string       `json:"email"`
+	Status     UserStatus   `json:"status"`
+	Function   UserFunction `json:"function"`
 }
+
+// UserFunction defines PDB user function.
+// TODO: refine the fine-grained user functions.
+type UserFunction int
+
+const (
+	// UserFunctionOther for other functions not indicated below.
+	UserFunctionOther UserFunction = iota - 1
+	// UserFunctionPrincipleInvestigator for users with the principle investigators function.
+	UserFunctionPrincipleInvestigator
+	// UserFunctionTrainee for users that are trainees.
+	UserFunctionTrainee
+	// UserFunctionPhD for users that are PhD students.
+	UserFunctionPhD
+	// UserFunctionPostdoc for users that are Postdocs.
+	UserFunctionPostdoc
+	// UserFunctionResearchSupport for reseache support.
+	UserFunctionResearchSupport
+	// UserFunctionOtherSupport for other support staffs.
+	UserFunctionOtherSupport
+	// UserFunctionResearchStaff for research staffs.
+	UserFunctionResearchStaff
+	// UserFunctionOtherResearcher for general researchers.
+	UserFunctionOtherResearcher
+	// UserFunctionSeniorResearcher for senior researchers.
+	UserFunctionSeniorResearcher
+)
+
+// UserStatus defines PDB user status.
+type UserStatus int
+
+const (
+	// UserStatusUnknown refers to unexpected/unknown user status in PDB.
+	UserStatusUnknown UserStatus = iota - 1
+	// UserStatusCheckedIn refers to the status when the user is checked in.
+	UserStatusCheckedIn
+	// UserStatusCheckedOut refers to the status when the user has checked out.
+	UserStatusCheckedOut
+	// UserStatusCheckedOutExtended refers to the status when the user applied extended checkout.
+	UserStatusCheckedOutExtended
+	// UserStatusTentative refers to the status when the user is registered by not yet checked-in after following certain procedure.
+	UserStatusTentative
+)
 
 // Lab defines an enumerator for the lab categories.
 type Lab int
