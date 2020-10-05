@@ -30,7 +30,8 @@ var (
 		"freenas": "/project_freenas",
 		"cephfs":  "/project_cephfs",
 	}
-	alertDbPath string
+	alertDbPath           string
+	ooqAlertTestProjectID string
 )
 
 // loadNetAppCLI initialize interface to the NetAppCLI.
@@ -90,6 +91,9 @@ func init() {
 
 	projectAlertOoqCmd.PersistentFlags().StringVarP(&alertDbPath, "dbpath", "", "alert.db",
 		"`path` of the internal alert history database")
+
+	projectAlertOoqSend.Flags().StringVarP(&ooqAlertTestProjectID, "test", "t", "",
+		"`id` of project for testing ooq alert")
 
 	projectAlertOoqCmd.AddCommand(projectAlertOoqInfo, projectAlertOoqSend)
 
@@ -395,6 +399,14 @@ var projectAlertOoqSend = &cobra.Command{
 				defer wg.Done()
 
 				for pid := range cpids {
+
+					// perform test on a specific project with id specified via
+					// `ooqAlertTestProjectID`.
+					if ooqAlertTestProjectID != "" && pid != ooqAlertTestProjectID {
+						log.Infof("[%s] ignored ooq alert in test mode", pid)
+						continue
+					}
+
 					// get members from filer gateway
 					info, err := fgw.GetProject(pid)
 					if err != nil {
