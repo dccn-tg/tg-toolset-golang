@@ -218,4 +218,6 @@ type OoqLastAlert struct {
 	Timestamp time.Time
 	// UsagePercent is the storage usage ratio in percent at the moment the alert was sent.
 	UsagePercent int
+	// UsagePercentLastCheck is the storage usage ratio at the last check.
+	UsagePercentLastCheck int
 }

@@ -347,7 +347,7 @@ var projectAlertOoqInfo = &cobra.Command{
 				continue
 			}
 
-			fmt.Printf("%12s: %3d%% %s\n", pid, lastSent.UsagePercent, lastSent.Timestamp)
+			fmt.Printf("%12s (%3d%%): %3d%% %s\n", pid, lastSent.UsagePercentLastCheck, lastSent.UsagePercent, lastSent.Timestamp)
 		}
 
 		return nil
@@ -482,22 +482,29 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	// check if the usage is above the alert threshold.
 	duration := ooqAlertFrequency(uratio)
 	if duration == 0 {
-		lastAlert.UsagePercent = uratio
-		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the ooq threshold.", uratio)}
+		msg := fmt.Sprintf("usage (%d%%) below the ooq threshold.", uratio)
+		lastAlert.UsagePercentLastCheck = uratio
+		return lastAlert, &pdb.OpsIgnored{Message: msg}
 	}
 
 	// check if current usage ratio is higher than the usage ratio at the time the last alert was sent.
-	if uratio < lastAlert.UsagePercent {
-		lastAlert.UsagePercent = uratio
-		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the usage (%d%%) at the last alert.", uratio, lastAlert.UsagePercent)}
+	minUsageLastAert := lastAlert.UsagePercent
+	if lastAlert.UsagePercentLastCheck < minUsageLastAert {
+		minUsageLastAert = lastAlert.UsagePercentLastCheck
+	}
+	if uratio < minUsageLastAert {
+		msg := fmt.Sprintf("usage (%d%%) below the usage (%d%%) at the last alert/check.", uratio, minUsageLastAert)
+		lastAlert.UsagePercentLastCheck = uratio
+		return lastAlert, &pdb.OpsIgnored{Message: msg}
 	}
 
 	// check if a new alert should be sent according to the alert frequency.
 	now := time.Now()
 	next := lastAlert.Timestamp.Add(duration)
 	if now.Before(next) { // current time is in between
-		lastAlert.UsagePercent = uratio
-		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next alert %s.", now, next)}
+		msg := fmt.Sprintf("%s not reaching next alert %s.", now, next)
+		lastAlert.UsagePercentLastCheck = uratio
+		return lastAlert, &pdb.OpsIgnored{Message: msg}
 	}
 
 	// initializing mailer
@@ -538,13 +545,14 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 	// return `pdb.OpsIgnored` if no alert was (successfully) sent.
 	if nsent == 0 {
-		lastAlert.UsagePercent = uratio
+		lastAlert.UsagePercentLastCheck = uratio
 		return lastAlert, &pdb.OpsIgnored{Message: "no alert was sent"}
 	}
 
 	return pdb.OoqLastAlert{
-		Timestamp:    now,
-		UsagePercent: uratio,
+		Timestamp:             now,
+		UsagePercent:          uratio,
+		UsagePercentLastCheck: uratio,
 	}, nil
 }
 
