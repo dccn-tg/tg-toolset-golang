@@ -497,16 +497,18 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	mailer := mailer.New(smtpConfig)
 
 	// gather user ids of potential recipients
-	recipients := []string{prj.Owner}
+	recipients := make(map[string]struct{})
+	recipients[prj.Owner] = struct{}{}
+
 	for _, m := range info.Members {
 		if m.Role == acl.Manager.String() || m.Role == acl.Contributor.String() {
-			recipients = append(recipients, m.UserID)
+			recipients[m.UserID] = struct{}{}
 		}
 	}
 
 	// sending alerts to recipients
 	nsent := 0
-	for _, r := range recipients {
+	for r := range recipients {
 		u, err := ipdb.GetUser(r)
 		if err != nil {
 			log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, r)
