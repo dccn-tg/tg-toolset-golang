@@ -158,12 +158,12 @@ var projectUpdateMembersCmd = &cobra.Command{
 		ipdb := loadPdb()
 		conf := loadConfig()
 
-		pids, err := ipdb.GetProjects(true)
+		projects, err := ipdb.GetProjects(true)
 		if err != nil {
 			return err
 		}
 
-		log.Debugf("updating members for %d projects", len(pids))
+		log.Debugf("updating members for %d projects", len(projects))
 
 		// initialize filergateway client
 		fgw, err := filergateway.NewClient(conf)
@@ -200,8 +200,8 @@ var projectUpdateMembersCmd = &cobra.Command{
 			}()
 		}
 
-		for _, pid := range pids {
-			cpids <- pid
+		for _, project := range projects {
+			cpids <- project.ID
 		}
 		close(cpids)
 
@@ -364,12 +364,12 @@ var projectAlertOoqSend = &cobra.Command{
 		ipdb := loadPdb()
 		conf := loadConfig()
 
-		pids, err := ipdb.GetProjects(true)
+		projects, err := ipdb.GetProjects(true)
 		if err != nil {
 			return err
 		}
 
-		log.Debugf("retriving storage usage for %d projects", len(pids))
+		log.Debugf("retriving storage usage for %d projects", len(projects))
 
 		// initialize filergateway client
 		fgw, err := filergateway.NewClient(conf)
@@ -397,66 +397,66 @@ var projectAlertOoqSend = &cobra.Command{
 		// perform pending actions with 4 concurrent workers,
 		// each works on a project.
 		var wg sync.WaitGroup
-		cpids := make(chan string, execNthreads*2)
+		cprjs := make(chan *pdb.Project, execNthreads*2)
 		for w := 0; w < execNthreads; w++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 
-				for pid := range cpids {
+				for prj := range cprjs {
 
 					// perform test on a specific project with id specified via
 					// `ooqAlertTestProjectID`.
-					if ooqAlertTestProjectID != "" && pid != ooqAlertTestProjectID {
-						log.Infof("[%s] ignored ooq alert in test mode", pid)
+					if ooqAlertTestProjectID != "" && prj.ID != ooqAlertTestProjectID {
+						log.Infof("[%s] ignored ooq alert in test mode", prj.ID)
 						continue
 					}
 
 					// get members from filer gateway
-					info, err := fgw.GetProject(pid)
+					info, err := fgw.GetProject(prj.ID)
 					if err != nil {
-						log.Errorf("[%s] cannot get project storage info: %s", pid, err)
+						log.Errorf("[%s] cannot get project storage info: %s", prj.ID, err)
 						continue
 					}
-					log.Debugf("[%s] project storage info: %+v", pid, info)
+					log.Debugf("[%s] project storage info: %+v", prj.ID, info)
 
 					// get last alert information from the local db
-					data, err := store.Get(dbBucket, []byte(pid))
+					data, err := store.Get(dbBucket, []byte(prj.ID))
 					if err != nil {
-						log.Debugf("[%s] cannot get last ooq alert data: %s", pid, err)
+						log.Debugf("[%s] cannot get last ooq alert data: %s", prj.ID, err)
 					}
 
 					// default lastAlert with timestamp (0001-01-01 00:00:00 +0000 UTC), uratio 0.
 					lastAlert := pdb.OoqLastAlert{}
 					if data != nil {
 						if err := json.Unmarshal(data, &lastAlert); err != nil {
-							log.Debugf("[%s] cannot interpret last ooq alert data: %s", pid, err)
+							log.Debugf("[%s] cannot interpret last ooq alert data: %s", prj.ID, err)
 						}
 					}
-					log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
+					log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
 
 					// check and send alert
-					switch lastAlert, err = ooqAlert(ipdb, info, lastAlert, conf.SMTP); err.(type) {
+					switch lastAlert, err = ooqAlert(ipdb, prj, info, lastAlert, conf.SMTP); err.(type) {
 					case nil:
-						log.Debugf("[%s] last ooq alert: %+v", pid, lastAlert)
+						log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
 						// alert sent, update store db with new last alert information
 						data, _ := json.Marshal(&lastAlert)
-						store.Set(dbBucket, []byte(pid), data)
+						store.Set(dbBucket, []byte(prj.ID), data)
 					case *pdb.OpsIgnored:
 						// alert ignored
-						log.Debugf("[%s] %s", pid, err)
+						log.Debugf("[%s] %s", prj.ID, err)
 					default:
 						// something wrong
-						log.Errorf("[%s] fail to send alert for project out-of-quota: +%v", pid, err)
+						log.Errorf("[%s] fail to send alert for project out-of-quota: +%v", prj.ID, err)
 					}
 				}
 			}()
 		}
 
-		for _, pid := range pids {
-			cpids <- pid
+		for _, project := range projects {
+			cprjs <- project
 		}
-		close(cpids)
+		close(cprjs)
 
 		// wait for all workers to finish
 		wg.Wait()
@@ -471,7 +471,7 @@ var projectAlertOoqSend = &cobra.Command{
 // If the alert email is sent, it returns the time at which the emails were sent.
 //
 // If the alert sending is ignored by design, the returned error is `OpsIgnored`.
-func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OoqLastAlert, error) {
+func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OoqLastAlert, error) {
 
 	uratio := 100 * info.Storage.UsageGb / info.Storage.QuotaGb
 
@@ -493,28 +493,43 @@ func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAler
 		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next alert %s.", now, next)}
 	}
 
-	// sending alerts
+	// initializing mailer
 	mailer := mailer.New(smtpConfig)
+
+	// gather user ids of potential recipients
+	recipients := []string{prj.Owner}
 	for _, m := range info.Members {
 		if m.Role == acl.Manager.String() || m.Role == acl.Contributor.String() {
-			u, err := ipdb.GetUser(m.UserID)
-			if err != nil {
-				log.Errorf("[%s] cannot get user from project database: %s", m.UserID)
-				continue
-			}
-
-			if ooqAlertSkipPI && u.Function == pdb.UserFunctionPrincipleInvestigator {
-				log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
-				continue
-			}
-
-			log.Debugf("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
-
-			// sending alert
-			if err := mailer.AlertProjectStorageOoq(*u, info.Storage, info.ProjectID); err != nil {
-				log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
-			}
+			recipients = append(recipients, m.UserID)
 		}
+	}
+
+	// sending alerts to recipients
+	nsent := 0
+	for _, r := range recipients {
+		u, err := ipdb.GetUser(r)
+		if err != nil {
+			log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, r)
+			continue
+		}
+
+		if ooqAlertSkipPI && u.Function == pdb.UserFunctionPrincipleInvestigator {
+			log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
+			continue
+		}
+
+		log.Debugf("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
+
+		if err := mailer.AlertProjectStorageOoq(*u, info.Storage, info.ProjectID); err != nil {
+			log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
+		}
+
+		nsent++
+	}
+
+	// return `pdb.OpsIgnored` if no alert was (successfully) sent.
+	if nsent == 0 {
+		return lastAlert, &pdb.OpsIgnored{Message: "no alert was sent"}
 	}
 
 	return pdb.OoqLastAlert{

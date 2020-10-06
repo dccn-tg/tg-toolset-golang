@@ -71,7 +71,7 @@ func (v2 V2) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 }
 
 // GetProjects retrieves list of project identifiers from the project database.
-func (v2 V2) GetProjects(activeOnly bool) ([]string, error) {
+func (v2 V2) GetProjects(activeOnly bool) ([]*Project, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

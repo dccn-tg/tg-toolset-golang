@@ -199,7 +199,7 @@ func (v1 V1) DelProjectPendingActions(actions map[string]*DataProjectUpdate) err
 }
 
 // GetProjects retrieves list of project identifiers from the project database.
-func (v1 V1) GetProjects(activeOnly bool) ([]string, error) {
+func (v1 V1) GetProjects(activeOnly bool) ([]*Project, error) {
 
 	db, err := newClientMySQL(v1.config)
 	if err != nil {
@@ -210,7 +210,7 @@ func (v1 V1) GetProjects(activeOnly bool) ([]string, error) {
 	// prepare db query
 	query := `
 	SELECT
-		id
+		id, owner_id, calculatedProjectSpace
 	FROM
 		projects
 	`
@@ -222,7 +222,7 @@ func (v1 V1) GetProjects(activeOnly bool) ([]string, error) {
 		`
 	}
 
-	pids := []string{}
+	projects := make([]*Project, 0)
 
 	rows, err := db.Query(query)
 	if err != nil {
@@ -232,18 +232,34 @@ func (v1 V1) GetProjects(activeOnly bool) ([]string, error) {
 
 	for rows.Next() {
 		var pid string
-		err := rows.Scan(&pid)
+		var oid string
+		var cspace int
+		err := rows.Scan(&pid, &oid, &cspace)
 		if err != nil {
 			return nil, err
 		}
-		pids = append(pids, pid)
+
+		projects = append(projects, &Project{
+			ID:     pid,
+			Owner:  oid,
+			Status: parseProjectStatusByCalculatedSpace(cspace),
+		})
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return pids, nil
+	return projects, nil
+}
+
+// parseProjectStatusByCalculatedSpace interprets the project status by
+// the calculated space.
+func parseProjectStatusByCalculatedSpace(space int) ProjectStatus {
+	if space > 0 {
+		return ProjectStatusActive
+	}
+	return ProjectStatusInactive
 }
 
 // UpdateProjectMembers updates the project database with the given project roles.

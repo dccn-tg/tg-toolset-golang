@@ -54,6 +54,25 @@ type DataProjectInfo struct {
 	Storage   StorageInfo `json:"storage"`
 }
 
+// Project defines the data structure of a project in the project database.
+type Project struct {
+	ID     string        `json:"projectID"`
+	Owner  string        `json:"owner"`
+	Status ProjectStatus `json:"status"`
+}
+
+// ProjectStatus defines PDB project status.
+type ProjectStatus int
+
+const (
+	// ProjectStatusUnknown refers to unexpected/unknown project status in PDB.
+	ProjectStatusUnknown ProjectStatus = iota - 1
+	// ProjectStatusActive refers to active project.
+	ProjectStatusActive
+	// ProjectStatusInactive refers to inactive project.
+	ProjectStatusInactive
+)
+
 // User defines the data structure of a user in the project database.
 type User struct {
 	ID         string       `json:"userID"`
