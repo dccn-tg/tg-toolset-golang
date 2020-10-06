@@ -482,7 +482,7 @@ func selectUser(db *sql.DB, clauseCond string, clauseValues ...interface{}) (*Us
 
 	query := fmt.Sprintf(`
 	SELECT
-		id,firstName,middleName,lastName,email
+		id,firstName,middleName,lastName,email,function,status
 	FROM
 		users
 	WHERE %s
@@ -494,9 +494,11 @@ func selectUser(db *sql.DB, clauseCond string, clauseValues ...interface{}) (*Us
 		middlename string
 		lastname   string
 		email      string
+		function   string
+		status     string
 	)
 
-	if err := db.QueryRow(query, clauseValues...).Scan(&id, &firstname, &middlename, &lastname, &email); err != nil {
+	if err := db.QueryRow(query, clauseValues...).Scan(&id, &firstname, &middlename, &lastname, &email, &function, &status); err != nil {
 		return nil, err
 	}
 
@@ -506,5 +508,34 @@ func selectUser(db *sql.DB, clauseCond string, clauseValues ...interface{}) (*Us
 		Middlename: middlename,
 		Lastname:   lastname,
 		Email:      email,
+		Function:   parseUserFunction(function),
+		Status:     parseUserStatus(status),
 	}, nil
+}
+
+// parseUserFunction interprets PDBv1 user function string into corresponding `UserFunction`.
+// TODO: implement fine-grained user functions.
+func parseUserFunction(f string) UserFunction {
+	switch f {
+	case "pi", "Principle Investigator":
+		return UserFunctionPrincipleInvestigator
+	default:
+		return UserFunctionOther
+	}
+}
+
+// parseUserStatus interprets PDBv1 user status string into corresponding `UserStatus`.
+func parseUserStatus(s string) UserStatus {
+	switch s {
+	case "checked in":
+		return UserStatusCheckedIn
+	case "tentative":
+		return UserStatusTentative
+	case "checked out":
+		return UserStatusCheckedOut
+	case "checked out extended":
+		return UserStatusCheckedOutExtended
+	default:
+		return UserStatusUnknown
+	}
 }
