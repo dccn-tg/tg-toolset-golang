@@ -445,6 +445,10 @@ var projectAlertOoqSend = &cobra.Command{
 					case *pdb.OpsIgnored:
 						// alert ignored
 						log.Debugf("[%s] %s", prj.ID, err)
+						// alert ignored, still need to update the lastAlert to alert history db with
+						// the current project UsagePercent.
+						data, _ := json.Marshal(&lastAlert)
+						store.Set(dbBucket, []byte(prj.ID), data)
 					default:
 						// something wrong
 						log.Errorf("[%s] fail to send alert for project out-of-quota: +%v", prj.ID, err)
@@ -478,11 +482,13 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	// check if the usage is above the alert threshold.
 	duration := ooqAlertFrequency(uratio)
 	if duration == 0 {
+		lastAlert.UsagePercent = uratio
 		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the ooq threshold.", uratio)}
 	}
 
 	// check if current usage ratio is higher than the usage ratio at the time the last alert was sent.
 	if uratio < lastAlert.UsagePercent {
+		lastAlert.UsagePercent = uratio
 		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("usage (%d%%) below the usage (%d%%) at the last alert.", uratio, lastAlert.UsagePercent)}
 	}
 
@@ -490,6 +496,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	now := time.Now()
 	next := lastAlert.Timestamp.Add(duration)
 	if now.Before(next) { // current time is in between
+		lastAlert.UsagePercent = uratio
 		return lastAlert, &pdb.OpsIgnored{Message: fmt.Sprintf("%s not reaching next alert %s.", now, next)}
 	}
 
@@ -531,6 +538,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 	// return `pdb.OpsIgnored` if no alert was (successfully) sent.
 	if nsent == 0 {
+		lastAlert.UsagePercent = uratio
 		return lastAlert, &pdb.OpsIgnored{Message: "no alert was sent"}
 	}
 
