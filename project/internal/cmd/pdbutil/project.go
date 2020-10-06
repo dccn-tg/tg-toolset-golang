@@ -33,6 +33,7 @@ var (
 	}
 	alertDbPath           string
 	ooqAlertTestProjectID string
+	ooqAlertSkipPI        bool
 )
 
 // loadNetAppCLI initialize interface to the NetAppCLI.
@@ -95,6 +96,9 @@ func init() {
 
 	projectAlertOoqSend.Flags().StringVarP(&ooqAlertTestProjectID, "test", "t", "",
 		"`id` of project for testing ooq alert")
+
+	projectAlertOoqSend.Flags().BoolVarP(&ooqAlertSkipPI, "skip-pi", "", false,
+		"set to skip sending alert to PIs")
 
 	projectAlertOoqCmd.AddCommand(projectAlertOoqInfo, projectAlertOoqSend)
 
@@ -343,7 +347,7 @@ var projectAlertOoqInfo = &cobra.Command{
 				continue
 			}
 
-			log.Infof("%12s: %3d%% %s", pid, lastSent.UsagePercent, lastSent.Timestamp)
+			fmt.Printf("%12s: %3d%% %s\n", pid, lastSent.UsagePercent, lastSent.Timestamp)
 		}
 
 		return nil
@@ -498,6 +502,12 @@ func ooqAlert(ipdb pdb.PDB, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAler
 				log.Errorf("[%s] cannot get user from project database: %s", m.UserID)
 				continue
 			}
+
+			if ooqAlertSkipPI && u.Function == pdb.UserFunctionPrincipleInvestigator {
+				log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
+				continue
+			}
+
 			log.Debugf("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
 
 			// sending alert
