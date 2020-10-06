@@ -445,6 +445,7 @@ var projectAlertOoqSend = &cobra.Command{
 					case *pdb.OpsIgnored:
 						// alert ignored
 						log.Debugf("[%s] %s", prj.ID, err)
+						log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
 						// alert ignored, still need to update the lastAlert to alert history db with
 						// the current project UsagePercent.
 						data, _ := json.Marshal(&lastAlert)
