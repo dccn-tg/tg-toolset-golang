@@ -39,18 +39,18 @@ You received this warning because you are the applicant and/or a manager and/or 
 The quota for your project directory {{.ProjectID}} is with {{.QuotaUsageRatio}}% usage close to being full. 
 
 Be aware that when there is no quota any more, you may encounter issues such as:
-	
+
     - not automatically receiving MEG and MRI raw data (see https://intranet.donders.ru.nl/index.php?id=archiving-autotransfer)
-	- not being able to use the lab uploader (see https://intranet.donders.ru.nl/index.php?id=uploader)
-	- unexpected failures in data analyses and batch jobs on the cluster
-	- etc.
-	
+    - not being able to use the lab uploader (see https://intranet.donders.ru.nl/index.php?id=uploader)
+    - unexpected failures in data analyses and batch jobs on the cluster
+    - etc.
+
 Please consider to clean up the project directory (i.e. /project/{{.ProjectID}} or P:\{{.ProjectID}}) when possible.
-	
+
 If more quota is needed, please see the procedure described in the "Exceptional quota requests" section of the following intranet page: https://intranet.donders.ru.nl/index.php?id=quota
-	
+
 If you have further questions, don’t hesitate to contact the TG helpdesk (helpdesk@fcdonders.ru.nl).
-	
+
 Best regards, the DCCN Technical Group
 `
 
