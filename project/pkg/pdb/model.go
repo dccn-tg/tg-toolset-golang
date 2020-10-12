@@ -91,8 +91,8 @@ type UserFunction int
 const (
 	// UserFunctionOther for other functions not indicated below.
 	UserFunctionOther UserFunction = iota - 1
-	// UserFunctionPrincipleInvestigator for users with the principle investigators function.
-	UserFunctionPrincipleInvestigator
+	// UserFunctionPrincipalInvestigator for users with the principle investigators function.
+	UserFunctionPrincipalInvestigator
 	// UserFunctionTrainee for users that are trainees.
 	UserFunctionTrainee
 	// UserFunctionPhD for users that are PhD students.

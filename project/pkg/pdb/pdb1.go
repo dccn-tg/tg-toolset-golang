@@ -533,8 +533,8 @@ func selectUser(db *sql.DB, clauseCond string, clauseValues ...interface{}) (*Us
 // TODO: implement fine-grained user functions.
 func parseUserFunction(f string) UserFunction {
 	switch f {
-	case "pi", "Principle Investigator":
-		return UserFunctionPrincipleInvestigator
+	case "pi", "Principal Investigator":
+		return UserFunctionPrincipalInvestigator
 	default:
 		return UserFunctionOther
 	}

@@ -530,7 +530,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			continue
 		}
 
-		if ooqAlertSkipPI && u.Function == pdb.UserFunctionPrincipleInvestigator {
+		if ooqAlertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
 			log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
 			continue
 		}
