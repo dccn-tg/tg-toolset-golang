@@ -210,7 +210,7 @@ func (v1 V1) GetProjects(activeOnly bool) ([]*Project, error) {
 	// prepare db query
 	query := `
 	SELECT
-		id, owner_id, calculatedProjectSpace
+		id, projectName, owner_id, calculatedProjectSpace
 	FROM
 		projects
 	`
@@ -232,15 +232,17 @@ func (v1 V1) GetProjects(activeOnly bool) ([]*Project, error) {
 
 	for rows.Next() {
 		var pid string
+		var pname string
 		var oid string
 		var cspace int
-		err := rows.Scan(&pid, &oid, &cspace)
+		err := rows.Scan(&pid, &pname, &oid, &cspace)
 		if err != nil {
 			return nil, err
 		}
 
 		projects = append(projects, &Project{
 			ID:     pid,
+			Name:   pname,
 			Owner:  oid,
 			Status: parseProjectStatusByCalculatedSpace(cspace),
 		})
