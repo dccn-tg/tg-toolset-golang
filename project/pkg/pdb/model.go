@@ -57,6 +57,7 @@ type DataProjectInfo struct {
 // Project defines the data structure of a project in the project database.
 type Project struct {
 	ID     string        `json:"projectID"`
+	Name   string        `json:"projectName"`
 	Owner  string        `json:"owner"`
 	Status ProjectStatus `json:"status"`
 }

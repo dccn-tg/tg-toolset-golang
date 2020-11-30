@@ -23,7 +23,7 @@ type Mailer struct {
 }
 
 // AlertProjectStorageOoq sends out alert email concerning project (about to) running out-of-quota.
-func (m *Mailer) AlertProjectStorageOoq(recipient pdb.User, storageInfo pdb.StorageInfo, pid string) error {
+func (m *Mailer) AlertProjectStorageOoq(recipient pdb.User, storageInfo pdb.StorageInfo, pid, pname string) error {
 
 	from := "no-reply@donders.ru.nl"
 	name := fmt.Sprintf("%s %s", recipient.Firstname, recipient.Lastname)
@@ -34,7 +34,9 @@ func (m *Mailer) AlertProjectStorageOoq(recipient pdb.User, storageInfo pdb.Stor
 	// message template
 	tempStr := `Dear {{.Name}},
 
-You received this warning because you are the applicant and/or a manager and/or a contributor of the project {{.ProjectID}}.
+You received this warning because you are the applicant and/or a manager and/or a contributor of the project {{.ProjectID}} with title:
+
+    {{.ProjectName}}
 
 The quota for your project directory {{.ProjectID}} is with {{.QuotaUsageRatio}}% usage close to being full. 
 
@@ -58,8 +60,9 @@ Best regards, the DCCN Technical Group
 	tempData := struct {
 		Name            string
 		ProjectID       string
+		ProjectName     string
 		QuotaUsageRatio int
-	}{name, pid, uratio}
+	}{name, pid, pname, uratio}
 
 	body, err := composeMessageTempstr(tempStr, tempData)
 

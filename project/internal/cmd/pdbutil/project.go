@@ -545,7 +545,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		log.Debugf("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
 
-		if err := mailer.AlertProjectStorageOoq(*u, info.Storage, info.ProjectID); err != nil {
+		if err := mailer.AlertProjectStorageOoq(*u, info.Storage, info.ProjectID, prj.Name); err != nil {
 			log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
 		}
 
