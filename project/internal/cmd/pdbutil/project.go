@@ -262,29 +262,37 @@ var projectActionExecCmd = &cobra.Command{
 			return err
 		}
 
-		// perform pending actions with 4 concurrent workers,
-		// each works on a project.
-		var wg sync.WaitGroup
-		pids := make(chan string, execNthreads*2)
-		for w := 0; w < execNthreads; w++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for pid := range pids {
-					if err := actionExec(pid, actions[pid]); err != nil {
-						log.Errorf("%s", err)
-					}
-				}
-			}()
+		// perform pending actions sequencially as the NetApp API
+		// doesn't seem to be able to handle it concurrently.
+		for pid, action := range actions {
+			if err := actionExec(pid, action); err != nil {
+				log.Errorf("%s", err)
+			}
 		}
 
-		for pid := range actions {
-			pids <- pid
-		}
-		close(pids)
+		// // perform pending actions with 4 concurrent workers,
+		// // each works on a project.
+		// var wg sync.WaitGroup
+		// pids := make(chan string, execNthreads*2)
+		// for w := 0; w < execNthreads; w++ {
+		// 	wg.Add(1)
+		// 	go func() {
+		// 		defer wg.Done()
+		// 		for pid := range pids {
+		// 			if err := actionExec(pid, actions[pid]); err != nil {
+		// 				log.Errorf("%s", err)
+		// 			}
+		// 		}
+		// 	}()
+		// }
 
-		// wait for all workers to finish
-		wg.Wait()
+		// for pid := range actions {
+		// 	pids <- pid
+		// }
+		// close(pids)
+
+		// // wait for all workers to finish
+		// wg.Wait()
 
 		return nil
 	},
