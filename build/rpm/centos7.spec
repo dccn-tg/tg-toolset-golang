@@ -42,6 +42,7 @@ install -m 755 %{gopath}/bin/pacs_streamdata %{buildroot}/%{_sbindir}/pacs_strea
 install -m 755 %{gopath}/bin/prj_setacl %{buildroot}/%{_bindir}/prj_setacl
 install -m 755 %{gopath}/bin/prj_getacl %{buildroot}/%{_bindir}/prj_getacl
 install -m 755 %{gopath}/bin/prj_delacl %{buildroot}/%{_bindir}/prj_delacl
+install -m 755 %{gopath}/bin/prj_chown  %{buildroot}/%{_bindir}/prj_chown
 
 %files
 %{_sbindir}/pdbutil
@@ -53,6 +54,7 @@ install -m 755 %{gopath}/bin/prj_delacl %{buildroot}/%{_bindir}/prj_delacl
 %{_bindir}/prj_setacl
 %{_bindir}/prj_getacl
 %{_bindir}/prj_delacl
+%{_bindir}/prj_chown
 #%{_sysconfdir}/bash_completion.d/hpcutil
 
 %post
@@ -60,6 +62,7 @@ echo "setting linux capabilities for ACL utilities ..."
 setcap cap_fowner,cap_sys_admin+eip %{_bindir}/prj_delacl
 setcap cap_fowner,cap_sys_admin+eip %{_bindir}/prj_setacl
 setcap cap_sys_admin+eip %{_bindir}/prj_getacl
+setcap cap_chown+eip %{_bindir}/prj_chown
 
 %clean
 chmod -R +w %{gopath}
@@ -68,6 +71,8 @@ rm -f %{_topdir}/SOURCES/%{version}.tar.gz
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Wed Dec 02 2020 Hong Lee <h.lee@donders.ru.nl>
+- introduced 'prj_chown' cli
 * Tue Jul 21 2020 Hong Lee <h.lee@donders.ru.nl> - 0.2
 - renamed 'repoutil' to 'repoadm'
 - added 'repocli'
