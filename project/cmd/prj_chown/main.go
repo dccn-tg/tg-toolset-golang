@@ -28,7 +28,18 @@ func init() {
 	cfg := log.Configuration{
 		EnableConsole:     true,
 		ConsoleJSONFormat: false,
-		ConsoleLevel:      log.Info,
+		ConsoleLevel:      log.Error,
+	}
+
+	// use DEBUG=1 environment variable to enable debug logs
+	if os.Getenv("DEBUG") == "1" {
+		cfg.ConsoleLevel = log.Debug
+	}
+
+	// use USAGE=1 environment variable to display this wrapper's usage message and exit
+	if os.Getenv("USAGE") == "1" {
+		usage()
+		os.Exit(0)
 	}
 
 	// initialize logger
@@ -36,8 +47,8 @@ func init() {
 }
 
 func usage() {
-	fmt.Printf("\nChanging owner of files or directories.\n")
-	fmt.Printf("\nUSAGE: %s [OPTIONS] path...\n", os.Args[0])
+	fmt.Printf("\nAllow manager to change UID/GID of files or directories\n")
+	fmt.Printf("\nUSAGE: %s [CHOWN_OPTIONS] PATH...\n", os.Args[0])
 }
 
 func main() {
@@ -62,7 +73,7 @@ func main() {
 		chownArgs = append(chownArgs, arg)
 	}
 
-	log.Infof("chownArgs: %+v", chownArgs)
+	log.Debugf("chownArgs: %+v", chownArgs)
 
 	for _, p := range paths {
 		chown(p, chownArgs)
@@ -138,10 +149,10 @@ func chown(path string, args []string) error {
 	}
 
 	stdout, err := cmd.Output()
-	log.Debugf("chown stdout: %s", string(stdout))
+	log.Debugf("%s", string(stdout))
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
-			log.Errorf("chown stderr: %s", string(ee.Stderr))
+			log.Errorf("%s", string(ee.Stderr))
 		}
 	}
 
