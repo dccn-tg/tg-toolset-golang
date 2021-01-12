@@ -27,7 +27,7 @@ type Storage struct {
 // including the actual storage usage.
 type StorageInfo struct {
 	QuotaGb int    `json:"quotaGb"`
-	UsageGb int    `json:"usageGb"`
+	UsageMb int    `json:"usageMb"`
 	System  string `json:"system"`
 }
 

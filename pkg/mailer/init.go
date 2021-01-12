@@ -28,7 +28,7 @@ func (m *Mailer) AlertProjectStorageOoq(recipient pdb.User, storageInfo pdb.Stor
 	from := "no-reply@donders.ru.nl"
 	name := fmt.Sprintf("%s %s", recipient.Firstname, recipient.Lastname)
 
-	uratio := 100 * storageInfo.UsageGb / storageInfo.QuotaGb
+	uratio := 100 * storageInfo.UsageMb / (storageInfo.QuotaGb << 10)
 	subject := fmt.Sprintf("Warning, storage of your project %s is %d%% full", pid, uratio)
 
 	// message template

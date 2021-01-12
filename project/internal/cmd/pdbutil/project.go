@@ -486,7 +486,7 @@ var projectAlertOoqSend = &cobra.Command{
 // If the alert sending is ignored by design, the returned error is `OpsIgnored`.
 func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OoqLastAlert, error) {
 
-	uratio := 100 * info.Storage.UsageGb / info.Storage.QuotaGb
+	uratio := 100 * info.Storage.UsageMb / (info.Storage.QuotaGb << 10)
 
 	// check if the usage is above the alert threshold.
 	duration := ooqAlertFrequency(uratio)
