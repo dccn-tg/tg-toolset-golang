@@ -3,7 +3,7 @@ module github.com/Donders-Institute/tg-toolset-golang
 go 1.14
 
 require (
-	github.com/Donders-Institute/filer-gateway v0.0.0-20200818204633-2aced6cd554d
+	github.com/Donders-Institute/filer-gateway v0.0.0-20210112145159-8d295af58137
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.1
