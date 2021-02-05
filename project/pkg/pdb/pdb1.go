@@ -255,6 +255,49 @@ func (v1 V1) GetProjects(activeOnly bool) ([]*Project, error) {
 	return projects, nil
 }
 
+// GetProject retrieves attributes of a project.
+func (v1 V1) GetProject(projectID string) (*Project, error) {
+
+	db, err := newClientMySQL(v1.config)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// prepare db query
+	query := `
+	SELECT
+		id, projectName, owner_id, calculatedProjectSpace
+	FROM
+		projects
+	WHERE
+		id=?
+	`
+
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	var pid string
+	var pname string
+	var oid string
+	var cspace int
+
+	err = stmt.QueryRow(projectID).Scan(&pid, &pname, &oid, &cspace)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Project{
+		ID:     pid,
+		Name:   pname,
+		Owner:  oid,
+		Status: parseProjectStatusByCalculatedSpace(cspace),
+	}, nil
+}
+
 // parseProjectStatusByCalculatedSpace interprets the project status by
 // the calculated space.
 func parseProjectStatusByCalculatedSpace(space int) ProjectStatus {

@@ -75,7 +75,7 @@ Best regards, the DCCN Technical Group
 
 // NotifyProjectProvisioned sends out email notification
 // to `manager` about the just provisioned project `pid`.
-func (m *Mailer) NotifyProjectProvisioned(manager pdb.User, pid string) error {
+func (m *Mailer) NotifyProjectProvisioned(manager pdb.User, pid string, pname string) error {
 
 	from := "helpdesk@fcdonders.ru.nl"
 	name := fmt.Sprintf("%s %s", manager.Firstname, manager.Lastname)
@@ -84,7 +84,11 @@ func (m *Mailer) NotifyProjectProvisioned(manager pdb.User, pid string) error {
 	// message template
 	tempStr := `Dear {{.Name}},
 
-The storage of your project {{.ProjectID}} has been initialised.
+The storage of your project {{.ProjectID}} with title
+
+    {{.ProjectName}}
+
+has been initialised.
 	
 You may now access the storage via the following paths:
 	
@@ -105,9 +109,10 @@ Best regards, the DCCN Technical Group`
 
 	// data for message template
 	tempData := struct {
-		Name      string
-		ProjectID string
-	}{name, pid}
+		Name        string
+		ProjectID   string
+		ProjectName string
+	}{name, pid, pname}
 
 	body, err := composeMessageTempstr(tempStr, tempData)
 

@@ -762,6 +762,13 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 
 	// sendout email notifying managers the new project storage is ready to use.
 	if newProject {
+
+		// get project name needed for the notification email
+		p, err := ipdb.GetProject(pid)
+		if err != nil {
+			return fmt.Errorf("[%s] fail getting project detail for notification: %s", pid, err)
+		}
+
 		mailer := mailer.New(conf.SMTP)
 		for _, m := range managers {
 
@@ -774,7 +781,7 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 				continue
 			}
 
-			if err := mailer.NotifyProjectProvisioned(*u, pid); err != nil {
+			if err := mailer.NotifyProjectProvisioned(*u, pid, p.Name); err != nil {
 				log.Errorf("[%s] fail notifying manager %s: %s", pid, m, err)
 			}
 		}

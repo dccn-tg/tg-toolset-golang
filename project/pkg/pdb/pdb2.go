@@ -75,6 +75,11 @@ func (v2 V2) GetProjects(activeOnly bool) ([]*Project, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+// GetProject retrieves attributes of a project.
+func (v2 V2) GetProject(projectID string) (*Project, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // GetUser gets the user identified by the given uid in the project database.
 // It returns the pointer to the user data represented in the User data structure.
 func (v2 V2) GetUser(uid string) (*User, error) {

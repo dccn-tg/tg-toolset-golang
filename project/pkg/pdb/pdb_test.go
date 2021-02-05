@@ -35,6 +35,14 @@ func init() {
 	}
 }
 
+func TestGetProject(t *testing.T) {
+	p, err := testPDB.GetProject("3010000.01")
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	t.Logf("%+v", p)
+}
+
 func TestGetProjectPendingActions(t *testing.T) {
 	acts, err := testPDB.GetProjectPendingActions()
 	if err != nil {
@@ -43,17 +51,17 @@ func TestGetProjectPendingActions(t *testing.T) {
 	t.Logf("pending actions: %+v\n", acts)
 }
 
-func TestDelProjectPendingActions(t *testing.T) {
-	// get pending actions
-	acts, err := testPDB.GetProjectPendingActions()
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-	t.Logf("pending actions: %+v\n", acts)
+// func TestDelProjectPendingActions(t *testing.T) {
+// 	// get pending actions
+// 	acts, err := testPDB.GetProjectPendingActions()
+// 	if err != nil {
+// 		t.Errorf("%s\n", err)
+// 	}
+// 	t.Logf("pending actions: %+v\n", acts)
 
-	// delete pending actions
-	err = testPDB.DelProjectPendingActions(acts)
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-}
+// 	// delete pending actions
+// 	err = testPDB.DelProjectPendingActions(acts)
+// 	if err != nil {
+// 		t.Errorf("%s\n", err)
+// 	}
+// }

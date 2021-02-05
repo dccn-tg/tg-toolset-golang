@@ -18,6 +18,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 		Email:     "h.lee@donders.ru.nl",
 	}
 	pid := "3010000.01"
+	pname := "test project"
 
 	conf, err := config.LoadConfig(os.Getenv("TG_TOOLSET_CONFIG"))
 	if err != nil {
@@ -25,7 +26,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 	}
 
 	mailer := New(conf.SMTP)
-	if mailer.NotifyProjectProvisioned(*manager, pid); err != nil {
+	if mailer.NotifyProjectProvisioned(*manager, pid, pname); err != nil {
 		t.Errorf("%s", err)
 	}
 }
@@ -40,6 +41,7 @@ func TestNotifyUTF8(t *testing.T) {
 		Email:     "r.debruin@donders.ru.nl",
 	}
 	pid := "3010000.01"
+	pname := "test project"
 
 	conf, err := config.LoadConfig(os.Getenv("TG_TOOLSET_CONFIG"))
 	if err != nil {
@@ -47,7 +49,7 @@ func TestNotifyUTF8(t *testing.T) {
 	}
 
 	mailer := New(conf.SMTP)
-	if mailer.NotifyProjectProvisioned(*manager, pid); err != nil {
+	if mailer.NotifyProjectProvisioned(*manager, pid, pname); err != nil {
 		t.Errorf("%s", err)
 	}
 }

@@ -39,6 +39,7 @@ type PDB interface {
 	DelProjectPendingActions(map[string]*DataProjectUpdate) error
 	GetProjects(activeOnly bool) ([]*Project, error)
 	GetUser(userID string) (*User, error)
+	GetProject(projectID string) (*Project, error)
 	GetUserByEmail(email string) (*User, error)
 	GetLabBookings(lab Lab, date string) ([]*LabBooking, error)
 }
