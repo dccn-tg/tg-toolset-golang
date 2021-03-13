@@ -16,6 +16,9 @@ VERSION ?= "master"
 
 all: build
 
+build_metrics:
+	GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go install github.com/Donders-Institute/tg-toolset-golang/metrics/...
+
 build_dataflow:
 	GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go install github.com/Donders-Institute/tg-toolset-golang/dataflow/...
 
