@@ -2,9 +2,14 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -40,15 +45,32 @@ func (cs *counterStore) reset() {
 }
 
 var (
-	cs counterStore
+	optsVerbose        *bool
+	optsNthreads       *int
+	optsPushGapSeconds *int
+	cs                 counterStore
 )
 
 func init() {
 
+	// CLI options
+	optsVerbose = flag.Bool("v", false, "print debug messages")
+	optsNthreads = flag.Int("n", runtime.NumCPU(), "set number of concurrent processing threads")
+	optsPushGapSeconds = flag.Int("t", 10, "set duration in seconds between two metrics push")
+
+	flag.Usage = usage
+
+	flag.Parse()
+
+	// configuration for logger
 	cfg := log.Configuration{
 		EnableConsole:     true,
 		ConsoleJSONFormat: false,
 		ConsoleLevel:      log.Info,
+	}
+
+	if *optsVerbose {
+		cfg.ConsoleLevel = log.Debug
 	}
 
 	// initialize logger
@@ -58,27 +80,43 @@ func init() {
 	cs.counter = make(map[string]int)
 }
 
+func usage() {
+	fmt.Printf("\nstart hpc app usage collector.\n")
+	fmt.Printf("\nUSAGE: %s [OPTIONS]\n", os.Args[0])
+	fmt.Printf("\nOPTIONS:\n")
+	flag.PrintDefaults()
+}
+
 func main() {
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	// push collected metrics in the backgroun every 10 seconds.
-	ticker := time.NewTicker(10 * time.Second)
+	// push collected metrics for every given duration in seconds.
+	ticker := time.NewTicker(time.Duration(*optsPushGapSeconds) * time.Second)
 	stop := make(chan bool)
 	stopped := make(chan bool)
 	go pushMetrics(ticker, stop, stopped)
-	// stopping metrics pushing and exits the program.
-	defer func() {
-		stop <- true // notify to stop pushing metrics
-		<-stopped    // metrics pusher is stopped
+
+	// handle interrupt signals, e.g. Crtl-C
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		log.Infof("Received an interrupt, stopping services...")
 		cancel()
+
+		// notify pushMetrics to stop
+		stop <- true
 	}()
 
 	// launch UDP server
 	if err := serveUDP(ctx); err != nil {
-		log.Fatalf("%s", err)
+		log.Errorf("%s", err)
 	}
+
+	// only leave the main program when the push metrics is fully stopped.
+	<-stopped
 }
 
 // serveUDP starts a UDP server with concurrent listeners.
@@ -97,13 +135,14 @@ func serveUDP(ctx context.Context) error {
 
 	// launch concurrent UDP listeners
 	errors := make(chan error)
-	for i := 0; i < runtime.NumCPU(); i++ {
+	for i := 0; i < *optsNthreads; i++ {
 		go listen(conn, errors)
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
+			log.Infof("UDP service stopped")
 			return nil
 		case err := <-errors:
 			return err
@@ -123,7 +162,7 @@ func listen(connection *net.UDPConn, errors chan error) {
 			break
 		}
 
-		log.Infof("from %s: %s", addr, string(buf[:n]))
+		log.Debugf("from %s: %s", addr, string(buf[:n]))
 
 		// add to counter
 		cs.add(string(buf[:n]))
@@ -138,13 +177,13 @@ func pushMetrics(ticker *time.Ticker, stop chan bool, stopped chan bool) {
 		case <-stop:
 			// make last push before quit
 			for k, v := range cs.counter {
-				log.Infof("[before exit] %s: %d", k, v)
+				log.Infof("%s: %d", k, v)
 			}
-			stopped <- true
+			close(stopped)
 			return
-		case t := <-ticker.C:
+		case <-ticker.C:
 			for k, v := range cs.counter {
-				log.Infof("[%s] %s: %d", t, k, v)
+				log.Infof("%s: %d", k, v)
 			}
 			// reset counter
 			cs.reset()
