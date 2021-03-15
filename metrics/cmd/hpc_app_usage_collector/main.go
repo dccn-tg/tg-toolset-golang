@@ -45,6 +45,17 @@ var (
 
 func init() {
 
+	cfg := log.Configuration{
+		EnableConsole:     true,
+		ConsoleJSONFormat: false,
+		ConsoleLevel:      log.Info,
+	}
+
+	// initialize logger
+	log.NewLogger(cfg, log.InstanceLogrusLogger)
+
+	// initialize counter
+	cs.counter = make(map[string]int)
 }
 
 func main() {
@@ -101,17 +112,20 @@ func serveUDP(ctx context.Context) error {
 // listen is a function to handle incoming UDP connection.  It is
 // intended for a go routine for the concurrency.
 func listen(connection *net.UDPConn, errors chan error) {
-	buffer := make([]byte, 1024)
-	n, remoteAddr, err := 0, new(net.UDPAddr), error(nil)
-	for err == nil {
-		n, remoteAddr, err = connection.ReadFromUDP(buffer)
+	buf := make([]byte, 1024)
+	for {
+		n, addr, err := connection.ReadFromUDP(buf)
 
-		log.Debugf("from", remoteAddr, "-", buffer[:n])
+		if err != nil {
+			errors <- err
+			break
+		}
+
+		log.Infof("from %s: %s", addr, string(buf[:n]))
 
 		// add to counter
-		cs.add(string(buffer[:n]))
+		cs.add(string(buf[:n]))
 	}
-	errors <- err
 }
 
 // pushMetrics sends once a while the metrics to a remote
