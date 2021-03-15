@@ -65,11 +65,13 @@ func main() {
 
 	// push collected metrics in the backgroun every 10 seconds.
 	ticker := time.NewTicker(10 * time.Second)
-	stopPusher := make(chan bool)
-	go pushMetrics(ticker, stopPusher)
+	stop := make(chan bool)
+	stopped := make(chan bool)
+	go pushMetrics(ticker, stop, stopped)
 	// stopping metrics pushing and exits the program.
 	defer func() {
-		stopPusher <- true
+		stop <- true // notify to stop pushing metrics
+		<-stopped    // metrics pusher is stopped
 		cancel()
 	}()
 
@@ -130,14 +132,15 @@ func listen(connection *net.UDPConn, errors chan error) {
 
 // pushMetrics sends once a while the metrics to a remote
 // Prometheus push gateway.
-func pushMetrics(ticker *time.Ticker, quit chan bool) {
+func pushMetrics(ticker *time.Ticker, stop chan bool, stopped chan bool) {
 	for {
 		select {
-		case <-quit:
+		case <-stop:
 			// make last push before quit
 			for k, v := range cs.counter {
 				log.Infof("[before exit] %s: %d", k, v)
 			}
+			stopped <- true
 			return
 		case t := <-ticker.C:
 			for k, v := range cs.counter {
