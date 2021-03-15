@@ -94,9 +94,8 @@ func main() {
 
 	// push collected metrics for every given duration in seconds.
 	ticker := time.NewTicker(time.Duration(*optsPushGapSeconds) * time.Second)
-	stop := make(chan bool)
-	stopped := make(chan bool)
-	go pushMetrics(ticker, stop, stopped)
+	stopped := make(chan struct{})
+	go pushMetrics(ctx, ticker, stopped)
 
 	// handle interrupt signals, e.g. Crtl-C
 	sigs := make(chan os.Signal, 1)
@@ -105,9 +104,6 @@ func main() {
 		<-sigs
 		log.Infof("Received an interrupt, stopping services...")
 		cancel()
-
-		// notify pushMetrics to stop
-		stop <- true
 	}()
 
 	// launch UDP server
@@ -171,10 +167,10 @@ func listen(connection *net.UDPConn, errors chan error) {
 
 // pushMetrics sends once a while the metrics to a remote
 // Prometheus push gateway.
-func pushMetrics(ticker *time.Ticker, stop chan bool, stopped chan bool) {
+func pushMetrics(ctx context.Context, ticker *time.Ticker, stopped chan struct{}) {
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			// make last push before quit
 			for k, v := range cs.counter {
 				log.Infof("%s: %d", k, v)
