@@ -136,13 +136,15 @@ func pushMetrics(ticker *time.Ticker, quit chan bool) {
 		case <-quit:
 			// make last push before quit
 			for k, v := range cs.counter {
-				log.Infof("[before exit] %s: %n", k, v)
+				log.Infof("[before exit] %s: %d", k, v)
 			}
 			return
 		case t := <-ticker.C:
 			for k, v := range cs.counter {
-				log.Infof("[%s] %s: %n", t, k, v)
+				log.Infof("[%s] %s: %d", t, k, v)
 			}
+			// reset counter
+			cs.reset()
 		}
 	}
 }
