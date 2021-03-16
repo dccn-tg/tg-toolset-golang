@@ -8,9 +8,13 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/push"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
@@ -48,6 +52,7 @@ var (
 	optsVerbose        *bool
 	optsNthreads       *int
 	optsPushGapSeconds *int
+	optsPushGatewayURL *string
 	cs                 counterStore
 )
 
@@ -57,6 +62,7 @@ func init() {
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 	optsNthreads = flag.Int("n", runtime.NumCPU(), "set number of concurrent processing threads")
 	optsPushGapSeconds = flag.Int("t", 10, "set duration in seconds between two metrics push")
+	optsPushGatewayURL = flag.String("p", "http://docker.dccn.nl:9091", "set duration in seconds between two metrics push")
 
 	flag.Usage = usage
 
@@ -168,21 +174,50 @@ func listen(connection *net.UDPConn, errors chan error) {
 // pushMetrics sends once a while the metrics to a remote
 // Prometheus push gateway.
 func pushMetrics(ctx context.Context, ticker *time.Ticker, stopped chan struct{}) {
+
 	for {
 		select {
 		case <-ctx.Done():
-			// make last push before quit
-			for k, v := range cs.counter {
-				log.Infof("%s: %d", k, v)
+			if err := pushAppUsage(); err != nil {
+				log.Errorf("cannot push app usage: %s", err)
 			}
 			close(stopped)
 			return
 		case <-ticker.C:
-			for k, v := range cs.counter {
-				log.Infof("%s: %d", k, v)
+			if err := pushAppUsage(); err != nil {
+				log.Errorf("cannot push app usage: %s", err)
 			}
 			// reset counter
 			cs.reset()
 		}
 	}
+}
+
+// convert counter data to app usage metrics and push them to the push gateway.
+func pushAppUsage() error {
+
+	appUsage := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "hpc_stat_module_load_counter",
+			Help: "How many times an application module has been loaded.",
+		},
+		[]string{"module", "version"},
+	)
+
+	pusher := push.New(*optsPushGatewayURL, "hpc_app_usage")
+
+	for k, v := range cs.counter {
+
+		d := strings.Split(k, "/")
+
+		log.Debugf("[module: %s, version: %s] %d", strings.Join(d[:len(d)-1], "/"), d[len(d)-1], v)
+
+		// add to counter with module and version labels
+		appUsage.WithLabelValues(
+			strings.Join(d[:len(d)-1], "/"),
+			d[len(d)-1],
+		).Add(float64(v))
+	}
+
+	return pusher.Collector(appUsage).Push()
 }
