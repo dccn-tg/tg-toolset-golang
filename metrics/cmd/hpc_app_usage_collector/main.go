@@ -1,3 +1,15 @@
+// hpc_app_usage_collector is a daemon for monitoring the HPC software usage by
+// collecting data instrumented in the environment modules on the HPC cluster.
+//
+// This program contains two parts:
+//
+// - _Collector_ service listens on incoming data sent from the `module load` command.
+//   The data is as simple as the string containing the module name and the version.
+//
+// - _Metrics_ service provides the `/metrics` HTTP endpoint for Prometheus server to
+//   scrapes collected metrics.  Data collected by the _Collector_ is transformed into
+//   Prometheus Gauge metrics every given period of time (default: 10 seconds).
+//
 package main
 
 import (
@@ -5,6 +17,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
@@ -14,7 +27,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/push"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
@@ -44,25 +57,38 @@ func (cs *counterStore) reset() {
 	cs.mutex.Lock()
 	defer cs.mutex.Unlock()
 
-	// reset counter to an empty map
-	cs.counter = make(map[string]int)
+	// reset existing counter to 0
+	for k := range cs.counter {
+		cs.counter[k] = 0
+	}
 }
 
 var (
-	optsVerbose        *bool
-	optsNthreads       *int
-	optsPushGapSeconds *int
-	optsPushGatewayURL *string
-	cs                 counterStore
+	optsVerbose                *bool
+	optsNthreads               *int
+	optsCollectPeriod          *int
+	optsListenAddressCollector *string
+	optsListenAddressMetrics   *string
+	cs                         counterStore
+
+	// metrics
+	appUsage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "hpc_stat_app_usage",
+			Help: "How many times an application module has been loaded.",
+		},
+		[]string{"module", "version"},
+	)
 )
 
 func init() {
 
 	// CLI options
 	optsVerbose = flag.Bool("v", false, "print debug messages")
-	optsNthreads = flag.Int("n", runtime.NumCPU(), "set number of concurrent processing threads")
-	optsPushGapSeconds = flag.Int("t", 10, "set duration in seconds between two metrics push")
-	optsPushGatewayURL = flag.String("p", "http://docker.dccn.nl:9091", "set duration in seconds between two metrics push")
+	optsNthreads = flag.Int("n", runtime.NumCPU()-1, "set `number` of threads for collector")
+	optsCollectPeriod = flag.Int("p", 10, "set `period` in seconds within which the usage is counted")
+	optsListenAddressCollector = flag.String("c", ":9999", "set listener `address` for collecting data from module load")
+	optsListenAddressMetrics = flag.String("m", ":9998", "set listener `address` for exporting metrics to prometheus")
 
 	flag.Usage = usage
 
@@ -84,6 +110,14 @@ func init() {
 
 	// initialize counter
 	cs.counter = make(map[string]int)
+
+	// register metrics
+	prometheus.MustRegister(appUsage)
+
+	// unregister metrics that are by default added to the
+	// `prometheus.DefaultRegisterer`
+	prometheus.Unregister(prometheus.NewGoCollector())
+	prometheus.Unregister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 }
 
 func usage() {
@@ -98,11 +132,6 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	// push collected metrics for every given duration in seconds.
-	ticker := time.NewTicker(time.Duration(*optsPushGapSeconds) * time.Second)
-	stopped := make(chan struct{})
-	go pushMetrics(ctx, ticker, stopped)
-
 	// handle interrupt signals, e.g. Crtl-C
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -112,26 +141,60 @@ func main() {
 		cancel()
 	}()
 
-	// launch UDP server
-	if err := serveUDP(ctx); err != nil {
-		log.Errorf("%s", err)
-	}
+	// launch Collector server
+	go serveCollector(ctx, cancel)
 
-	// only leave the main program when the push metrics is fully stopped.
-	<-stopped
+	// periodically update metrics with collected usage count
+	ticker := time.NewTicker(time.Duration(*optsCollectPeriod) * time.Second)
+	go updateMetrics(ticker)
+
+	// launch HTTP server with /metrics endpoint
+	go serveMetrics(ctx, cancel)
+
+	// blocking the service
+	<-ctx.Done()
 }
 
-// serveUDP starts a UDP server with concurrent listeners.
-func serveUDP(ctx context.Context) error {
+// serveMetrics starts a HTTP server with an endpoint `/metrics` to export
+// metrics to the Prometheus server.
+func serveMetrics(ctx context.Context, cancel context.CancelFunc) {
+
+	// Expose the registered metrics via HTTP.
+	http.Handle("/metrics", promhttp.HandlerFor(
+		prometheus.DefaultGatherer,
+		promhttp.HandlerOpts{
+			EnableOpenMetrics: false,
+		},
+	))
+
+	// http server
+	srv := &http.Server{
+		Addr:    *optsListenAddressMetrics,
+		Handler: nil, // using default
+	}
+
+	// start the http server.
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		log.Errorf("cannot start Metrics service: %s", err)
+		cancel()
+	}
+}
+
+// serveCollector starts a UDP server with concurrent listeners.
+func serveCollector(ctx context.Context, cancel context.CancelFunc) {
 	// setup UDP server and connector
-	addr, err := net.ResolveUDPAddr("udp", ":9999")
+	addr, err := net.ResolveUDPAddr("udp", *optsListenAddressCollector)
 	if err != nil {
-		return err
+		log.Errorf("cannot resolve Collector address: %s", err)
+		cancel()
+		return
 	}
 
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		return err
+		log.Errorf("cannot start Collector service: %s", err)
+		cancel()
+		return
 	}
 	defer conn.Close()
 
@@ -141,19 +204,19 @@ func serveUDP(ctx context.Context) error {
 		go listen(conn, errors)
 	}
 
+	log.Infof("Collector service started")
 	for {
 		select {
 		case <-ctx.Done():
-			log.Infof("UDP service stopped")
-			return nil
+			return
 		case err := <-errors:
-			return err
+			log.Errorf("%s", err)
 		}
 	}
 }
 
 // listen is a function to handle incoming UDP connection.  It is
-// intended for a go routine for the concurrency.
+// intended to run a go routine for the concurrency.
 func listen(connection *net.UDPConn, errors chan error) {
 	buf := make([]byte, 1024)
 	for {
@@ -171,53 +234,36 @@ func listen(connection *net.UDPConn, errors chan error) {
 	}
 }
 
-// pushMetrics sends once a while the metrics to a remote
-// Prometheus push gateway.
-func pushMetrics(ctx context.Context, ticker *time.Ticker, stopped chan struct{}) {
-
+// updateMetrics updates the prometheus metrics periodically with
+// data collected in the in-memory `counterStore` since the last update.
+func updateMetrics(ticker *time.Ticker) {
 	for {
 		select {
-		case <-ctx.Done():
-			if err := pushAppUsage(); err != nil {
-				log.Errorf("cannot push app usage: %s", err)
-			}
-			close(stopped)
-			return
 		case <-ticker.C:
-			if err := pushAppUsage(); err != nil {
-				log.Errorf("cannot push app usage: %s", err)
+			for k, v := range cs.counter {
+
+				d := strings.Split(k, "/")
+				module := strings.Join(d[:len(d)-1], "/")
+				version := d[len(d)-1]
+
+				log.Debugf("[module: %s, version: %s] %d", module, version, v)
+
+				m, err := appUsage.GetMetricWith(
+					prometheus.Labels{
+						"module":  module,
+						"version": version,
+					},
+				)
+
+				if err != nil {
+					log.Errorf("[module: %s, version: %s] cannot update metrics: %s", module, version, err)
+				}
+
+				m.Set(float64(v))
 			}
+
 			// reset counter
 			cs.reset()
 		}
 	}
-}
-
-// convert counter data to app usage metrics and push them to the push gateway.
-func pushAppUsage() error {
-
-	appUsage := prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "hpc_stat_module_load_counter",
-			Help: "How many times an application module has been loaded.",
-		},
-		[]string{"module", "version"},
-	)
-
-	pusher := push.New(*optsPushGatewayURL, "hpc_app_usage")
-
-	for k, v := range cs.counter {
-
-		d := strings.Split(k, "/")
-
-		log.Debugf("[module: %s, version: %s] %d", strings.Join(d[:len(d)-1], "/"), d[len(d)-1], v)
-
-		// add to counter with module and version labels
-		appUsage.WithLabelValues(
-			strings.Join(d[:len(d)-1], "/"),
-			d[len(d)-1],
-		).Add(float64(v))
-	}
-
-	return pusher.Collector(appUsage).Push()
 }
