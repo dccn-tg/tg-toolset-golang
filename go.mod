@@ -7,6 +7,7 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.1
+	github.com/prometheus/client_golang v1.9.0
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.0.0
