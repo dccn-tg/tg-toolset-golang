@@ -1,4 +1,4 @@
-// hpc_app_usage_collector is a daemon for monitoring the HPC software usage by
+// hpc-metrics-appusage-collector is a daemon for monitoring the HPC software usage by
 // collecting data instrumented in the environment modules on the HPC cluster.
 //
 // This program contains two parts:
@@ -6,16 +6,18 @@
 // - _Collector_ service listens on incoming data sent from the `module load` command.
 //   The data is as simple as the string containing the module name and the version.
 //
-// - _Metrics_ service provides the `/metrics` HTTP endpoint for Prometheus server to
-//   scrapes collected metrics.  Data collected by the _Collector_ is transformed into
-//   Prometheus Gauge metrics every given period of time (default: 10 seconds).
+// - _Metrics pusher_ sends POST request to a OpenTSDB endpoint specified by `-l` option
+//   every given period of time (default: 10 seconds).
 //
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -25,9 +27,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
@@ -57,28 +56,30 @@ func (cs *counterStore) reset() {
 	cs.mutex.Lock()
 	defer cs.mutex.Unlock()
 
-	// reset existing counter to 0
-	for k := range cs.counter {
-		cs.counter[k] = 0
-	}
+	// reset by new map
+	cs.counter = make(map[string]int)
+
+	// // reset by setting existing counter to 0
+	// for k := range cs.counter {
+	// 	cs.counter[k] = 0
+	// }
+}
+
+// MetricOpenTSDB is the generic data structure for OpenTSDB metric.
+type MetricOpenTSDB struct {
+	Metric    string            `json:"metric"`
+	Timestamp int64             `json:"timestamp"`
+	Value     int               `json:"value"`
+	Tags      map[string]string `json:"tags"`
 }
 
 var (
 	optsVerbose                *bool
 	optsNthreads               *int
 	optsCollectPeriod          *int
+	optsOpenTSDBPushURL        *string
 	optsListenAddressCollector *string
-	optsListenAddressMetrics   *string
 	cs                         counterStore
-
-	// metrics
-	appUsage = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "hpc_stat_app_usage",
-			Help: "How many times an application module has been loaded.",
-		},
-		[]string{"module", "version"},
-	)
 )
 
 func init() {
@@ -87,8 +88,8 @@ func init() {
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 	optsNthreads = flag.Int("n", runtime.NumCPU()-1, "set `number` of threads for collector")
 	optsCollectPeriod = flag.Int("p", 10, "set `period` in seconds within which the usage is counted")
+	optsOpenTSDBPushURL = flag.String("l", "http://opentsdb:4242/api/put", "set OpenTSDB `endpoint` for pushing metrics")
 	optsListenAddressCollector = flag.String("c", ":9999", "set listener `address` for collecting data from module load")
-	optsListenAddressMetrics = flag.String("m", ":9998", "set listener `address` for exporting metrics to prometheus")
 
 	flag.Usage = usage
 
@@ -110,14 +111,6 @@ func init() {
 
 	// initialize counter
 	cs.counter = make(map[string]int)
-
-	// register metrics
-	prometheus.MustRegister(appUsage)
-
-	// unregister metrics that are by default added to the
-	// `prometheus.DefaultRegisterer`
-	prometheus.Unregister(prometheus.NewGoCollector())
-	prometheus.Unregister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 }
 
 func usage() {
@@ -144,40 +137,12 @@ func main() {
 	// launch Collector server
 	go serveCollector(ctx, cancel)
 
-	// periodically update metrics with collected usage count
+	// periodically push metrics with collected usage count
 	ticker := time.NewTicker(time.Duration(*optsCollectPeriod) * time.Second)
-	go updateMetrics(ticker)
-
-	// launch HTTP server with /metrics endpoint
-	go serveMetrics(ctx, cancel)
+	go pushMetrics(ctx, ticker)
 
 	// blocking the service
 	<-ctx.Done()
-}
-
-// serveMetrics starts a HTTP server with an endpoint `/metrics` to export
-// metrics to the Prometheus server.
-func serveMetrics(ctx context.Context, cancel context.CancelFunc) {
-
-	// Expose the registered metrics via HTTP.
-	http.Handle("/metrics", promhttp.HandlerFor(
-		prometheus.DefaultGatherer,
-		promhttp.HandlerOpts{
-			EnableOpenMetrics: false,
-		},
-	))
-
-	// http server
-	srv := &http.Server{
-		Addr:    *optsListenAddressMetrics,
-		Handler: nil, // using default
-	}
-
-	// start the http server.
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Errorf("cannot start Metrics service: %s", err)
-		cancel()
-	}
 }
 
 // serveCollector starts a UDP server with concurrent listeners.
@@ -234,33 +199,54 @@ func listen(connection *net.UDPConn, errors chan error) {
 	}
 }
 
-// updateMetrics updates the prometheus metrics periodically with
-// data collected in the in-memory `counterStore` since the last update.
-func updateMetrics(ticker *time.Ticker) {
+// pushMetrics makes POST call to OpenTSDB's `/api/put` endpoint.
+func pushMetrics(ctx context.Context, ticker *time.Ticker) {
 	for {
 		select {
-		case <-ticker.C:
-			for k, v := range cs.counter {
+		case <-ctx.Done():
+			return
+		case t := <-ticker.C:
 
+			dpoints := make([]MetricOpenTSDB, 0)
+
+			for k, v := range cs.counter {
 				d := strings.Split(k, "/")
 				module := strings.Join(d[:len(d)-1], "/")
 				version := d[len(d)-1]
 
 				log.Debugf("[module: %s, version: %s] %d", module, version, v)
 
-				m, err := appUsage.GetMetricWith(
-					prometheus.Labels{
-						"module":  module,
-						"version": version,
-					},
-				)
-
-				if err != nil {
-					log.Errorf("[module: %s, version: %s] cannot update metrics: %s", module, version, err)
-				}
-
-				m.Set(float64(v))
+				dpoints = append(dpoints, MetricOpenTSDB{
+					Metric:    "hpc.appusage",
+					Timestamp: t.Unix(),
+					Value:     v,
+					Tags:      map[string]string{"module": module, "version": version},
+				})
 			}
+
+			reqBody, err := json.Marshal(dpoints)
+			if err != nil {
+				log.Errorf("%s", err)
+				continue
+			}
+
+			log.Debugf("%s", reqBody)
+
+			// POST data to OpenTSDB endpoint
+			resp, err := http.Post(*optsOpenTSDBPushURL, "application/json", bytes.NewBuffer(reqBody))
+			if err != nil {
+				log.Errorf("%s", err)
+				continue
+			}
+			defer resp.Body.Close()
+
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Errorf("%s", err)
+				continue
+			}
+
+			log.Debugf(string(body))
 
 			// reset counter
 			cs.reset()

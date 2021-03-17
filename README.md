@@ -19,6 +19,8 @@ Currently, the whole package is divided into three major parts, each provides a 
 - [repository](repository) contains tools and libraries for repository data management.
   * [repoadm](repository/cmd/repoadm): administrator's CLI for manage the Donders Repository collections.
   * [repocli](repository/cmd/repocli): user's CLI for managing the Donders Repository collections.
+- [metrics](metrics) contains tools and libraries for collecting metrics.
+  * [hpc-metrics-appusage-collector](metrics/cmd/hpc-metrics-appusage-collector): a daemon collects count on `module load` on HPC into Prometheus metrics. See [README](metrics/cmd/hpc-metrics-appusage-collector/README.md) for more detail.
  
 Various CLIs take a YAML-based configuration file (via the `-c` option) for setting up connections to, e.g., project database, filers, etc.. An example YAML file is provided [here](configs/config.yml); and the codes that "objectize" the YAML file are located in the [pkg/config](pkg/config) directory.
 
