@@ -1,5 +1,4 @@
 configs/config_*.yml
 configs/config.*.yml
-go.sum
 **/.secret
 **/.pass
