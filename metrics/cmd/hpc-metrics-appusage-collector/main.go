@@ -230,7 +230,7 @@ func pushMetrics(ctx context.Context, ticker *time.Ticker) {
 				continue
 			}
 
-			log.Debugf("%s", reqBody)
+			log.Infof("%s", reqBody)
 
 			// POST data to OpenTSDB endpoint
 			resp, err := http.Post(*optsOpenTSDBPushURL, "application/json", bytes.NewBuffer(reqBody))
