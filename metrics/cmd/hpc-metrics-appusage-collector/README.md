@@ -14,21 +14,30 @@ This program contains two parts:
 
 1. build the image
 
-    Assuming that we want to build the image in a docker registry `{DOCKER_REGISTRY}` with image name `hpc-metrics-appusage-collector` and version `{VERSION}`:
+    Assuming that we want to build the image in a docker registry `${DOCKER_REGISTRY}` with image name `hpc-metrics-appusage-collector` and version `${VERSION}`:
 
     ```bash
     $ docker build -f build/docker/hpc-metrics-appusage-collector/Dockerfile \
-      --force-rm -t {DOCKER_REGISTRY}/hpc-metrics-appusage-collector:{VERSION} .
+      --force-rm -t ${DOCKER_REGISTRY}/hpc-metrics-appusage-collector:${VERSION} .
     ```
 
-1. push the image to `{DOCKER_REGISTRY}`
+1. push the image to `${DOCKER_REGISTRY}`
 
     ```bash
-    $ docker push {DOCKER_REGISTRY}/hpc-metrics-appusage-collector:{VERSION}
+    $ docker push ${DOCKER_REGISTRY}/hpc-metrics-appusage-collector:${VERSION}
     ```
 
 ## Run container with docker-compose
 
 ```
+version: '3.7'
 
+services:
+
+  hpc-metrics-appusage-collector:
+    hostname: hpc-metrics-appusage-collector
+    image: ${DOCKER_REGISTRY}/hpc-metrics-appusage-collector:${VERSION}
+    ports:
+      - 9999:9999/udp
+    command: ["-p", "180", "-l", "http://opentsdb:4242/api/put"]
 ```
