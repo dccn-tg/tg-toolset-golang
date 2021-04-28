@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -20,6 +21,7 @@ import (
 var exportNthreads int
 var exportOUs string
 var exportCollPat string
+var collVersionRegex string
 var viewerDbPath string
 var enableAnonymous bool
 
@@ -58,6 +60,11 @@ func init() {
 		&enableAnonymous,
 		"with-anonymous", "", false,
 		"export anonymously accessible DSCs to everyone.",
+	)
+	exportUpdateCmd.Flags().StringVarP(
+		&collVersionRegex,
+		"vregex", "", ":v[0-9]+$",
+		"`regex` pattern indicating the collection versions.",
 	)
 	exportCmd.PersistentFlags().StringVarP(
 		&viewerDbPath,
@@ -159,6 +166,9 @@ var exportUpdateCmd = &cobra.Command{
 		}
 		log.Debugf("currently exported: %+v", cms)
 
+		// collection version regexp
+		vregexp := regexp.MustCompile(collVersionRegex)
+
 		// retrieve current collection roles of collections to be exported concurrently.
 		chanCollExport := make(chan CollExport, 2*exportNthreads)
 		var wg1 sync.WaitGroup
@@ -205,7 +215,7 @@ var exportUpdateCmd = &cobra.Command{
 					collHead := filepath.Join(
 						RepoNamespace,
 						coll.OU,
-						n[0:strings.Index(n, ":v")],
+						vregexp.ReplaceAllString(n, ""),
 					)
 					cmd = fmt.Sprintf(`iquest --no-page "%%s" "select META_COLL_ATTR_VALUE where COLL_NAME = '%s' and META_COLL_ATTR_NAME in ('manager','contributor','viewerByDUA','viewerByManager')" | sort`, collHead)
 					cout = make(chan string)
