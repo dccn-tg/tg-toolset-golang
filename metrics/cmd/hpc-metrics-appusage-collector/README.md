@@ -4,7 +4,7 @@ The program `hpc-metrics-appusage-collector` is a daemon for monitoring the HPC 
 
 This program contains two parts:
 
-- _Collector_ service listens on incoming data sent from the `module load` command. The data is as simple as the string containing the module name and the version.
+- _Collector_ service listens on incoming data sent from the `module load` command. The data is as simple as the string containing the module name and the version.  See the `send_usage` function in the `/opt/_modules/share/common.tcl` file on the HPC cluster.
 
 - _Metrics pusher_ sends POST request to a OpenTSDB endpoint specified by `-l` option every given period of time (default: 10 seconds).
 
