@@ -171,27 +171,33 @@ var exportUpdateCmd = &cobra.Command{
 
 		// retrieve current collection roles of collections to be exported concurrently.
 		chanCollExport := make(chan CollExport, 2*exportNthreads)
+
 		var wg1 sync.WaitGroup
 		for w := 0; w < exportNthreads; w++ {
 			wg1.Add(1)
 			go func() {
 				defer wg1.Done()
 				for coll := range chanCollExport {
-					n := filepath.Base(coll.Path)
+
+					// basename of the collection version's physical path
+					nPhysical := filepath.Base(coll.Path)
+
+					// replacing old version delimiter ":v" with "_v"
+					nLogical := strings.Replace(nPhysical, ":v", "_v", 1)
 
 					// create symlink in RepoExportPath
-					linkExport := filepath.Join(RepoExportPath, coll.OU, n)
+					linkExport := filepath.Join(RepoExportPath, coll.OU, nLogical)
 					if _, err := os.Stat(linkExport); os.IsNotExist(err) {
 						if err := os.Symlink(coll.Path, linkExport); err != nil {
 							// log error and move onto the next collection.
-							log.Errorf("[%s] %s", n, err)
+							log.Errorf("[%s] %s", nLogical, err)
 							continue
 						}
 					}
 
 					// get the filesAnonymousAccess attribute of the collection
 					anonymousAccess := false
-					collName := filepath.Join(RepoNamespace, coll.OU, n)
+					collName := filepath.Join(RepoNamespace, coll.OU, nLogical)
 					cmd := fmt.Sprintf(`iquest --no-page "%%s" "select META_COLL_ATTR_VALUE where COLL_NAME = '%s' and META_COLL_ATTR_NAME = 'filesAnonymousAccess'"`, collName)
 					cout := make(chan string)
 					go repo.IcommandChanOut(cmd, &cout, true)
@@ -202,11 +208,11 @@ var exportUpdateCmd = &cobra.Command{
 					}
 
 					// make collection with anonymousAccess flag public to all users.
-					log.Debugf("[%s] anonymously accessible: %t", n, anonymousAccess)
+					log.Debugf("[%s] anonymously accessible: %t", nLogical, anonymousAccess)
 					if enableAnonymous && anonymousAccess {
 						cmd = fmt.Sprintf("chmod o+rx %s", coll.Path)
 						if err := repo.IcommandFileOut(cmd, ""); err != nil {
-							log.Errorf("[%s] fail chmod for anonymously accessible collection: %s", n, err)
+							log.Errorf("[%s] fail chmod for anonymously accessible collection: %s", nLogical, err)
 						}
 						continue
 					}
@@ -215,7 +221,7 @@ var exportUpdateCmd = &cobra.Command{
 					collHead := filepath.Join(
 						RepoNamespace,
 						coll.OU,
-						vregexp.ReplaceAllString(n, ""),
+						vregexp.ReplaceAllString(nLogical, ""),
 					)
 					cmd = fmt.Sprintf(`iquest --no-page "%%s" "select META_COLL_ATTR_VALUE where COLL_NAME = '%s' and META_COLL_ATTR_NAME in ('manager','contributor','viewerByDUA','viewerByManager')" | sort`, collHead)
 					cout = make(chan string)
@@ -232,7 +238,7 @@ var exportUpdateCmd = &cobra.Command{
 
 					// uloc is a list of repo users who have local access to the collection.
 					uloc := make(map[string]bool)
-					if cexp, ok := cms[n]; ok {
+					if cexp, ok := cms[nPhysical]; ok {
 						for _, u := range cexp.(*CollExport).ViewersRepo {
 							uloc[u] = true
 						}
@@ -251,7 +257,7 @@ var exportUpdateCmd = &cobra.Command{
 						// resolve umap of the user.
 						um, err := findUmap(pdb, &vdb, u)
 						if err != nil {
-							log.Warnf("[%s] cannot map repo user to local user: %s", n, u)
+							log.Warnf("[%s] cannot map repo user to local user: %s", nLogical, u)
 							continue
 						}
 						log.Debugf("[%s] umap: %+v", um)
@@ -260,13 +266,13 @@ var exportUpdateCmd = &cobra.Command{
 						acl = fmt.Sprintf("%s:r-x,%s", um.UIDLocal, acl)
 					}
 
-					log.Debugf("[%s] users to be added: %+v", n, uadd)
+					log.Debugf("[%s] users to be added: %+v", nLogical, uadd)
 
 					// run the `setfacl -m` command.
 					if acl != "" {
 						cmd = fmt.Sprintf("setfacl -m %s %s", acl, coll.Path)
 						if err := repo.IcommandFileOut(cmd, ""); err != nil {
-							log.Errorf("[%s] fail setting acl: %s", n, err)
+							log.Errorf("[%s] fail setting acl: %s", nLogical, err)
 						} else {
 							// update uloc with users being added for accecc.
 							for _, u := range uadd {
@@ -288,7 +294,7 @@ var exportUpdateCmd = &cobra.Command{
 						// resolve umap of the user.
 						um, err := findUmap(pdb, &vdb, u)
 						if err != nil {
-							log.Warnf("[%s] cannot map repo user to local user: %s", n, u)
+							log.Warnf("[%s] cannot map repo user to local user: %s", nLogical, u)
 							continue
 						}
 						log.Debugf("[%s] umap: %+v", um)
@@ -296,13 +302,13 @@ var exportUpdateCmd = &cobra.Command{
 						udel = append(udel, um)
 						acl = fmt.Sprintf("%s,%s", um.UIDLocal, acl)
 					}
-					log.Debugf("[%s] users to be removed: %+v", n, udel)
+					log.Debugf("[%s] users to be removed: %+v", nLogical, udel)
 
 					// run `setacl -x` command
 					if acl != "" {
 						cmd = fmt.Sprintf("setfacl -x %s %s", acl, coll.Path)
 						if err := repo.IcommandFileOut(cmd, ""); err != nil {
-							log.Errorf("[%s] fail setting acl: %s", n, err)
+							log.Errorf("[%s] fail setting acl: %s", nLogical, err)
 						} else {
 							// update uloc with users being removed from access.
 							for _, u := range udel {
@@ -316,8 +322,8 @@ var exportUpdateCmd = &cobra.Command{
 					for k := range uloc {
 						coll.ViewersRepo = append(coll.ViewersRepo, k)
 					}
-					log.Debugf("[%s] collExport: %+v", n, coll)
-					if err := vdb.set("cmap", n, &coll); err != nil {
+					log.Debugf("[%s] collExport: %+v", nLogical, coll)
+					if err := vdb.set("cmap", nPhysical, &coll); err != nil {
 						log.Errorf("[%s] cannot update viewerdb: %s", err)
 					}
 				}
