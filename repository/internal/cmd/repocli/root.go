@@ -2,6 +2,8 @@ package repocli
 
 import (
 	"os"
+	"os/user"
+	"path"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -21,7 +23,13 @@ var cfg log.Configuration
 var cli *dav.Client
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "config.yml", "`path` of the configuration YAML file.")
+
+	user, err := user.Current()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", path.Join(user.HomeDir, ".repocli.yml"), "`path` of the configuration YAML file.")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().IntVarP(&nthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
 	rootCmd.PersistentFlags().StringVarP(
