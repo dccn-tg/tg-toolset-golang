@@ -35,6 +35,8 @@ streamer:
   password: ""
 # configuration for managing repository data.
 repository:
+  username: ""
+  password: ""
   umap_domains:
     - ru.nl
     - umcn.nl

@@ -69,8 +69,23 @@ var rootCmd = &cobra.Command{
 			cfg.ConsoleLevel = log.Debug
 		}
 		log.NewLogger(cfg, log.InstanceLogrusLogger)
+
+		// load repo configuration
+		repoCfg := loadConfig().Repository
+
+		repoUser := repoCfg.Username
+		repoPass := repoCfg.Password
+
+		if cliUsername != "" {
+			repoUser = cliUsername
+		}
+
+		if cliPassword != "" {
+			repoPass = cliPassword
+		}
+
 		// load global webdav client object
-		cli = dav.NewClient(davBaseURL, cliUsername, cliPassword)
+		cli = dav.NewClient(davBaseURL, repoUser, repoPass)
 	},
 }
 

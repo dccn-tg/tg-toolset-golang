@@ -128,6 +128,9 @@ func chown(path string, args []string) error {
 	cmd := exec.Command("chown", append(args, path)...)
 
 	if isManager(path, caller.Username) {
+
+		log.Debugf("%s is a manager", caller.Username)
+
 		// get current user's linux capability
 		caps, err := getCaps()
 		if err != nil {
@@ -139,7 +142,7 @@ func chown(path string, args []string) error {
 		caps.data[0].permitted |= 1 << uint(capChown)
 		caps.data[0].inheritable |= 1 << uint(capChown)
 		if _, _, errno := syscall.Syscall(syscall.SYS_CAPSET, uintptr(unsafe.Pointer(&caps.hdr)), uintptr(unsafe.Pointer(&caps.data[0])), 0); errno != 0 {
-			return fmt.Errorf("cannot set CAP_FOWNER capability: %v", errno)
+			return fmt.Errorf("cannot set CAP_CHOWN capability: %v", errno)
 		}
 
 		// use CAP_CHOWN capability for syscall.
