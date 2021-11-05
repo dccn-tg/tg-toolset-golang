@@ -11,7 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.7.0
-	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
+	github.com/studio-b12/gowebdav v0.0.0-20210917133250-a3a86976a1df
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899

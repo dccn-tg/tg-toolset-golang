@@ -369,6 +369,8 @@ github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1 h1:TPyHV/OgChqNcnYqCoCvIFjR9TU60gFXXBKnhOBzVEI=
 github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1/go.mod h1:gCcfDlA1Y7GqOaeEKw5l9dOGx1VLdc/HuQSlQAaZ30s=
+github.com/studio-b12/gowebdav v0.0.0-20210917133250-a3a86976a1df h1:C+J/LwTqP8gRPt1MdSzBNZP0OYuDm5wsmDKgwpLjYzo=
+github.com/studio-b12/gowebdav v0.0.0-20210917133250-a3a86976a1df/go.mod h1:gCcfDlA1Y7GqOaeEKw5l9dOGx1VLdc/HuQSlQAaZ30s=
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/thoas/bokchoy v0.2.0/go.mod h1:XsxxUXst6/Qtn7PDkxm/KtVEZPw2Fkmbp+s02FGGum0=
