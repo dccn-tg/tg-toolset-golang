@@ -3,7 +3,7 @@ package repocli
 import (
 	"os"
 	"os/user"
-	"path"
+	"path/filepath"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -29,7 +29,7 @@ func init() {
 		log.Fatalf(err.Error())
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", path.Join(user.HomeDir, ".repocli.yml"), "`path` of the configuration YAML file.")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", filepath.Join(user.HomeDir, ".repocli.yml"), "`path` of the configuration YAML file.")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().IntVarP(&nthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
 	rootCmd.PersistentFlags().StringVarP(

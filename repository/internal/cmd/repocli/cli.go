@@ -2,15 +2,28 @@ package repocli
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/spf13/cobra"
+
+	pb "github.com/schollz/progressbar/v3"
 )
+
+// pathFileInfo is an internal data structure containing the absolute `path`
+// and the `fs.FileInfo` of a given file.
+type pathFileInfo struct {
+	path string
+	info fs.FileInfo
+}
 
 // current working directory
 var cwd string = "/"
@@ -55,21 +68,22 @@ func initDataDir() error {
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 
-	// unsure the presence of `dataDir`
+	// ensure the presence of `dataDir`
 	os.MkdirAll(dataDir, 0644)
 
 	return nil
 }
 
-// command to change directory within the repository.
+// command to change directory in the repository.
+// At the moment, this command makes no sense as the current directory is not persistent.
 var cdCmd = &cobra.Command{
-	Use:   "cd [object|collection]",
-	Short: "change directory within the repository",
+	Use:   "cd [directory]]",
+	Short: "change directory in the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		p := getCleanPath(args[0])
+		p := getCleanRepoPath(args[0])
 
 		// stat the path to check if the path is a valid directory
 		if f, err := cli.Stat(p); err != nil || !f.IsDir() {
@@ -82,17 +96,17 @@ var cdCmd = &cobra.Command{
 	},
 }
 
-// command to list a file or the content of a directory within the repository.
+// command to list a file or the content of a directory in the repository.
 var lsCmd = &cobra.Command{
-	Use:   "ls [object|collection]",
-	Short: "list a file or the content of a directory within the repository",
+	Use:   "ls [file|directory]",
+	Short: "list a file or the content of a directory in the repository",
 	Long:  ``,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		p := cwd
 		if len(args) == 1 {
-			p = getCleanPath(args[0])
+			p = getCleanRepoPath(args[0])
 		}
 
 		// check path state
@@ -114,7 +128,7 @@ var lsCmd = &cobra.Command{
 		}
 		fmt.Printf("%s:\n", p)
 		for _, f := range files {
-			fmt.Printf("%11s %12d %s\n", f.Mode(), f.Size(), filepath.Join(p, f.Name()))
+			fmt.Printf("%11s %12d %s\n", f.Mode(), f.Size(), path.Join(p, f.Name()))
 		}
 		return nil
 	},
@@ -122,32 +136,81 @@ var lsCmd = &cobra.Command{
 
 var putCmd = &cobra.Command{
 	Use:   "put [file|directory] [directory]",
-	Short: "upload a local file or a local directory into a directory within the repository",
+	Short: "upload a local file or a local directory into a repository directory",
 	Long:  ``,
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return fmt.Errorf("not implemented")
+
+		// resolve into absolute path at local
+		lfpath, err := filepath.Abs(args[0])
+		if err != nil {
+			return nil
+		}
+
+		// get local path's FileInfo
+		lfinfo, err := os.Stat(lfpath)
+		if err != nil {
+			return err
+		}
+		if lfinfo.IsDir() {
+			return fmt.Errorf("put directory not implemented")
+		}
+
+		// construct filepath at repository
+		pfinfoRepo := pathFileInfo{
+			path: path.Join(getCleanRepoPath(args[1]), lfinfo.Name()),
+		}
+
+		// a file
+		pfinfoLocal := pathFileInfo{
+			path: lfpath,
+			info: lfinfo,
+		}
+		return putRepoFile(pfinfoLocal, pfinfoRepo, true)
 	},
 }
 
 var getCmd = &cobra.Command{
 	Use:   "get [file|directory]",
-	Short: "download a file or a directory within the repository into the local current working directory",
+	Short: "download a file or a directory within the repository into the current directory at local",
 	Long:  ``,
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return fmt.Errorf("not implemented")
+
+		p := getCleanRepoPath(args[0])
+
+		f, err := cli.Stat(p)
+		if err != nil {
+			return err
+		}
+
+		pfinfoRepo := pathFileInfo{
+			path: p,
+			info: f,
+		}
+
+		lcwd, _ := os.Getwd()
+
+		if f.IsDir() {
+			return fmt.Errorf("get directory not implemented")
+		}
+
+		// a file
+		pfinfoLocal := pathFileInfo{
+			path: filepath.Join(lcwd, filepath.Base(args[0])),
+		}
+		return getRepoFile(pfinfoRepo, pfinfoLocal, true)
 	},
 }
 
 var rmCmd = &cobra.Command{
-	Use:   "rm [object|collection]",
+	Use:   "rm [file|directory]",
 	Short: "remove a file or a directory from the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		p := getCleanPath(args[0])
+		p := getCleanRepoPath(args[0])
 
 		f, err := cli.Stat(p)
 		if err != nil {
@@ -165,22 +228,110 @@ var rmCmd = &cobra.Command{
 }
 
 var mkdirCmd = &cobra.Command{
-	Use:   "mkdir [collection]",
+	Use:   "mkdir [directory]",
 	Short: "create new directory in the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return cli.MkdirAll(args[0], 0664)
+		return cli.MkdirAll(getCleanRepoPath(args[0]), 0664)
 	},
 }
 
-// getCleanPath resolves provided path into a clean absolute path taking into account
+// getCleanRepoPath resolves provided path into a clean absolute path taking into account
 // the `cwd`.
-func getCleanPath(path string) string {
-	if filepath.IsAbs(path) {
-		return filepath.Clean(path)
+func getCleanRepoPath(p string) string {
+	if strings.HasPrefix(p, "/") {
+		return path.Clean(p)
 	}
-	return filepath.Clean(filepath.Join(cwd, path))
+	return path.Join(cwd, p)
+}
+
+// putRepoFile uploads a single local file to the repository.
+func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error {
+
+	// open pathLocal
+	reader, err := os.Open(pfinfoLocal.path)
+	if err != nil {
+		return fmt.Errorf("cannot open local file: %s", err)
+	}
+	defer reader.Close()
+
+	// progress bar
+	bar := pb.DefaultBytesSilent(pfinfoLocal.info.Size(), pfinfoLocal.info.Name())
+	if showProgress {
+		bar = pb.DefaultBytes(pfinfoLocal.info.Size(), pfinfoLocal.info.Name())
+	}
+
+	// read pathRepo and write to pathLocal, the mode is not actually useful (!?)
+	err = cli.WriteStream(pfinfoRepo.path, reader, pfinfoLocal.info.Mode())
+	if err != nil {
+		return fmt.Errorf("cannot write %s to the repository: %s", pfinfoRepo.path, err)
+	}
+
+	// file size check after upload
+	f, err := cli.Stat(pfinfoRepo.path)
+	if err != nil {
+		return fmt.Errorf("cannot stat %s at the repository: %s", pfinfoRepo.path, err)
+	}
+
+	if f.Size() != pfinfoLocal.info.Size() {
+		return fmt.Errorf("file size %s mis-match: %d != %d", pfinfoRepo.path, f.Size(), pfinfoLocal.info.Size())
+	}
+
+	// TODO: this jumps from 0% to 100% ... not ideal but there is no way with to get upload progression with the webdav client library
+	bar.Add64(f.Size())
+
+	return nil
+}
+
+// getRepoFile downloads a single file from the repository to a local file.
+// The `pathRepo` and `pathLocal` should be in form of the absolute path.
+func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error {
+
+	// open pathLocal
+	fileLocal, err := os.OpenFile(pfinfoLocal.path, os.O_WRONLY|os.O_CREATE, pfinfoRepo.info.Mode())
+	if err != nil {
+		return fmt.Errorf("cannot create/write local file: %s", err)
+	}
+	defer fileLocal.Close()
+
+	// progress bar
+	bar := pb.DefaultBytesSilent(pfinfoRepo.info.Size(), filepath.Base(pfinfoRepo.path))
+	if showProgress {
+		bar = pb.DefaultBytes(pfinfoRepo.info.Size(), filepath.Base(pfinfoRepo.path))
+	}
+
+	// multiwriter: destination local file, and progress bar
+	writer := io.MultiWriter(fileLocal, bar)
+
+	// read pathRepo and write to pathLocal
+	reader, err := cli.ReadStream(pfinfoRepo.path)
+	if err != nil {
+		return fmt.Errorf("cannot open file in repository: %s", err)
+	}
+	defer reader.Close()
+
+	buffer := make([]byte, 4*1024*1024) // 4MiB buffer
+
+	for {
+		// read content to buffer
+		rlen, rerr := reader.Read(buffer)
+		log.Debugf("read %d", rlen)
+		if rerr != nil && rerr != io.EOF {
+			return fmt.Errorf("failure reading data from %s: %s", pfinfoRepo.path, rerr)
+		}
+		wlen, werr := writer.Write(buffer[:rlen])
+		if werr != nil {
+			return fmt.Errorf("failure writing data to %s: %s", pfinfoLocal.path, err)
+		}
+		log.Debugf("write %d", wlen)
+
+		if rerr == io.EOF {
+			break
+		}
+	}
+
+	return nil
 }
 
 // rmRepoDir removes the directory `path` from the repository recursively.
