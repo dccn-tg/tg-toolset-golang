@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/spf13/cobra"
@@ -184,21 +185,24 @@ var getCmd = &cobra.Command{
 			return err
 		}
 
+		// repo pathInfo
 		pfinfoRepo := pathFileInfo{
 			path: p,
 			info: f,
 		}
 
+		// local pathInfo
 		lcwd, _ := os.Getwd()
-
-		if f.IsDir() {
-			return fmt.Errorf("get directory not implemented")
-		}
-
-		// a file
 		pfinfoLocal := pathFileInfo{
 			path: filepath.Join(lcwd, filepath.Base(args[0])),
 		}
+
+		// download recursively
+		if f.IsDir() {
+			return getRepoDir(pfinfoRepo, pfinfoLocal, true)
+		}
+
+		// download single file
 		return getRepoFile(pfinfoRepo, pfinfoLocal, true)
 	},
 }
@@ -257,9 +261,10 @@ func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error 
 	defer reader.Close()
 
 	// progress bar
-	bar := pb.DefaultBytesSilent(pfinfoLocal.info.Size(), pfinfoLocal.info.Name())
+	barDesc := prettifyProgressbarDesc(pfinfoLocal.info.Name())
+	bar := pb.DefaultBytesSilent(pfinfoLocal.info.Size(), barDesc)
 	if showProgress {
-		bar = pb.DefaultBytes(pfinfoLocal.info.Size(), pfinfoLocal.info.Name())
+		bar = pb.DefaultBytes(pfinfoLocal.info.Size(), barDesc)
 	}
 
 	// read pathRepo and write to pathLocal, the mode is not actually useful (!?)
@@ -284,8 +289,100 @@ func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error 
 	return nil
 }
 
+// getRepoDir downloads a directory from the repository recusively.
+func getRepoDir(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error {
+
+	// read the entire content of the dir
+	files, err := cli.ReadDir(pfinfoRepo.path)
+	if err != nil {
+		return err
+	}
+
+	// channel for getting files concurrently.
+	fchan := make(chan pathFileInfo)
+
+	// initalize concurrent workers
+	var wg sync.WaitGroup
+	nworkers := 4
+	// counter for file deletion error by worker
+	cntErrFiles := make([]int, nworkers)
+	for i := 0; i < nworkers; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for finfo := range fchan {
+
+				// local file path
+				_pfinfoLocal := pathFileInfo{
+					path: filepath.Join(pfinfoLocal.path, path.Base(finfo.path)),
+				}
+
+				log.Debugf("getting %s to %s ...", finfo.path, _pfinfoLocal.path)
+				if err := getRepoFile(finfo, _pfinfoLocal, showProgress); err != nil {
+					log.Errorf("fail getting file: %s", finfo.path)
+					cntErrFiles[id]++
+				}
+			}
+		}(i)
+	}
+
+	// counter for overall getting errors
+	cntErr := 0
+	// loop over content
+	for _, finfo := range files {
+		p := path.Join(pfinfoRepo.path, finfo.Name())
+		if finfo.IsDir() {
+
+			// repo dir pathInfo
+			_pfinfoRepo := pathFileInfo{
+				path: p,
+				info: finfo,
+			}
+			// local dir pathInfo
+			_pfinfoLocal := pathFileInfo{
+				path: filepath.Join(pfinfoLocal.path, finfo.Name()),
+			}
+
+			if err := os.MkdirAll(_pfinfoLocal.path, _pfinfoRepo.info.Mode()); err != nil {
+				log.Errorf("fail creating local dir %s: %s", _pfinfoLocal.path, err)
+				cntErr++
+				continue
+			}
+
+			if err := getRepoDir(_pfinfoRepo, _pfinfoLocal, showProgress); err != nil {
+				log.Errorf("fail get subdir %s: %s", p, err)
+				cntErr++
+			}
+		} else {
+			fchan <- pathFileInfo{
+				path: p,
+				info: finfo,
+			}
+		}
+	}
+
+	// close fchan to release workers
+	close(fchan)
+
+	// wait for workers to be released
+	wg.Wait()
+
+	// update overall deletion errors with error counts from workers
+	for i := 0; i < nworkers; i++ {
+		cntErr += cntErrFiles[i]
+	}
+
+	if cntErr > 0 {
+		return fmt.Errorf("%d files/subdirs not downloaded", cntErr)
+	}
+
+	// remove the directory itself
+	log.Debugf("getting %s ...", pfinfoRepo.path)
+
+	return nil
+}
+
 // getRepoFile downloads a single file from the repository to a local file.
-// The `pathRepo` and `pathLocal` should be in form of the absolute path.
 func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error {
 
 	// open pathLocal
@@ -296,9 +393,10 @@ func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error 
 	defer fileLocal.Close()
 
 	// progress bar
-	bar := pb.DefaultBytesSilent(pfinfoRepo.info.Size(), filepath.Base(pfinfoRepo.path))
+	barDesc := prettifyProgressbarDesc(pfinfoRepo.info.Name())
+	bar := pb.DefaultBytesSilent(pfinfoRepo.info.Size(), barDesc)
 	if showProgress {
-		bar = pb.DefaultBytes(pfinfoRepo.info.Size(), filepath.Base(pfinfoRepo.path))
+		bar = pb.DefaultBytes(pfinfoRepo.info.Size(), barDesc)
 	}
 
 	// multiwriter: destination local file, and progress bar
@@ -335,20 +433,20 @@ func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error 
 }
 
 // rmRepoDir removes the directory `path` from the repository recursively.
-func rmRepoDir(path string, recursive bool) error {
+func rmRepoDir(repoPath string, recursive bool) error {
 
-	if !filepath.IsAbs(path) {
-		return fmt.Errorf("not an absolute path: %s", path)
+	if !filepath.IsAbs(repoPath) {
+		return fmt.Errorf("not an absolute path: %s", repoPath)
 	}
 
 	// read the entire content of the dir
-	files, err := cli.ReadDir(path)
+	files, err := cli.ReadDir(repoPath)
 	if err != nil {
 		return err
 	}
 
 	if len(files) > 0 && !recursive {
-		return fmt.Errorf("directory not empty: %s", path)
+		return fmt.Errorf("directory not empty: %s", repoPath)
 	}
 
 	// channel for deleting files concurrently.
@@ -377,7 +475,7 @@ func rmRepoDir(path string, recursive bool) error {
 	cntErr := 0
 	// loop over content
 	for _, f := range files {
-		p := filepath.Join(path, f.Name())
+		p := path.Join(repoPath, f.Name())
 		if f.IsDir() {
 			if err := rmRepoDir(p, recursive); err != nil {
 				log.Errorf("fail removing subdir %s: %s", p, err)
@@ -404,6 +502,20 @@ func rmRepoDir(path string, recursive bool) error {
 	}
 
 	// remove the directory itself
-	log.Debugf("removing %s ...", path)
-	return cli.Remove(path)
+	log.Debugf("removing %s ...", repoPath)
+	return cli.Remove(repoPath)
+}
+
+// prettifyProgressbarDesc returns a shortened description string up to 15 UTF-8 characters.
+func prettifyProgressbarDesc(origin string) string {
+
+	maxLen := 33
+
+	if utf8.RuneCountInString(origin) <= maxLen {
+		return fmt.Sprintf("%-33s", origin)
+	}
+
+	chars := []rune(origin)
+
+	return fmt.Sprintf("%-15s...%-15s", string(chars[:15]), string(chars[len(origin)-15:]))
 }
