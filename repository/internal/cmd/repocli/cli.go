@@ -30,6 +30,7 @@ type pathFileInfo struct {
 var cwd string = "/"
 var dataDir string
 var recursive bool
+var overwrite bool
 
 func init() {
 
@@ -38,8 +39,9 @@ func init() {
 	}
 
 	rmCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "remove directory recursively")
+	mvCmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
 
-	rootCmd.AddCommand(lsCmd, putCmd, getCmd, rmCmd, mkdirCmd)
+	rootCmd.AddCommand(lsCmd, putCmd, getCmd, rmCmd, mvCmd, mkdirCmd)
 }
 
 // initDataDir determines `dataDir` location and ensures the presence of it.
@@ -78,8 +80,8 @@ func initDataDir() error {
 // command to change directory in the repository.
 // At the moment, this command makes no sense as the current directory is not persistent.
 var cdCmd = &cobra.Command{
-	Use:   "cd [directory]]",
-	Short: "change directory in the repository",
+	Use:   "cd <repo_directory>",
+	Short: "Change directory in the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -99,8 +101,8 @@ var cdCmd = &cobra.Command{
 
 // command to list a file or the content of a directory in the repository.
 var lsCmd = &cobra.Command{
-	Use:   "ls [file|directory]",
-	Short: "list a file or the content of a directory in the repository",
+	Use:   "ls <repo_file|repo_directory>",
+	Short: "List a file or the content of a directory in the repository",
 	Long:  ``,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -136,8 +138,8 @@ var lsCmd = &cobra.Command{
 }
 
 var putCmd = &cobra.Command{
-	Use:   "put [file|directory] [directory]",
-	Short: "upload a local file or a local directory into a repository directory",
+	Use:   "put <local_file|local_directory> <repo_directory>",
+	Short: "Upload a file or a directory at local into a repository directory",
 	Long:  ``,
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -172,8 +174,8 @@ var putCmd = &cobra.Command{
 }
 
 var getCmd = &cobra.Command{
-	Use:   "get [file|directory]",
-	Short: "download a file or a directory within the repository into the current directory at local",
+	Use:   "get <repo_file|repo_directory>",
+	Short: "Download a file or a directory from the repository to the current working directory at local",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -207,9 +209,40 @@ var getCmd = &cobra.Command{
 	},
 }
 
+var mvCmd = &cobra.Command{
+	Use:   "mv <repo_file|repo_directory> <repo_file|repo_directory>",
+	Short: "Move or rename a file or directory in the repository",
+	Long:  ``,
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		src := getCleanRepoPath(args[0])
+		dst := getCleanRepoPath(args[1])
+
+		// source must exists
+		fsrc, err := cli.Stat(src)
+		if err != nil {
+			return err
+		}
+
+		// if the source (1st argument) is a file.
+		if !fsrc.IsDir() {
+			return mvRepoFile(pathFileInfo{
+				path: src,
+				info: fsrc,
+			}, dst, overwrite)
+		}
+
+		return mvRepoDir(pathFileInfo{
+			path: src,
+			info: fsrc,
+		}, dst, overwrite)
+	},
+}
+
 var rmCmd = &cobra.Command{
-	Use:   "rm [file|directory]",
-	Short: "remove a file or a directory from the repository",
+	Use:   "rm <file_repo|directory_repo>",
+	Short: "Remove a file or a directory from the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -232,8 +265,8 @@ var rmCmd = &cobra.Command{
 }
 
 var mkdirCmd = &cobra.Command{
-	Use:   "mkdir [directory]",
-	Short: "create new directory in the repository",
+	Use:   "mkdir <repo_directory>",
+	Short: "Create a new directory in the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -430,6 +463,122 @@ func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error 
 	}
 
 	return nil
+}
+
+// mvRepoDir moves directory from `src` to `dst` recursively.
+//
+// If the `dst` exists and is a directory, the entire `src` is moved into the `dst`.
+//
+// If the `dst` does not exist, the `src` is renamed to `dst`.
+func mvRepoDir(src pathFileInfo, dst string, overwrite bool) error {
+
+	// read the entire content of the source directory
+	files, err := cli.ReadDir(src.path)
+	if err != nil {
+		return err
+	}
+
+	if finfo, err := cli.Stat(dst); err == nil && finfo.IsDir() {
+		dst = path.Join(dst, path.Base(src.path))
+	}
+
+	// make attempt to create all parent directories of the destination.
+	cli.MkdirAll(dst, 0664)
+
+	// channel for getting files concurrently.
+	fchan := make(chan pathFileInfo)
+
+	// initalize concurrent workers
+	var wg sync.WaitGroup
+	nworkers := 4
+	// counter for file deletion error by worker
+	cntErrFiles := make([]int, nworkers)
+	for i := 0; i < nworkers; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for finfo := range fchan {
+				if err := mvRepoFile(finfo, path.Join(dst, finfo.info.Name()), overwrite); err != nil {
+					log.Errorf("%s", err)
+					cntErrFiles[id]++
+				}
+			}
+		}(i)
+	}
+
+	// counter for overall getting errors
+	cntErr := 0
+	// loop over content
+	for _, finfo := range files {
+		psrc := path.Join(src.path, finfo.Name())
+		pdst := path.Join(dst, path.Base(finfo.Name()))
+		if finfo.IsDir() {
+
+			// repo dir pathInfo
+			_pfinfoSrc := pathFileInfo{
+				path: psrc,
+				info: finfo,
+			}
+
+			log.Debugf("moving dir %s to %s", psrc, pdst)
+			if err := mvRepoDir(_pfinfoSrc, pdst, overwrite); err != nil {
+				log.Errorf("fail moving %s to %s: %s", psrc, pdst, err)
+				cntErr++
+			}
+		} else {
+			fchan <- pathFileInfo{
+				path: psrc,
+				info: finfo,
+			}
+		}
+	}
+
+	// close fchan to release workers
+	close(fchan)
+
+	// wait for workers to be released
+	wg.Wait()
+
+	// update overall deletion errors with error counts from workers
+	for i := 0; i < nworkers; i++ {
+		cntErr += cntErrFiles[i]
+	}
+
+	if cntErr > 0 {
+		return fmt.Errorf("%d files/subdirs not moved", cntErr)
+	}
+
+	if src.info.IsDir() {
+		// remove the moved directory
+		if err := cli.Remove(src.path); err != nil {
+			log.Errorf("fail removing %s: %s", src.path, err)
+		}
+	}
+
+	return nil
+}
+
+// mvRepoFile moves file `src` to `dst`.
+//
+// If `dst` exists and is a directory, the `src` is moved into the `dst`.
+//
+// If `dst` exists and is a file, it returns error unless the `overwrite` flag is set to `true`.
+//
+// If `dst` doesn't exist, the `src` is renamed to `dst`.
+func mvRepoFile(src pathFileInfo, dst string, overwrite bool) error {
+	// if the source (1st argument) is a file.
+	if src.info.IsDir() {
+		return fmt.Errorf("%s not a file", src.path)
+	}
+
+	// if the destination specified is an existing directory,
+	// the `src` is moved into the `dst` with the same file name.
+	if fdst, err := cli.Stat(dst); err == nil && fdst.IsDir() {
+		dst = getCleanRepoPath(path.Join(dst, path.Base(src.path)))
+	}
+
+	log.Infof("moving %s to %s", src.path, dst)
+	return cli.Rename(src.path, dst, overwrite)
 }
 
 // rmRepoDir removes the directory `path` from the repository recursively.
