@@ -17,8 +17,8 @@ Currently, the whole package is divided into three major parts, each provides a 
   * [prj_mine](project/cmd/prj_mine): a CLI for retrieving the current user's data-access roles in all projects.
   * [pdbutil](project/cmd/pdbutil): a project database utility for performing actions such as provisioning storage resource or changing storage quota of project.
 - [repository](repository) contains tools and libraries for repository data management.
-  * [repoadm](repository/cmd/repoadm): administrator's CLI for manage the Donders Repository collections.
-  * [repocli](repository/cmd/repocli): user's CLI for managing the Donders Repository collections.
+  * [repoadm](repository/cmd/repoadm): administrator's CLI for managing the Donders Repository collections, using the iROD's iCommands.
+  * [repocli](repository/cmd/repocli): cross-platform user CLI for managing data in the Donders Repository, using the WebDAV interface.
 - [metrics](metrics) contains tools and libraries for collecting metrics.
   * [hpc-metrics-appusage-collector](metrics/cmd/hpc-metrics-appusage-collector): a daemon collects count on `module load` on HPC into Prometheus metrics. See [README](metrics/cmd/hpc-metrics-appusage-collector/README.md) for more detail.
  
@@ -27,9 +27,9 @@ Various CLIs take a YAML-based configuration file (via the `-c` option) for sett
 Most of the re-usable libraries are written to support the CLI tools listed above.  Those libraries are organised in various `pkg` directories:
 
 - [pkg](pkg): common libraries shared between the sub-modules.
-- [dataflow/pkg](dataflow/pkg): libraries used/introduced specifically for the development of the MEG/MRI dataflow management.
-- [project/pkg](project/pkg): libraries used/introduced specifically for the development of the project management.
-- [repository/pkg](repository/pkg): libraries used/introduced specifically for the development of the repository data management.
+- [dataflow/pkg](dataflow/pkg): libraries for the CLI tools of the MEG/MRI dataflow management.
+- [project/pkg](project/pkg): libraries for the CLI tools of the project management.
+- [repository/pkg](repository/pkg): libraries for the CLI tools of the repository data management.
 
 ## Build
 
