@@ -97,7 +97,7 @@ You may now access the storage via the following paths:
 	
 For managing data access permission for project collaborators, please follow the guide:
 	
-    http://dccn-hpc-wiki.readthedocs.io/en/latest/docs/project_storage/access_management.html
+    http://hpc.dccn.nl/docs/project_storage/access_management.html
 	
 For more information about the project storage, please refer to the intranet page:
 	
