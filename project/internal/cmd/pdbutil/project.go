@@ -158,7 +158,7 @@ var projectUpdateMembersCmd = &cobra.Command{
 		ipdb := loadPdb()
 		conf := loadConfig()
 
-		projects, err := ipdb.GetProjects(true)
+		projects, err := ipdb.GetProjects(false)
 		if err != nil {
 			return err
 		}
