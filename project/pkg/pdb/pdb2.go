@@ -101,6 +101,15 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 	return bookings, nil
 }
 
+// GetExperimentersForSharedAnatomicalMR retrieves a list of experimenters that are
+// allowed to access to the shared anatomical MR data at this moment.
+//
+// Those are experiments of projects that are conducting data acquisition using the
+// EEG and MEG modalities.
+func (v2 V2) GetExperimentersForSharedAnatomicalMR() ([]*User, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // getProjectStorageResource retrieves the storage resource of a given project.
 func getProjectStorageResource(conf config.CoreAPIConfiguration, projectID string) (*Storage, error) {
 	var stor Storage

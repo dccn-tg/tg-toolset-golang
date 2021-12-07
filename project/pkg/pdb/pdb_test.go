@@ -51,6 +51,17 @@ func TestGetProjectPendingActions(t *testing.T) {
 	t.Logf("pending actions: %+v\n", acts)
 }
 
+func TestGetExperimentersForSharedAnatomicalMR(t *testing.T) {
+	users, err := testPDB.GetExperimentersForSharedAnatomicalMR()
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	t.Logf("%d experimenters: \n", len(users))
+	for _, u := range users {
+		t.Logf("%+v\n", u)
+	}
+}
+
 // func TestDelProjectPendingActions(t *testing.T) {
 // 	// get pending actions
 // 	acts, err := testPDB.GetProjectPendingActions()

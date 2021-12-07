@@ -450,6 +450,76 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 	return bookings, nil
 }
 
+// GetExperimentersForSharedAnatomicalMR retrieves a list of experimenters that are
+// allowed to access to the shared anatomical MR data at this moment.
+//
+// Those are experiments of projects that are conducting data acquisition using the
+// EEG and MEG modalities.
+func (v1 V1) GetExperimentersForSharedAnatomicalMR() ([]*User, error) {
+	db, err := newClientMySQL(v1.config)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	query := `
+	SELECT
+    	DISTINCT id,firstName,middleName,lastName,email,function,status
+	FROM
+    	users
+	WHERE
+		id IN (
+			SELECT 
+				experimenter_id
+			FROM 
+				experiments
+			WHERE 
+				imaging_method_id IN ('eeg','meg151','meg275') AND
+				date_sub(startingDate, interval 3 month) < now() AND
+				date_add(endingDate, interval 3 month) > now()
+		) AND
+		status IN ('checked in','checked out extended')
+	GROUP BY id;
+	`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	experimenters := make([]*User, 0)
+
+	for rows.Next() {
+
+		var (
+			id         string
+			firstname  string
+			middlename string
+			lastname   string
+			email      string
+			function   string
+			status     string
+		)
+
+		if err := rows.Scan(&id, &firstname, &middlename, &lastname, &email, &function, &status); err != nil {
+			return nil, err
+		}
+
+		experimenters = append(experimenters, &User{
+			ID:         id,
+			Firstname:  firstname,
+			Middlename: middlename,
+			Lastname:   lastname,
+			Email:      email,
+			Function:   parseUserFunction(function),
+			Status:     parseUserStatus(status),
+		})
+	}
+
+	return experimenters, nil
+}
+
 // newClientMySQL establishes the MySQL client connection with the configuration.
 func newClientMySQL(config config.DBConfiguration) (*sql.DB, error) {
 	mycfg := mysql.Config{

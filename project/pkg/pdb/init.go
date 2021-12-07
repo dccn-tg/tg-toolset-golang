@@ -42,4 +42,5 @@ type PDB interface {
 	GetProject(projectID string) (*Project, error)
 	GetUserByEmail(email string) (*User, error)
 	GetLabBookings(lab Lab, date string) ([]*LabBooking, error)
+	GetExperimentersForSharedAnatomicalMR() ([]*User, error)
 }
