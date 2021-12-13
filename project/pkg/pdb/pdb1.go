@@ -635,6 +635,7 @@ func updateQuota(db *sql.DB, project string, quotaGB, usageGB int) error {
 	}
 	defer stmt.Close()
 
+	log.Debugf("Updating quota of project %s, total: %d, usage: %d", project, quotaGB, usageGB)
 	_, err = stmt.Exec(quotaGB, usageGB, project)
 
 	return err
