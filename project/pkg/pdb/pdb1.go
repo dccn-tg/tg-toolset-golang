@@ -319,6 +319,18 @@ func (v1 V1) UpdateProjectMembers(project string, members []Member) error {
 	return updateProjectRoles(db, project, members)
 }
 
+// UpdateProjectStorageUsage updates the project database with the current project storage usage.
+func (v1 V1) UpdateProjectStorageUsage(project string, usageGB int) error {
+
+	db, err := newClientMySQL(v1.config)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	return updateProjectStorageUsage(db, project, usageGB)
+}
+
 // GetUser gets the user identified by the given uid in the project database.
 // It returns the pointer to the user data represented in the User data structure.
 func (v1 V1) GetUser(uid string) (*User, error) {
@@ -535,7 +547,7 @@ func newClientMySQL(config config.DBConfiguration) (*sql.DB, error) {
 	return sql.Open("mysql", mycfg.FormatDSN())
 }
 
-// UpdateProjectRoles updates the registry of the data-access roles of the given project
+// updateProjectRoles updates the registry of the data-access roles of the given project
 // in the project database, according to the roles provided as a acl.RoleMap.
 func updateProjectRoles(db *sql.DB, project string, members []Member) error {
 
@@ -597,6 +609,33 @@ func updateProjectRoles(db *sql.DB, project string, members []Member) error {
 			return err
 		}
 	}
+
+	return err
+}
+
+// updateProjectStorageUsage updates current quota usage of the given project.
+func updateProjectStorageUsage(db *sql.DB, project string, usageGB int) error {
+
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("PDB not connected")
+	}
+
+	query := `
+		UPDATE
+			projects
+		SET
+			usedProjectSpace=?
+		WHERE
+			project_id=?
+	`
+
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(project, usageGB)
 
 	return err
 }

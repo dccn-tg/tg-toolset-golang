@@ -86,10 +86,8 @@ func init() {
 	projectCmd.PersistentFlags().BoolVarP(&useNetappCLI, "netapp-cli", "", false,
 		"use NetApp ONTAP CLI to apply changes on the NetApp filer. Only applicable for the netapp storage system.")
 
-	projectUpdateMembersCmd.Flags().BoolVarP(&activeProjectOnly, "active-only", "a", false,
-		"only update members on the active projects")
-
-	projectUpdateCmd.AddCommand(projectUpdateMembersCmd)
+	projectUpdateCmd.Flags().BoolVarP(&activeProjectOnly, "active-only", "a", false,
+		"update only the active projects")
 
 	projectAlertOoqCmd.PersistentFlags().StringVarP(&alertDbPath, "dbpath", "", "alert.db",
 		"`path` of the internal alert history database")
@@ -143,17 +141,32 @@ var projectCreateCmd = &cobra.Command{
 	},
 }
 
-var projectUpdateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Updates project attributes in the project database",
-	Long:  ``,
+// var projectUpdateCmd = &cobra.Command{
+// 	Use:   "update",
+// 	Short: "Updates project attributes in the project database",
+// 	Long:  ``,
+// }
+
+// temporary function to combine checks on multiple `cobra.PositionalArgs`.
+// NOTE: this will be replaced by an official cobra function `MatchAll` in the future.
+//       see https://github.com/spf13/cobra/issues/745
+func matchAll(checks ...cobra.PositionalArgs) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		for _, check := range checks {
+			if err := check(cmd, args); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 }
 
-var projectUpdateMembersCmd = &cobra.Command{
-	Use:   "members",
-	Short: "Updates project members with access roles in the project storage",
-	Long:  ``,
-	Args:  cobra.NoArgs,
+var projectUpdateCmd = &cobra.Command{
+	Use:       "update [members] [usage]",
+	Short:     "Updates project attributes with values from the project storage",
+	Long:      ``,
+	ValidArgs: []string{"members", "usage"},
+	Args:      matchAll(cobra.OnlyValidArgs, cobra.MinimumNArgs(1)),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ipdb := loadPdb()
 		conf := loadConfig()
@@ -163,12 +176,17 @@ var projectUpdateMembersCmd = &cobra.Command{
 			return err
 		}
 
-		log.Debugf("updating members for %d projects", len(projects))
+		log.Debugf("updating %s for %d projects", args, len(projects))
 
 		// initialize filergateway client
 		fgw, err := filergateway.NewClient(conf)
 		if err != nil {
 			return err
+		}
+
+		opts := make(map[string]bool, len(args))
+		for _, o := range args {
+			opts[o] = true
 		}
 
 		// perform pending actions with 4 concurrent workers,
@@ -190,11 +208,18 @@ var projectUpdateMembersCmd = &cobra.Command{
 
 					// update project database only for pdb V1.
 					if v1, ok := ipdb.(pdb.V1); ok {
-						if err := v1.UpdateProjectMembers(pid, info.Members); err != nil {
-							log.Errorf("[%s] cannot update members in pdb: %s", pid, err)
+						if _, m := opts["members"]; m {
+							if err := v1.UpdateProjectMembers(pid, info.Members); err != nil {
+								log.Errorf("[%s] cannot update members in pdb: %s", pid, err)
+							}
+						}
+						if _, u := opts["usage"]; u {
+							if err := v1.UpdateProjectStorageUsage(pid, info.Storage.UsageMb>>10); err != nil {
+								log.Errorf("[%s] cannot update storage usage in pdb: %s", pid, err)
+							}
 						}
 					} else {
-						log.Warnf("[%s] not pdb V1: skip updating members.")
+						log.Warnf("[%s] not pdb V1: skip update.", pid)
 					}
 				}
 			}()
