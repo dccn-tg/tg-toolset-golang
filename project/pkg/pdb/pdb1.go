@@ -626,7 +626,7 @@ func updateProjectStorageUsage(db *sql.DB, project string, usageGB int) error {
 		SET
 			usedProjectSpace=?
 		WHERE
-			project_id=?
+			id=?
 	`
 
 	stmt, err := db.Prepare(query)
@@ -635,7 +635,7 @@ func updateProjectStorageUsage(db *sql.DB, project string, usageGB int) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(project, usageGB)
+	_, err = stmt.Exec(usageGB, project)
 
 	return err
 }
