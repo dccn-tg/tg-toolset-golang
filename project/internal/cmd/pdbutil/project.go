@@ -162,10 +162,10 @@ func matchAll(checks ...cobra.PositionalArgs) cobra.PositionalArgs {
 }
 
 var projectUpdateCmd = &cobra.Command{
-	Use:       "update [members] [usage]",
+	Use:       "update [members] [quota]",
 	Short:     "Updates project attributes with values from the project storage",
 	Long:      ``,
-	ValidArgs: []string{"members", "usage"},
+	ValidArgs: []string{"members", "quota"},
 	Args:      matchAll(cobra.OnlyValidArgs, cobra.MinimumNArgs(1)),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ipdb := loadPdb()
@@ -184,9 +184,9 @@ var projectUpdateCmd = &cobra.Command{
 			return err
 		}
 
-		opts := make(map[string]bool, len(args))
+		opts := make(map[string]struct{}, len(args))
 		for _, o := range args {
-			opts[o] = true
+			opts[o] = struct{}{}
 		}
 
 		// perform pending actions with 4 concurrent workers,
@@ -208,13 +208,13 @@ var projectUpdateCmd = &cobra.Command{
 
 					// update project database only for pdb V1.
 					if v1, ok := ipdb.(pdb.V1); ok {
-						if _, m := opts["members"]; m {
+						if _, x := opts["members"]; x {
 							if err := v1.UpdateProjectMembers(pid, info.Members); err != nil {
 								log.Errorf("[%s] cannot update members in pdb: %s", pid, err)
 							}
 						}
-						if _, u := opts["usage"]; u {
-							if err := v1.UpdateProjectStorageUsage(pid, info.Storage.UsageMb>>10); err != nil {
+						if _, x := opts["quota"]; x {
+							if err := v1.UpdateProjectStorageQuota(pid, info.Storage.QuotaGb, info.Storage.UsageMb>>10); err != nil {
 								log.Errorf("[%s] cannot update storage usage in pdb: %s", pid, err)
 							}
 						}

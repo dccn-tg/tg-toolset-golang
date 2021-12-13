@@ -319,8 +319,8 @@ func (v1 V1) UpdateProjectMembers(project string, members []Member) error {
 	return updateProjectRoles(db, project, members)
 }
 
-// UpdateProjectStorageUsage updates the project database with the current project storage usage.
-func (v1 V1) UpdateProjectStorageUsage(project string, usageGB int) error {
+// UpdateProjectStorageQuota updates the project database with the current project storage usage.
+func (v1 V1) UpdateProjectStorageQuota(project string, quotaGB, usageGB int) error {
 
 	db, err := newClientMySQL(v1.config)
 	if err != nil {
@@ -328,7 +328,7 @@ func (v1 V1) UpdateProjectStorageUsage(project string, usageGB int) error {
 	}
 	defer db.Close()
 
-	return updateProjectStorageUsage(db, project, usageGB)
+	return updateQuota(db, project, quotaGB, usageGB)
 }
 
 // GetUser gets the user identified by the given uid in the project database.
@@ -613,8 +613,8 @@ func updateProjectRoles(db *sql.DB, project string, members []Member) error {
 	return err
 }
 
-// updateProjectStorageUsage updates current quota usage of the given project.
-func updateProjectStorageUsage(db *sql.DB, project string, usageGB int) error {
+// updateQuota updates current quota usage of the given project.
+func updateQuota(db *sql.DB, project string, quotaGB, usageGB int) error {
 
 	if err := db.Ping(); err != nil {
 		return fmt.Errorf("PDB not connected")
@@ -624,7 +624,7 @@ func updateProjectStorageUsage(db *sql.DB, project string, usageGB int) error {
 		UPDATE
 			projects
 		SET
-			usedProjectSpace=?
+			totalProjectSpace=?, usedProjectSpace=?
 		WHERE
 			id=?
 	`
@@ -635,7 +635,7 @@ func updateProjectStorageUsage(db *sql.DB, project string, usageGB int) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(usageGB, project)
+	_, err = stmt.Exec(quotaGB, usageGB, project)
 
 	return err
 }
