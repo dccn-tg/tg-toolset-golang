@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
@@ -77,27 +78,27 @@ func initDataDir() error {
 	return nil
 }
 
-// command to change directory in the repository.
-// At the moment, this command makes no sense as the current directory is not persistent.
-var cdCmd = &cobra.Command{
-	Use:   "cd <repo_directory>",
-	Short: "Change directory in the repository",
-	Long:  ``,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+// // command to change directory in the repository.
+// // At the moment, this command makes no sense as the current directory is not persistent.
+// var cdCmd = &cobra.Command{
+// 	Use:   "cd <repo_directory>",
+// 	Short: "Change directory in the repository",
+// 	Long:  ``,
+// 	Args:  cobra.ExactArgs(1),
+// 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		p := getCleanRepoPath(args[0])
+// 		p := getCleanRepoPath(args[0])
 
-		// stat the path to check if the path is a valid directory
-		if f, err := cli.Stat(p); err != nil || !f.IsDir() {
-			return fmt.Errorf("invalid directory: %s", p)
-		}
+// 		// stat the path to check if the path is a valid directory
+// 		if f, err := cli.Stat(p); err != nil || !f.IsDir() {
+// 			return fmt.Errorf("invalid directory: %s", p)
+// 		}
 
-		// set cwd to the new path
-		cwd = p
-		return nil
-	},
-}
+// 		// set cwd to the new path
+// 		cwd = p
+// 		return nil
+// 	},
+// }
 
 // command to list a file or the content of a directory in the repository.
 var lsCmd = &cobra.Command{
@@ -155,21 +156,54 @@ var putCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if lfinfo.IsDir() {
-			return fmt.Errorf("put directory not implemented")
-		}
 
-		// construct filepath at repository
-		pfinfoRepo := pathFileInfo{
-			path: path.Join(getCleanRepoPath(args[1]), lfinfo.Name()),
-		}
-
-		// a file
+		// a file or a directory
 		pfinfoLocal := pathFileInfo{
 			path: lfpath,
 			info: lfinfo,
 		}
-		return putRepoFile(pfinfoLocal, pfinfoRepo, true)
+
+		p := getCleanRepoPath(args[1])
+		f, rerr := cli.Stat(p)
+
+		if lfinfo.IsDir() {
+
+			if rerr == nil && !f.IsDir() {
+				return fmt.Errorf("destination not a directory: %s", args[1])
+			}
+
+			// the source does not have a tailing path separator.  The whole local directory is
+			// created within the specifified directory
+			cpath := []rune(args[0])
+			if cpath[len(cpath)-1] != os.PathSeparator {
+				p = path.Join(p, lfinfo.Name())
+			}
+
+			log.Debugf("upload content of %s into %s", pfinfoLocal.path, p)
+
+			// repo pathInfo
+			pfinfoRepo := pathFileInfo{
+				path: p,
+			}
+
+			// create top-level directory in advance
+			cli.MkdirAll(pfinfoRepo.path, pfinfoLocal.info.Mode())
+
+			return putRepoDir(pfinfoLocal, pfinfoRepo, true)
+		} else {
+
+			// path exists in collection, and it is a directory
+			// the uploaded file will be put into the directory with the same filename.
+			if rerr == nil && f.IsDir() {
+				p = path.Join(p, lfinfo.Name())
+			}
+
+			// construct filepath at repository
+			pfinfoRepo := pathFileInfo{
+				path: p,
+			}
+			return putRepoFile(pfinfoLocal, pfinfoRepo, true)
+		}
 	},
 }
 
@@ -318,6 +352,95 @@ func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error 
 
 	// TODO: this jumps from 0% to 100% ... not ideal but there is no way with to get upload progression with the webdav client library
 	bar.Add64(f.Size())
+
+	return nil
+}
+
+// putRepoDir uploads a directory to the repository recursively.
+func putRepoDir(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error {
+
+	// read the entire content of the dir
+	files, err := ioutil.ReadDir(pfinfoLocal.path)
+	if err != nil {
+		return err
+	}
+
+	// channel for getting files concurrently.
+	fchan := make(chan pathFileInfo)
+
+	// initalize concurrent workers
+	var wg sync.WaitGroup
+	nworkers := 4
+	// counter for file deletion error by worker
+	cntErrFiles := make([]int, nworkers)
+	for i := 0; i < nworkers; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for finfo := range fchan {
+
+				// local file path
+				_pfinfoRepo := pathFileInfo{
+					path: filepath.Join(pfinfoRepo.path, path.Base(finfo.path)),
+				}
+
+				log.Debugf("putting %s to %s ...", finfo.path, _pfinfoRepo.path)
+				if err := putRepoFile(finfo, _pfinfoRepo, showProgress); err != nil {
+					log.Errorf("fail putting file: %s", finfo.path)
+					cntErrFiles[id]++
+				}
+			}
+		}(i)
+	}
+
+	// counter for overall getting errors
+	cntErr := 0
+	// loop over content
+	for _, finfo := range files {
+		p := path.Join(pfinfoLocal.path, finfo.Name())
+		if finfo.IsDir() {
+
+			// local dir pathInfo
+			_pfinfoLocal := pathFileInfo{
+				path: p,
+				info: finfo,
+			}
+			// repo dir pathInfo
+			_pfinfoRepo := pathFileInfo{
+				path: filepath.Join(pfinfoLocal.path, finfo.Name()),
+			}
+
+			// create sub directory in advance
+			cli.Mkdir(_pfinfoRepo.path, _pfinfoRepo.info.Mode())
+
+			if err := putRepoDir(_pfinfoLocal, _pfinfoRepo, showProgress); err != nil {
+				log.Errorf("fail put subdir %s: %s", p, err)
+				cntErr++
+			}
+		} else {
+			fchan <- pathFileInfo{
+				path: p,
+				info: finfo,
+			}
+		}
+	}
+
+	// close fchan to release workers
+	close(fchan)
+
+	// wait for workers to be released
+	wg.Wait()
+
+	// update overall deletion errors with error counts from workers
+	for i := 0; i < nworkers; i++ {
+		cntErr += cntErrFiles[i]
+	}
+
+	if cntErr > 0 {
+		return fmt.Errorf("%d files/subdirs not uploaded", cntErr)
+	}
+
+	log.Debugf("uploading %s ...", pfinfoRepo.path)
 
 	return nil
 }
