@@ -27,6 +27,22 @@ type pathFileInfo struct {
 	info fs.FileInfo
 }
 
+// dataTransferInput is a data structure for the input of file get and put.
+type dataTransferInput struct {
+	src pathFileInfo
+	dst pathFileInfo
+}
+
+// Op is the operation options
+type Op int
+
+const (
+	// Put
+	Put Op = iota
+	// Get
+	Get
+)
+
 // current working directory
 var cwd string = "/"
 var dataDir string
@@ -139,7 +155,7 @@ var lsCmd = &cobra.Command{
 }
 
 var putCmd = &cobra.Command{
-	Use:   "put <local_file|local_directory> <repo_directory>",
+	Use:   "put <local_file|local_directory> <repo_file|repo_directory>",
 	Short: "Upload a file or a directory at local into a repository directory",
 	Long:  ``,
 	Args:  cobra.ExactArgs(2),
@@ -189,7 +205,17 @@ var putCmd = &cobra.Command{
 			// create top-level directory in advance
 			cli.MkdirAll(pfinfoRepo.path, pfinfoLocal.info.Mode())
 
-			return putRepoDir(pfinfoLocal, pfinfoRepo, true)
+			// walk through repo directories
+			ichan := make(chan dataTransferInput)
+			go walkLocalDirForPut(pfinfoLocal, pfinfoRepo, ichan, true)
+
+			// perform data transfer with 4 concurrent workers
+			cntOk, cntErr := transferFiles(Put, ichan, 4)
+
+			// log statistics
+			log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+
+			return nil
 		} else {
 
 			// path exists in collection, and it is a directory
@@ -208,10 +234,10 @@ var putCmd = &cobra.Command{
 }
 
 var getCmd = &cobra.Command{
-	Use:   "get <repo_file|repo_directory>",
+	Use:   "get <repo_file|repo_directory> <local_file|local_directory>",
 	Short: "Download a file or a directory from the repository to the current working directory at local",
 	Long:  ``,
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		p := getCleanRepoPath(args[0])
@@ -227,19 +253,64 @@ var getCmd = &cobra.Command{
 			info: f,
 		}
 
-		// local pathInfo
-		lcwd, _ := os.Getwd()
-		pfinfoLocal := pathFileInfo{
-			path: filepath.Join(lcwd, filepath.Base(args[0])),
+		// get local path's FileInfo
+		lp, err := filepath.Abs(args[1])
+		if err != nil {
+			return err
 		}
+		lfinfo, lerr := os.Stat(lp)
 
 		// download recursively
 		if f.IsDir() {
-			return getRepoDir(pfinfoRepo, pfinfoLocal, true)
+
+			// destination path exists but not a directory.
+			if lerr == nil && !lfinfo.IsDir() {
+				return fmt.Errorf("destination not a directory: %s", args[1])
+			}
+
+			// the source does not have a tailing path separator.  The whole local directory is
+			// created within the specifified directory
+			cpath := []rune(args[0])
+			if cpath[len(cpath)-1] != '/' {
+				lp = filepath.Join(lp, path.Base(p))
+			}
+
+			pfinfoLocal := pathFileInfo{
+				path: lp,
+			}
+
+			log.Debugf("download content of %s into %s", pfinfoRepo.path, pfinfoLocal.path)
+
+			if err := os.MkdirAll(lp, pfinfoRepo.info.Mode()); err != nil {
+				return err
+			}
+
+			// walk through repo directories
+			ichan := make(chan dataTransferInput)
+			go walkRepoDirForGet(pfinfoRepo, pfinfoLocal, ichan, true)
+
+			// perform data transfer with 4 concurrent workers
+			cntOk, cntErr := transferFiles(Get, ichan, 4)
+
+			// log statistics
+			log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+
+			return nil
+
+		} else {
+
+			if lerr == nil && lfinfo.IsDir() {
+				lp = filepath.Join(lp, path.Base(p))
+			}
+
+			pfinfoLocal := pathFileInfo{
+				path: lp,
+			}
+
+			// download single file
+			return getRepoFile(pfinfoRepo, pfinfoLocal, true)
 		}
 
-		// download single file
-		return getRepoFile(pfinfoRepo, pfinfoLocal, true)
 	},
 }
 
@@ -317,6 +388,133 @@ func getCleanRepoPath(p string) string {
 	return path.Join(cwd, p)
 }
 
+// transferFiles performs transfer operation `Op` with source and destination provided through the
+// channel `ichan`.
+func transferFiles(op Op, ichan chan dataTransferInput, nworkers int) (cntOk, cntErr int) {
+
+	// initalize concurrent workers
+	var wg sync.WaitGroup
+	for i := 0; i < nworkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for inputs := range ichan {
+				switch op {
+				case Put:
+					if err := putRepoFile(inputs.src, inputs.dst, true); err != nil {
+						cntErr += 1
+						continue
+					}
+				case Get:
+					if err := getRepoFile(inputs.src, inputs.dst, true); err != nil {
+						cntErr += 1
+						continue
+					}
+				default:
+					// do nothing
+					log.Errorf("unknown operation: %s", op)
+					cntErr += 1
+					continue
+				}
+				cntOk += 1
+			}
+		}()
+	}
+
+	// wait for workers to be released
+	wg.Wait()
+
+	return
+}
+
+// walkLocalDirForPut walks through a local directory and creates inputs for putting files from local to repo.
+func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan dataTransferInput, closeChanOnComplete bool) {
+	// read the entire content of the dir
+	files, err := ioutil.ReadDir(pfinfoLocal.path)
+	if err != nil {
+		log.Errorf("cannot read local dir %s: %s", pfinfoLocal.path, err)
+		return
+	}
+
+	for _, finfo := range files {
+		p := path.Join(pfinfoLocal.path, finfo.Name())
+
+		// local dir pathInfo
+		_pfinfoLocal := pathFileInfo{
+			path: p,
+			info: finfo,
+		}
+		// repo dir pathInfo
+		_pfinfoRepo := pathFileInfo{
+			path: path.Join(pfinfoRepo.path, finfo.Name()),
+		}
+
+		if finfo.IsDir() {
+			// create sub directory in advance
+			if err := cli.Mkdir(_pfinfoRepo.path, _pfinfoLocal.info.Mode()); err != nil {
+				log.Errorf("cannot create repo dir %s: %s", _pfinfoRepo.path, err)
+				continue
+			}
+			// walk into sub directory without closing the channel
+			walkLocalDirForPut(_pfinfoLocal, _pfinfoRepo, ichan, false)
+		} else {
+			ichan <- dataTransferInput{
+				src: _pfinfoLocal,
+				dst: _pfinfoRepo,
+			}
+		}
+	}
+
+	if closeChanOnComplete {
+		close(ichan)
+	}
+}
+
+// walkRepoDirForGet walks through a repo directory and creates inputs for getting files from repo to local.
+func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan dataTransferInput, closeChanOnComplete bool) {
+
+	// read the entire content of the dir
+	files, err := cli.ReadDir(pfinfoRepo.path)
+	if err != nil {
+		log.Errorf("cannot read repo dir: %s", err)
+		return
+	}
+
+	// loop over content
+	for _, finfo := range files {
+		p := path.Join(pfinfoRepo.path, finfo.Name())
+
+		// repo dir pathInfo
+		_pfinfoRepo := pathFileInfo{
+			path: p,
+			info: finfo,
+		}
+		// local dir pathInfo
+		_pfinfoLocal := pathFileInfo{
+			path: filepath.Join(pfinfoLocal.path, finfo.Name()),
+		}
+
+		if finfo.IsDir() {
+			// create sub directory in advance
+			if err := os.Mkdir(_pfinfoLocal.path, _pfinfoRepo.info.Mode()); err != nil {
+				log.Errorf("cannot create local dir %s: %s", _pfinfoLocal.path, err)
+				continue
+			}
+			// walk into sub directory without closing the channel
+			walkRepoDirForGet(_pfinfoRepo, _pfinfoLocal, ichan, false)
+		} else {
+			ichan <- dataTransferInput{
+				src: _pfinfoRepo,
+				dst: _pfinfoLocal,
+			}
+		}
+	}
+
+	if closeChanOnComplete {
+		close(ichan)
+	}
+}
+
 // putRepoFile uploads a single local file to the repository.
 func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error {
 
@@ -356,188 +554,6 @@ func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error 
 	return nil
 }
 
-// putRepoDir uploads a directory to the repository recursively.
-func putRepoDir(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error {
-
-	// read the entire content of the dir
-	files, err := ioutil.ReadDir(pfinfoLocal.path)
-	if err != nil {
-		return err
-	}
-
-	// channel for getting files concurrently.
-	fchan := make(chan pathFileInfo)
-
-	// initalize concurrent workers
-	var wg sync.WaitGroup
-	nworkers := 4
-	// counter for file deletion error by worker
-	cntErrFiles := make([]int, nworkers)
-	for i := 0; i < nworkers; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-			for finfo := range fchan {
-
-				// local file path
-				_pfinfoRepo := pathFileInfo{
-					path: filepath.Join(pfinfoRepo.path, path.Base(finfo.path)),
-				}
-
-				log.Debugf("putting %s to %s ...", finfo.path, _pfinfoRepo.path)
-				if err := putRepoFile(finfo, _pfinfoRepo, showProgress); err != nil {
-					log.Errorf("fail putting file: %s", finfo.path)
-					cntErrFiles[id]++
-				}
-			}
-		}(i)
-	}
-
-	// counter for overall getting errors
-	cntErr := 0
-	// loop over content
-	for _, finfo := range files {
-		p := path.Join(pfinfoLocal.path, finfo.Name())
-		if finfo.IsDir() {
-
-			// local dir pathInfo
-			_pfinfoLocal := pathFileInfo{
-				path: p,
-				info: finfo,
-			}
-			// repo dir pathInfo
-			_pfinfoRepo := pathFileInfo{
-				path: filepath.Join(pfinfoLocal.path, finfo.Name()),
-			}
-
-			// create sub directory in advance
-			cli.Mkdir(_pfinfoRepo.path, _pfinfoRepo.info.Mode())
-
-			if err := putRepoDir(_pfinfoLocal, _pfinfoRepo, showProgress); err != nil {
-				log.Errorf("fail put subdir %s: %s", p, err)
-				cntErr++
-			}
-		} else {
-			fchan <- pathFileInfo{
-				path: p,
-				info: finfo,
-			}
-		}
-	}
-
-	// close fchan to release workers
-	close(fchan)
-
-	// wait for workers to be released
-	wg.Wait()
-
-	// update overall deletion errors with error counts from workers
-	for i := 0; i < nworkers; i++ {
-		cntErr += cntErrFiles[i]
-	}
-
-	if cntErr > 0 {
-		return fmt.Errorf("%d files/subdirs not uploaded", cntErr)
-	}
-
-	log.Debugf("uploading %s ...", pfinfoRepo.path)
-
-	return nil
-}
-
-// getRepoDir downloads a directory from the repository recusively.
-func getRepoDir(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error {
-
-	// read the entire content of the dir
-	files, err := cli.ReadDir(pfinfoRepo.path)
-	if err != nil {
-		return err
-	}
-
-	// channel for getting files concurrently.
-	fchan := make(chan pathFileInfo)
-
-	// initalize concurrent workers
-	var wg sync.WaitGroup
-	nworkers := 4
-	// counter for file deletion error by worker
-	cntErrFiles := make([]int, nworkers)
-	for i := 0; i < nworkers; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-			for finfo := range fchan {
-
-				// local file path
-				_pfinfoLocal := pathFileInfo{
-					path: filepath.Join(pfinfoLocal.path, path.Base(finfo.path)),
-				}
-
-				log.Debugf("getting %s to %s ...", finfo.path, _pfinfoLocal.path)
-				if err := getRepoFile(finfo, _pfinfoLocal, showProgress); err != nil {
-					log.Errorf("fail getting file: %s", finfo.path)
-					cntErrFiles[id]++
-				}
-			}
-		}(i)
-	}
-
-	// counter for overall getting errors
-	cntErr := 0
-	// loop over content
-	for _, finfo := range files {
-		p := path.Join(pfinfoRepo.path, finfo.Name())
-		if finfo.IsDir() {
-
-			// repo dir pathInfo
-			_pfinfoRepo := pathFileInfo{
-				path: p,
-				info: finfo,
-			}
-			// local dir pathInfo
-			_pfinfoLocal := pathFileInfo{
-				path: filepath.Join(pfinfoLocal.path, finfo.Name()),
-			}
-
-			if err := os.MkdirAll(_pfinfoLocal.path, _pfinfoRepo.info.Mode()); err != nil {
-				log.Errorf("fail creating local dir %s: %s", _pfinfoLocal.path, err)
-				cntErr++
-				continue
-			}
-
-			if err := getRepoDir(_pfinfoRepo, _pfinfoLocal, showProgress); err != nil {
-				log.Errorf("fail get subdir %s: %s", p, err)
-				cntErr++
-			}
-		} else {
-			fchan <- pathFileInfo{
-				path: p,
-				info: finfo,
-			}
-		}
-	}
-
-	// close fchan to release workers
-	close(fchan)
-
-	// wait for workers to be released
-	wg.Wait()
-
-	// update overall deletion errors with error counts from workers
-	for i := 0; i < nworkers; i++ {
-		cntErr += cntErrFiles[i]
-	}
-
-	if cntErr > 0 {
-		return fmt.Errorf("%d files/subdirs not downloaded", cntErr)
-	}
-
-	// remove the directory itself
-	log.Debugf("getting %s ...", pfinfoRepo.path)
-
-	return nil
-}
-
 // getRepoFile downloads a single file from the repository to a local file.
 func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error {
 
@@ -570,15 +586,13 @@ func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error 
 	for {
 		// read content to buffer
 		rlen, rerr := reader.Read(buffer)
-		log.Debugf("read %d", rlen)
 		if rerr != nil && rerr != io.EOF {
 			return fmt.Errorf("failure reading data from %s: %s", pfinfoRepo.path, rerr)
 		}
 		wlen, werr := writer.Write(buffer[:rlen])
-		if werr != nil {
+		if werr != nil || rlen != wlen {
 			return fmt.Errorf("failure writing data to %s: %s", pfinfoLocal.path, err)
 		}
-		log.Debugf("write %d", wlen)
 
 		if rerr == io.EOF {
 			break
