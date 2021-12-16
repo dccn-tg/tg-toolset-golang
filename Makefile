@@ -28,6 +28,9 @@ build_project:
 build:
 	GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go install github.com/Donders-Institute/tg-toolset-golang/...
 
+build_repocli:
+	GOPATH=$(GOPATH) GOOS=linux GOARCH=amd64 GO111MODULE=$(GO111MODULE) go build -o $(GOPATH)/bin/repocli repository/cmd/repocli/main.go
+
 build_repocli_macosx:
 	GOPATH=$(GOPATH) GOOS=darwin GOARCH=amd64 GO111MODULE=$(GO111MODULE) go build -o $(GOPATH)/bin/repocli.darwin repository/cmd/repocli/main.go
 
