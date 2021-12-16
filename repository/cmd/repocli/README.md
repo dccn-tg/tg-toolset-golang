@@ -52,15 +52,13 @@ Flags:
   -c, --config path       path of the configuration YAML file. (default "/home/honlee/.repocli.yml")
   -h, --help              help for repocli
   -n, --nthreads number   number of concurrent worker threads. (default 4)
-  -p, --pass password     password of the repository data access account.
   -l, --url URL           URL of the webdav server. (default "https://webdav.data.donders.ru.nl")
-  -u, --user username     username of the repository data access account.
   -v, --verbose           verbose output
 
 Use "repocli [command] --help" for more information about a command.
 ```
 
-One could provide the username/password using the configuration file (i.e. the `-c` flag) in YAML format.  The default location of this configuration file is `${HOME}/.repocli.yml` on Linux/MacOSX and `C:\Users\<username>\.repocli.yml` on Windows. Hereafter is an example:
+The username/password of the data-access account should be provided in the configuration file (i.e. the `-c` flag) in YAML format.  The default location of this configuration file is `${HOME}/.repocli.yml` on Linux/MacOSX and `C:\Users\<username>\.repocli.yml` on Windows. Hereafter is an example:
 
 ```yaml
 repository:
@@ -72,4 +70,114 @@ At the moment, the configuration is in plain text.  Therefore, it is highly reco
 
 ```bash
 $ chmod 600 $HOME/.repocli.yml
+```
+
+### listing a collection
+
+Given a collection with identifier `di.dccn.DAC_3010000.01_173`, the following command lists the content of it: 
+
+```bash
+$ repocli ls /dccn/DAC_3010000.01_173
+/dccn/DAC_3010000.01_173:
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/Cropped
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/raw
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/test1
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/test2021
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/test3
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/test_loc.new
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/test_sync
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/testx
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/xyz.5
+ drwxrwxr-x            0 /dccn/DAC_3010000.01_173/xyz.x
+ -rw-rw-r--          203 /dccn/DAC_3010000.01_173/MANIFEST.txt.1
+ -rw-rw-r--       191503 /dccn/DAC_3010000.01_173/MD5E-s191503--8661ce04ccbbf51e96ce124e30fc0c8c.txt
+ -rw-rw-r--     49152352 /dccn/DAC_3010000.01_173/MP2RAGE.nii
+ -rw-rw-r--         2589 /dccn/DAC_3010000.01_173/Makefile
+...
+```
+
+### removing a file or sub-directory (sub-collection)
+
+Assuming that we want to remove the file `MANIFEST.txt.1` from the collection content listed above, we do
+
+```bash
+$ repocli rm /dccn/DAC_3010000.01_173/MANIFEST.txt.1
+```
+
+If we want to remove the entire sub-directory `testx`, we use the command
+
+```bash
+$ repocli rm -r /dccn/DAC_3010000.01_173/textx
+```
+
+where the extra flag `-r` indicates recursive removal.
+
+### creating sub-directory in the collection
+
+To create a subdirectory `demo` in the collection, we do
+
+```bash
+$ repocli mkdir /dccn/DAC_3010000.01_173/demo
+```
+
+One could also create a directory tree use the same command, any missing parent directories will also be created (similar to the `mkdir -p` command on Linux).  For example, if we want to create a directory tree `demo1/data/sub-001/ses-mri01`, we do
+
+```bash
+$ repocli mkdir /dccn/DAC_3010000.01_173/demo1/data/sub-001/ses-mri01
+```
+
+It can be done with or without the existence of the parent tree structure `demo1/data/sub-001`.
+
+### uploading/download single file to/from the collection
+
+For uploading/downloading a single file to/from the collection in the repository.  One use the `put` and `get` sub-commands, respectively.  The `put` and `get` sub-arguments require two arguments.  The first argument refers to the _source_, while the second refers to the _destination_. 
+
+For example, to upload a local file `test.txt` to `/project/3010000.01/demo`, one does
+
+```bash
+$ repocli put test.txt /project/3010000.01/demo/test.txt
+```
+
+To download a remote file `/project/3010000.01/demo/test.txt` to `test.txt.new` at local, one does
+
+```bash
+$ repocli get /project/3010000.01/demo/test.txt test.txt.new
+```
+
+If the destination is a directory, file will be downloaded/uploaded into the directory with the same name.  If the destination is an existing file, the file will be overwritten by the content of the source.
+
+### resursive uploading/downloading to/from the collection
+
+Assuming that we have a local directory `/project/3010000.01/demo`, and we want to upload the content of it recursively to the collection under the sub-directory `demo`.  We use the command below:
+
+```bash
+$ repocli put /project/3010000.01/demo/ /dccn/DAC_3010000.01_173/demo
+```
+
+where the first argument to `put` is a directory locally as the source, and the second is a directory in the repository as the destination.
+
+For downloading a collection (or a sub-directory) from the repository, one does
+
+```bash
+$ repocli get /dccn/DAC_3010000.01_173/demo/ /project/3010000.01/demo.new
+```
+
+where the first argument is a directory in the repository as the source, and the second is a local directory as the destination.
+
+Note the tailing `/` in the first argument (i.e. the source).  It causes the program to "copy the content" into the destination.  If the tailing `/` is not given, it will "copy the directory by name" in to the destination, resulting in content being put in a sub-directory `/dccn/DAC_3010000.01_173/demo/demo` at the destination.  This behavior is identical to the `rsync` command.
+
+### moving/renaming file/directory in a collection
+
+For renaming a file within a collection, one uses the `mv` sub-command.
+
+For example, if we want to rename a file `/dccn/DAC_3010000.01_173/test.txt` to `/dccn/DAC_3010000.01_173/test.txt.old` in the repository, we do
+
+```bash
+$ repocli mv /dccn/DAC_3010000.01_173/test.txt /dccn/DAC_3010000.01_173/test.txt.old
+```
+
+We could also rename an entire directory.  For example, if we want to rename a `/dccn/DAC_3010000.01_173/demo` to `/dccn/DAC_3010000.01_173/demo.new`, we use the command
+
+```bash
+$ repocli mv /dccn/DAC_3010000.01_173/demo /dccn/DAC_3010000.01_173/demo.new
 ```
