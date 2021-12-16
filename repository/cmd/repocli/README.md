@@ -164,7 +164,7 @@ $ repocli get /dccn/DAC_3010000.01_173/demo/ /project/3010000.01/demo.new
 
 where the first argument is a directory in the repository as the source, and the second is a local directory as the destination.
 
-Note the tailing `/` in the first argument (i.e. the source).  It causes the program to "copy the content" into the destination.  If the tailing `/` is not given, it will "copy the directory by name" in to the destination, resulting in content being put in a sub-directory `/dccn/DAC_3010000.01_173/demo/demo` at the destination.  This behavior is identical to the `rsync` command.
+__Note:__ The same as the `rsync` command, the tailing `/` in the first argument (i.e. the source) will causes the program to _copy the content_ into the destination.  If the tailing `/` is not given, it will _copy the directory by name_ in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
 
 ### moving/renaming file/directory in a collection
 
