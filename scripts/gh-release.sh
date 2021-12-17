@@ -132,3 +132,37 @@ if [ ${#rpms[@]} -gt 0 ]; then
         fi
     done
 fi
+
+## build repocli for Windows and upload them as release assets
+tmp_dir=$(mktemp -d -t repocli-build-XXXXXXXXXX)
+GOPATH=$tmp_dir make build_repocli_windows build_repocli_macosx
+
+files=( $(ls -d ${tmp_dir}/*) )
+
+## upload RPMs as release assets 
+if [ ${#files[@]} -gt 0 ]; then
+    upload="y"
+    read -p "upload repocli binaries as release assets?, continue? [y]/n: " upload
+    for f in ${files[@]}; do
+        echo ${f}
+        if [ "${upload,,}" == "y" ]; then
+            fname=$( basename $f )
+            # check if the asset with the same name already exists
+            id=""
+            eval $(echo "$response" | grep -C3 "name.:.\+${fname}" | grep -m 1 "id.:" | grep -w id | tr : = | tr -cd '[[:alnum:]]=')
+            if [ "$id" != "" ]; then
+                # delete existing asset
+                echo "deleting asset: ${id} ..."
+                curl -H "Authorization: token $gh_token" -X DELETE "${GH_RELE}/assets/${id}"
+            fi
+            # post new asset
+            echo "uploading ${f} ..."
+            GH_ASSET="${GH_REPO_ASSET_PREFIX}/${rid}/assets?name=$(basename $f)"
+            resp_upload=$( curl --data-binary @${f} \
+                                -H "Content-Type: application/octet-stream" \
+				-H "Authorization: token $gh_token" $GH_ASSET )
+        fi
+    done
+fi
+
+[ -d $tmp_dir] && rm -rf $tmp_dir
