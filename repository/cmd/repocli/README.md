@@ -49,7 +49,7 @@ Available Commands:
   rm          Remove a file or a directory from the repository
 
 Flags:
-  -c, --config path       path of the configuration YAML file. (default "/home/honlee/.repocli.yml")
+  -c, --config path       path of the configuration YAML file. (default "$HOME/.repocli.yml")
   -h, --help              help for repocli
   -n, --nthreads number   number of concurrent worker threads. (default 4)
   -s, --silent            set to slient mode (i.e. do not show progress)
