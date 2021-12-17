@@ -33,7 +33,7 @@ The resulting binary is produced at `${GOPATH}/bin/repocli.darwin`.
 ## Usage
 
 ```
-The user's CLI for managing data content of the Donders Repository collections.
+A user's CLI for managing data content of the Donders Repository collections.
 
 Usage:
   repocli [command]
@@ -52,6 +52,7 @@ Flags:
   -c, --config path       path of the configuration YAML file. (default "/home/honlee/.repocli.yml")
   -h, --help              help for repocli
   -n, --nthreads number   number of concurrent worker threads. (default 4)
+  -s, --silent            set to slient mode (i.e. do not show progress)
   -l, --url URL           URL of the webdav server. (default "https://webdav.data.donders.ru.nl")
   -v, --verbose           verbose output
 
