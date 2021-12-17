@@ -515,7 +515,6 @@ func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput
 	// read the entire content of the dir
 	files, err := ioutil.ReadDir(pfinfoLocal.path)
 	if err != nil {
-		log.Errorf("cannot read local dir %s: %s", pfinfoLocal.path, err)
 		return
 	}
 
@@ -561,7 +560,6 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 	// read the entire content of the dir
 	files, err := cli.ReadDir(pfinfoRepo.path)
 	if err != nil {
-		log.Errorf("cannot read repo dir: %s", err)
 		return
 	}
 
@@ -609,7 +607,6 @@ func walkRepoDirForCopy(pfinfoSrc, pfinfoDst pathFileInfo, ichan chan opInput, t
 	// read the entire content of the dir
 	files, err := cli.ReadDir(pfinfoSrc.path)
 	if err != nil {
-		log.Errorf("cannot read repo dir: %s", err)
 		return
 	}
 
@@ -767,7 +764,7 @@ func mvRepoDir(src, dst pathFileInfo, overwrite bool, total chan int, processed 
 			for finfo := range fchan {
 				err := cli.Rename(finfo.path, path.Join(dst.path, finfo.info.Name()), overwrite)
 				if err != nil {
-					log.Errorf("%s", err)
+					log.Errorf("cannot rename repo file %s: %s", finfo.path, err)
 					cntErrFiles[id]++
 				} else {
 					cntOkFiles[id]++
@@ -818,9 +815,8 @@ func mvRepoDir(src, dst pathFileInfo, overwrite bool, total chan int, processed 
 
 	}
 	// remove the moved directory
-	if err := cli.Remove(src.path); err != nil {
-		log.Errorf("fail removing %s: %s", src.path, err)
-	}
+	err = cli.Remove(src.path)
+
 	return
 }
 
@@ -863,7 +859,7 @@ func rmRepoDir(repoPath string, recursive bool, total chan int, processed chan s
 			for f := range fchan {
 				err := cli.Remove(f)
 				if err != nil {
-					log.Errorf("fail removing file: %s", f)
+					log.Errorf("cannot remove repo file %s: %s", f, err)
 					cntErrFiles[id]++
 				} else {
 					cntOkFiles[id]++

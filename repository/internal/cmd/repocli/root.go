@@ -74,9 +74,10 @@ func loadConfig() config.Configuration {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "repocli",
-	Short: "The user's CLI for managing data content of the Donders Repository collections.",
-	Long:  ``,
+	Use:          "repocli",
+	Short:        "A user's CLI for managing data content of the Donders Repository collections.",
+	Long:         ``,
+	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// reset logger level based on command flag
 		if cmd.Flags().Changed("verbose") {
@@ -104,7 +105,6 @@ var rootCmd = &cobra.Command{
 // Execute is the main entry point of the cluster command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Errorf("%s", err)
 		os.Exit(1)
 	}
 }
