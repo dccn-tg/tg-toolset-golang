@@ -16,6 +16,8 @@ var verbose bool
 var configFile string
 var nthreads int
 
+var silent bool
+
 // var cliUsername string
 // var cliPassword string
 var davBaseURL string
@@ -34,6 +36,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", filepath.Join(user.HomeDir, ".repocli.yml"), "`path` of the configuration YAML file.")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().IntVarP(&nthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
+	rootCmd.PersistentFlags().BoolVarP(&silent, "silent", "s", false, "set to slient mode (i.e. do not show progress)")
+
 	// rootCmd.PersistentFlags().StringVarP(
 	// 	&cliUsername,
 	// 	"user", "u", "",

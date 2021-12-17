@@ -27,8 +27,8 @@ type pathFileInfo struct {
 	info fs.FileInfo
 }
 
-// dataTransferInput is a data structure for the input of file get and put.
-type dataTransferInput struct {
+// opInput is a generic input structure for a file operation.
+type opInput struct {
 	src pathFileInfo
 	dst pathFileInfo
 }
@@ -41,6 +41,12 @@ const (
 	Put Op = iota
 	// Get
 	Get
+	// Move/Rename
+	Move
+	// Remove
+	Remove
+	// Copy
+	Copy
 )
 
 // current working directory
@@ -205,15 +211,24 @@ var putCmd = &cobra.Command{
 			// create top-level directory in advance
 			cli.MkdirAll(pfinfoRepo.path, pfinfoLocal.info.Mode())
 
+			// start progress
+			p := Progress{}
+			tchan, pchan := p.Start(silent)
+
 			// walk through repo directories
-			ichan := make(chan dataTransferInput)
-			go walkLocalDirForPut(pfinfoLocal, pfinfoRepo, ichan, true)
+			ichan := make(chan opInput)
+			go walkLocalDirForPut(pfinfoLocal, pfinfoRepo, ichan, tchan, true)
 
 			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr := transferFiles(Put, ichan, 4)
+			cntOk, cntErr := runOp(Put, ichan, 4, pchan)
+
+			// stop progress
+			p.Stop()
 
 			// log statistics
-			log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+			if !silent {
+				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+			}
 
 			return nil
 		} else {
@@ -285,15 +300,24 @@ var getCmd = &cobra.Command{
 				return err
 			}
 
+			// start progress
+			p := Progress{}
+			tchan, pchan := p.Start(silent)
+
 			// walk through repo directories
-			ichan := make(chan dataTransferInput)
-			go walkRepoDirForGet(pfinfoRepo, pfinfoLocal, ichan, true)
+			ichan := make(chan opInput)
+			go walkRepoDirForGet(pfinfoRepo, pfinfoLocal, ichan, tchan, true)
 
 			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr := transferFiles(Get, ichan, 4)
+			cntOk, cntErr := runOp(Get, ichan, 4, pchan)
+
+			// stop progress
+			p.Stop()
 
 			// log statistics
-			log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+			if !silent {
+				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+			}
 
 			return nil
 
@@ -308,7 +332,7 @@ var getCmd = &cobra.Command{
 			}
 
 			// download single file
-			return getRepoFile(pfinfoRepo, pfinfoLocal, true)
+			return getRepoFile(pfinfoRepo, pfinfoLocal, !silent)
 		}
 
 	},
@@ -330,18 +354,59 @@ var mvCmd = &cobra.Command{
 			return err
 		}
 
-		// if the source (1st argument) is a file.
-		if !fsrc.IsDir() {
-			return mvRepoFile(pathFileInfo{
+		fdst, derr := cli.Stat(dst)
+
+		if fsrc.IsDir() {
+
+			// destination path exists but not a directory.
+			if derr == nil && !fdst.IsDir() {
+				return fmt.Errorf("destination not a directory: %s", args[1])
+			}
+
+			// the source does not have a tailing path separator.  The whole local directory is
+			// created within the specifified directory
+			cpath := []rune(args[0])
+			if cpath[len(cpath)-1] != '/' {
+				dst = path.Join(dst, path.Base(src))
+			}
+
+			pfinfoSrc := pathFileInfo{
 				path: src,
 				info: fsrc,
-			}, dst, overwrite)
-		}
+			}
 
-		return mvRepoDir(pathFileInfo{
-			path: src,
-			info: fsrc,
-		}, dst, overwrite)
+			pfinfoDst := pathFileInfo{
+				path: dst,
+			}
+
+			log.Debugf("renaming %s to %s", pfinfoSrc.path, pfinfoDst.path)
+
+			if err := cli.MkdirAll(dst, pfinfoSrc.info.Mode()); err != nil {
+				return err
+			}
+
+			// start progress
+			p := Progress{}
+			tchan, pchan := p.Start(silent)
+
+			// perform data transfer with 4 concurrent workers
+			cntOk, cntErr, err := mvRepoDir(pfinfoSrc, pfinfoDst, overwrite, tchan, pchan)
+
+			// stop progress
+			p.Stop()
+
+			// log statistics
+			if !silent {
+				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+			}
+
+			return err
+		} else {
+			if derr == nil && fdst.IsDir() {
+				dst = path.Join(dst, path.Base(src))
+			}
+			return cli.Rename(src, dst, overwrite)
+		}
 	},
 }
 
@@ -352,20 +417,34 @@ var rmCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		p := getCleanRepoPath(args[0])
+		rp := getCleanRepoPath(args[0])
 
-		f, err := cli.Stat(p)
+		f, err := cli.Stat(rp)
 		if err != nil {
 			return err
 		}
 
-		// a file
-		if !f.IsDir() {
-			return cli.Remove(p)
-		}
+		if f.IsDir() {
 
-		// a directory.
-		return rmRepoDir(p, recursive)
+			// start progress
+			p := Progress{}
+			tchan, pchan := p.Start(silent)
+
+			// perform data transfer with 4 concurrent workers
+			cntOk, cntErr, err := rmRepoDir(rp, recursive, tchan, pchan)
+
+			// stop progress
+			p.Stop()
+
+			// log statistics
+			if !silent {
+				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+			}
+
+			return err
+		} else {
+			return cli.Remove(rp)
+		}
 	},
 }
 
@@ -388,9 +467,9 @@ func getCleanRepoPath(p string) string {
 	return path.Join(cwd, p)
 }
 
-// transferFiles performs transfer operation `Op` with source and destination provided through the
+// runOp performs file operation `Op` with input data provided through the
 // channel `ichan`.
-func transferFiles(op Op, ichan chan dataTransferInput, nworkers int) (cntOk, cntErr int) {
+func runOp(op Op, ichan chan opInput, nworkers int, pchan chan struct{}) (cntOk, cntErr int) {
 
 	// initalize concurrent workers
 	var wg sync.WaitGroup
@@ -399,24 +478,28 @@ func transferFiles(op Op, ichan chan dataTransferInput, nworkers int) (cntOk, cn
 		go func() {
 			defer wg.Done()
 			for inputs := range ichan {
+				var err error
 				switch op {
 				case Put:
-					if err := putRepoFile(inputs.src, inputs.dst, true); err != nil {
-						cntErr += 1
-						continue
-					}
+					err = putRepoFile(inputs.src, inputs.dst, false)
 				case Get:
-					if err := getRepoFile(inputs.src, inputs.dst, true); err != nil {
-						cntErr += 1
-						continue
-					}
+					err = getRepoFile(inputs.src, inputs.dst, false)
+				case Move:
+					err = cli.Rename(inputs.src.path, inputs.dst.path, overwrite)
+				case Remove:
+					err = cli.Remove(inputs.src.path)
+				case Copy:
+					cli.Copy(inputs.src.path, inputs.dst.path, overwrite)
 				default:
 					// do nothing
-					log.Errorf("unknown operation: %s", op)
-					cntErr += 1
-					continue
+					err = fmt.Errorf("unknown operation: %d", op)
 				}
-				cntOk += 1
+				if err != nil {
+					cntErr += 1
+				} else {
+					cntOk += 1
+				}
+				pchan <- struct{}{}
 			}
 		}()
 	}
@@ -428,13 +511,15 @@ func transferFiles(op Op, ichan chan dataTransferInput, nworkers int) (cntOk, cn
 }
 
 // walkLocalDirForPut walks through a local directory and creates inputs for putting files from local to repo.
-func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan dataTransferInput, closeChanOnComplete bool) {
+func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput, tchan chan int, closeChanOnComplete bool) {
 	// read the entire content of the dir
 	files, err := ioutil.ReadDir(pfinfoLocal.path)
 	if err != nil {
 		log.Errorf("cannot read local dir %s: %s", pfinfoLocal.path, err)
 		return
 	}
+
+	tchan <- countFiles(files)
 
 	for _, finfo := range files {
 		p := path.Join(pfinfoLocal.path, finfo.Name())
@@ -456,9 +541,9 @@ func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan dataTra
 				continue
 			}
 			// walk into sub directory without closing the channel
-			walkLocalDirForPut(_pfinfoLocal, _pfinfoRepo, ichan, false)
+			walkLocalDirForPut(_pfinfoLocal, _pfinfoRepo, ichan, tchan, false)
 		} else {
-			ichan <- dataTransferInput{
+			ichan <- opInput{
 				src: _pfinfoLocal,
 				dst: _pfinfoRepo,
 			}
@@ -471,7 +556,7 @@ func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan dataTra
 }
 
 // walkRepoDirForGet walks through a repo directory and creates inputs for getting files from repo to local.
-func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan dataTransferInput, closeChanOnComplete bool) {
+func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput, tchan chan int, closeChanOnComplete bool) {
 
 	// read the entire content of the dir
 	files, err := cli.ReadDir(pfinfoRepo.path)
@@ -479,6 +564,9 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan dataTran
 		log.Errorf("cannot read repo dir: %s", err)
 		return
 	}
+
+	// push number of total files in this directory for updating progress bar
+	tchan <- countFiles(files)
 
 	// loop over content
 	for _, finfo := range files {
@@ -501,11 +589,58 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan dataTran
 				continue
 			}
 			// walk into sub directory without closing the channel
-			walkRepoDirForGet(_pfinfoRepo, _pfinfoLocal, ichan, false)
+			walkRepoDirForGet(_pfinfoRepo, _pfinfoLocal, ichan, tchan, false)
 		} else {
-			ichan <- dataTransferInput{
+			ichan <- opInput{
 				src: _pfinfoRepo,
 				dst: _pfinfoLocal,
+			}
+		}
+	}
+
+	if closeChanOnComplete {
+		close(ichan)
+	}
+}
+
+// walkRepoDirForCopy walks through a repo directory and creates inputs for moving files in the repo.
+func walkRepoDirForCopy(pfinfoSrc, pfinfoDst pathFileInfo, ichan chan opInput, tchan chan int, closeChanOnComplete bool) {
+
+	// read the entire content of the dir
+	files, err := cli.ReadDir(pfinfoSrc.path)
+	if err != nil {
+		log.Errorf("cannot read repo dir: %s", err)
+		return
+	}
+
+	tchan <- countFiles(files)
+
+	// loop over content
+	for _, finfo := range files {
+		p := path.Join(pfinfoSrc.path, finfo.Name())
+
+		// repo dir pathInfo
+		_pfinfoSrc := pathFileInfo{
+			path: p,
+			info: finfo,
+		}
+		// local dir pathInfo
+		_pfinfoDst := pathFileInfo{
+			path: filepath.Join(pfinfoDst.path, finfo.Name()),
+		}
+
+		if finfo.IsDir() {
+			// create sub directory in advance
+			if err := cli.Mkdir(_pfinfoDst.path, _pfinfoSrc.info.Mode()); err != nil {
+				log.Errorf("cannot create repo dir %s: %s", _pfinfoDst.path, err)
+				continue
+			}
+			// walk into sub directory without closing the channel
+			walkRepoDirForCopy(_pfinfoSrc, _pfinfoDst, ichan, tchan, false)
+		} else {
+			ichan <- opInput{
+				src: _pfinfoSrc,
+				dst: _pfinfoDst,
 			}
 		}
 	}
@@ -603,24 +738,18 @@ func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error 
 }
 
 // mvRepoDir moves directory from `src` to `dst` recursively.
-//
-// If the `dst` exists and is a directory, the entire `src` is moved into the `dst`.
-//
-// If the `dst` does not exist, the `src` is renamed to `dst`.
-func mvRepoDir(src pathFileInfo, dst string, overwrite bool) error {
+func mvRepoDir(src, dst pathFileInfo, overwrite bool, total chan int, processed chan struct{}) (cntOk, cntErr int, err error) {
 
 	// read the entire content of the source directory
 	files, err := cli.ReadDir(src.path)
 	if err != nil {
-		return err
+		return
 	}
 
-	if finfo, err := cli.Stat(dst); err == nil && finfo.IsDir() {
-		dst = path.Join(dst, path.Base(src.path))
-	}
+	total <- countFiles(files)
 
 	// make attempt to create all parent directories of the destination.
-	cli.MkdirAll(dst, 0664)
+	cli.MkdirAll(dst.path, src.info.Mode())
 
 	// channel for getting files concurrently.
 	fchan := make(chan pathFileInfo)
@@ -630,25 +759,28 @@ func mvRepoDir(src pathFileInfo, dst string, overwrite bool) error {
 	nworkers := 4
 	// counter for file deletion error by worker
 	cntErrFiles := make([]int, nworkers)
+	cntOkFiles := make([]int, nworkers)
 	for i := 0; i < nworkers; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
 			for finfo := range fchan {
-				if err := mvRepoFile(finfo, path.Join(dst, finfo.info.Name()), overwrite); err != nil {
+				err := cli.Rename(finfo.path, path.Join(dst.path, finfo.info.Name()), overwrite)
+				if err != nil {
 					log.Errorf("%s", err)
 					cntErrFiles[id]++
+				} else {
+					cntOkFiles[id]++
 				}
+				processed <- struct{}{}
 			}
 		}(i)
 	}
 
-	// counter for overall getting errors
-	cntErr := 0
 	// loop over content
 	for _, finfo := range files {
 		psrc := path.Join(src.path, finfo.Name())
-		pdst := path.Join(dst, path.Base(finfo.Name()))
+		pdst := path.Join(dst.path, path.Base(finfo.Name()))
 		if finfo.IsDir() {
 
 			// repo dir pathInfo
@@ -657,11 +789,14 @@ func mvRepoDir(src pathFileInfo, dst string, overwrite bool) error {
 				info: finfo,
 			}
 
-			log.Debugf("moving dir %s to %s", psrc, pdst)
-			if err := mvRepoDir(_pfinfoSrc, pdst, overwrite); err != nil {
-				log.Errorf("fail moving %s to %s: %s", psrc, pdst, err)
-				cntErr++
+			_pfinfoDst := pathFileInfo{
+				path: pdst,
 			}
+
+			log.Debugf("moving dir %s to %s", psrc, pdst)
+			_cntOk, _cntErr, _ := mvRepoDir(_pfinfoSrc, _pfinfoDst, overwrite, total, processed)
+			cntErr += _cntErr
+			cntOk += _cntOk
 		} else {
 			fchan <- pathFileInfo{
 				path: psrc,
@@ -679,61 +814,38 @@ func mvRepoDir(src pathFileInfo, dst string, overwrite bool) error {
 	// update overall deletion errors with error counts from workers
 	for i := 0; i < nworkers; i++ {
 		cntErr += cntErrFiles[i]
+		cntOk += cntOkFiles[i]
+
 	}
-
-	if cntErr > 0 {
-		return fmt.Errorf("%d files/subdirs not moved", cntErr)
+	// remove the moved directory
+	if err := cli.Remove(src.path); err != nil {
+		log.Errorf("fail removing %s: %s", src.path, err)
 	}
-
-	if src.info.IsDir() {
-		// remove the moved directory
-		if err := cli.Remove(src.path); err != nil {
-			log.Errorf("fail removing %s: %s", src.path, err)
-		}
-	}
-
-	return nil
-}
-
-// mvRepoFile moves file `src` to `dst`.
-//
-// If `dst` exists and is a directory, the `src` is moved into the `dst`.
-//
-// If `dst` exists and is a file, it returns error unless the `overwrite` flag is set to `true`.
-//
-// If `dst` doesn't exist, the `src` is renamed to `dst`.
-func mvRepoFile(src pathFileInfo, dst string, overwrite bool) error {
-	// if the source (1st argument) is a file.
-	if src.info.IsDir() {
-		return fmt.Errorf("%s not a file", src.path)
-	}
-
-	// if the destination specified is an existing directory,
-	// the `src` is moved into the `dst` with the same file name.
-	if fdst, err := cli.Stat(dst); err == nil && fdst.IsDir() {
-		dst = getCleanRepoPath(path.Join(dst, path.Base(src.path)))
-	}
-
-	log.Infof("moving %s to %s", src.path, dst)
-	return cli.Rename(src.path, dst, overwrite)
+	return
 }
 
 // rmRepoDir removes the directory `path` from the repository recursively.
-func rmRepoDir(repoPath string, recursive bool) error {
+func rmRepoDir(repoPath string, recursive bool, total chan int, processed chan struct{}) (cntOk, cntErr int, err error) {
 
+	// path on repo should be specified in absolute path form
 	if !filepath.IsAbs(repoPath) {
-		return fmt.Errorf("not an absolute path: %s", repoPath)
+		err = fmt.Errorf("not an absolute path: %s", repoPath)
+		return
 	}
 
 	// read the entire content of the dir
 	files, err := cli.ReadDir(repoPath)
 	if err != nil {
-		return err
+		return
 	}
 
+	// directory is not empty, not in recursive mode
 	if len(files) > 0 && !recursive {
-		return fmt.Errorf("directory not empty: %s", repoPath)
+		err = fmt.Errorf("directory not empty: %s", repoPath)
+		return
 	}
+
+	total <- countFiles(files)
 
 	// channel for deleting files concurrently.
 	fchan := make(chan string)
@@ -742,31 +854,32 @@ func rmRepoDir(repoPath string, recursive bool) error {
 	var wg sync.WaitGroup
 	nworkers := 4
 	// counter for file deletion error by worker
+	cntOkFiles := make([]int, nworkers)
 	cntErrFiles := make([]int, nworkers)
 	for i := 0; i < nworkers; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
 			for f := range fchan {
-				log.Debugf("removing %s ...", f)
-				if err := cli.Remove(f); err != nil {
+				err := cli.Remove(f)
+				if err != nil {
 					log.Errorf("fail removing file: %s", f)
 					cntErrFiles[id]++
+				} else {
+					cntOkFiles[id]++
 				}
+				processed <- struct{}{}
 			}
 		}(i)
 	}
 
-	// counter for overall deletion errors
-	cntErr := 0
 	// loop over content
 	for _, f := range files {
 		p := path.Join(repoPath, f.Name())
 		if f.IsDir() {
-			if err := rmRepoDir(p, recursive); err != nil {
-				log.Errorf("fail removing subdir %s: %s", p, err)
-				cntErr++
-			}
+			_cntOK, _cntErr, _ := rmRepoDir(p, recursive, total, processed)
+			cntOk += _cntOK
+			cntErr += _cntErr
 		} else {
 			fchan <- p
 		}
@@ -780,16 +893,13 @@ func rmRepoDir(repoPath string, recursive bool) error {
 
 	// update overall deletion errors with error counts from workers
 	for i := 0; i < nworkers; i++ {
+		cntOk += cntOkFiles[i]
 		cntErr += cntErrFiles[i]
 	}
 
-	if cntErr > 0 {
-		return fmt.Errorf("%d files/subdirs not removed", cntErr)
-	}
-
 	// remove the directory itself
-	log.Debugf("removing %s ...", repoPath)
-	return cli.Remove(repoPath)
+	err = cli.Remove(repoPath)
+	return
 }
 
 // prettifyProgressbarDesc returns a shortened description string up to 15 UTF-8 characters.
@@ -804,4 +914,14 @@ func prettifyProgressbarDesc(origin string) string {
 	chars := []rune(origin)
 
 	return fmt.Sprintf("%-15s...%-15s", string(chars[:15]), string(chars[len(origin)-15:]))
+}
+
+// countFiles returns number of non-directory files in the given slice of `paths`.
+func countFiles(paths []fs.FileInfo) (count int) {
+	for _, p := range paths {
+		if !p.IsDir() {
+			count += 1
+		}
+	}
+	return
 }
