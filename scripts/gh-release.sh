@@ -127,7 +127,7 @@ if [ ${#rpms[@]} -gt 0 ]; then
             echo "uploading ${rpm} ..."
             GH_ASSET="${GH_REPO_ASSET_PREFIX}/${rid}/assets?name=$(basename $rpm)"
             resp_upload=$( curl --data-binary @${rpm} \
-                                -H "Content-Type: application/octet-stream" \
+                -H "Content-Type: application/octet-stream" \
 				-H "Authorization: token $gh_token" $GH_ASSET )
         fi
     done
@@ -135,11 +135,20 @@ fi
 
 ## build repocli for Windows and upload them as release assets
 tmp_dir=$(mktemp -d -t repocli-build-XXXXXXXXXX)
-GOPATH=$tmp_dir make build_repocli_windows build_repocli_macosx
 
-files=( $(ls -d ${tmp_dir}/*) )
+## download the tag from github
+curl -L https://github.com/${GH_ORG}/${GH_REPO}/archive/refs/tags/${tag}.tar.gz -o ${tmp_dir}/${tag}.tar.gz
+[ $? -ne 0 ] && echo "cannot download tarball for tag ${tag}" >&2 && exit 1
 
-## upload RPMs as release assets 
+## build repocli binaries
+tar xvzf ${tmp_dir}/${tag}.tar.gz --strip-components=1 -C ${tmp_dir} && 
+    mkdir ${tmp_dir}/gopath &&
+    GOPATH=${tmp_dir}/gopath make -C ${tmp_dir} build_repocli_windows build_repocli_macosx
+
+[ $? -ne 0 ] && echo "fail to build repocli binaries" >&2 && exit 1
+
+## upload repocli binaries as release assets
+files=( $(ls -d ${tmp_dir}/gopath/bin/*) )
 if [ ${#files[@]} -gt 0 ]; then
     upload="y"
     read -p "upload repocli binaries as release assets?, continue? [y]/n: " upload
@@ -159,10 +168,12 @@ if [ ${#files[@]} -gt 0 ]; then
             echo "uploading ${f} ..."
             GH_ASSET="${GH_REPO_ASSET_PREFIX}/${rid}/assets?name=$(basename $f)"
             resp_upload=$( curl --data-binary @${f} \
-                                -H "Content-Type: application/octet-stream" \
+                -H "Content-Type: application/octet-stream" \
 				-H "Authorization: token $gh_token" $GH_ASSET )
         fi
     done
 fi
 
-[ -d $tmp_dir] && rm -rf $tmp_dir
+# remove the $tmp_dir.
+# The chmod is necessary to get rid of the Golang modules as they are installed read-only.
+[ -d $tmp_dir] && chmod -R +w $tmp_dir/pkg/mod && rm -rf $tmp_dir
