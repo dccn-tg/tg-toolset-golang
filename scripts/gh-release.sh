@@ -109,10 +109,9 @@ rpms=( $( echo "${out}" | egrep -o -e 'Wrote:.*\.rpm' | sed 's/Wrote: //g' ) )
 
 ## upload RPMs as release assets 
 if [ ${#rpms[@]} -gt 0 ]; then
-    upload="y"
     read -p "upload ${#rpms[@]} RPMs as release assets?, continue? [y]/n: " upload
+    [ -z $upload ] && upload="y"
     for rpm in ${rpms[@]}; do
-        echo ${rpm}
         if [ "${upload,,}" == "y" ]; then
             fname=$( basename $rpm )
             # check if the asset with the same name already exists
@@ -150,10 +149,9 @@ tar xvzf ${tmp_dir}/${tag}.tar.gz --strip-components=1 -C ${tmp_dir} &&
 ## upload repocli binaries as release assets
 files=( $(ls -d ${tmp_dir}/gopath/bin/*) )
 if [ ${#files[@]} -gt 0 ]; then
-    upload="y"
     read -p "upload repocli binaries as release assets?, continue? [y]/n: " upload
+    [ -z $upload ] && upload="y"
     for f in ${files[@]}; do
-        echo ${f}
         if [ "${upload,,}" == "y" ]; then
             fname=$( basename $f )
             # check if the asset with the same name already exists
