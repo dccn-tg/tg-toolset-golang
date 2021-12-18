@@ -128,7 +128,7 @@ if [ ${#rpms[@]} -gt 0 ]; then
             GH_ASSET="${GH_REPO_ASSET_PREFIX}/${rid}/assets?name=$(basename $rpm)"
             resp_upload=$( curl --data-binary @${rpm} \
                 -H "Content-Type: application/octet-stream" \
-				-H "Authorization: token $gh_token" $GH_ASSET )
+                -H "Authorization: token $gh_token" $GH_ASSET )
         fi
     done
 fi
@@ -137,7 +137,7 @@ fi
 tmp_dir=$(mktemp -d -t repocli-build-XXXXXXXXXX)
 
 ## download the tag from github
-curl -L https://github.com/${GH_ORG}/${GH_REPO}/archive/refs/tags/${tag}.tar.gz -o ${tmp_dir}/${tag}.tar.gz
+curl -L https://github.com/${GH_ORG}/${GH_REPO_NAME}/archive/refs/tags/${tag}.tar.gz -o ${tmp_dir}/${tag}.tar.gz
 [ $? -ne 0 ] && echo "cannot download tarball for tag ${tag}" >&2 && exit 1
 
 ## build repocli binaries
@@ -169,11 +169,11 @@ if [ ${#files[@]} -gt 0 ]; then
             GH_ASSET="${GH_REPO_ASSET_PREFIX}/${rid}/assets?name=$(basename $f)"
             resp_upload=$( curl --data-binary @${f} \
                 -H "Content-Type: application/octet-stream" \
-				-H "Authorization: token $gh_token" $GH_ASSET )
+                -H "Authorization: token $gh_token" $GH_ASSET )
         fi
     done
 fi
 
 # remove the $tmp_dir.
 # The chmod is necessary to get rid of the Golang modules as they are installed read-only.
-[ -d $tmp_dir] && chmod -R +w $tmp_dir/pkg/mod && rm -rf $tmp_dir
+[ -d $tmp_dir ] && chmod -R +w $tmp_dir && rm -rf $tmp_dir
