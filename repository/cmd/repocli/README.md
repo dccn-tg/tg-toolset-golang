@@ -154,7 +154,7 @@ __Note:__ The same as the `rsync` command, the tailing `/` in the _source_ instr
 
 ### moving (i.e. renaming) a file or a directory
 
-For renaming a file within a collection, one uses the `mv` sub-command.
+For renaming a file within a collection, one uses the `mv` sub-command.  This sub-command also takes two arguments, the _source_ and the _destniation_.
 
 For example, if we want to rename a file `/dccn/DAC_3010000.01_173/test.txt` to `/dccn/DAC_3010000.01_173/test.txt.old` in the repository, we do
 
@@ -167,3 +167,12 @@ We could also rename an entire directory.  For example, if we want to rename a `
 ```bash
 $ repocli mv /dccn/DAC_3010000.01_173/demo /dccn/DAC_3010000.01_173/demo.new
 ```
+
+For moving a directory into a new directory can be achived by adding the tailing `/` to the _source_.  Take the example above, if the tailing `/` is presented, e.g.
+
+```bash
+$ repocli mv /dccn/DAC_3010000.01_173/demo/ /dccn/DAC_3010000.01_173/demo.new
+```
+
+the end result will a new directory `/dccn/DAC_3010000.01_173/demo.new/demo` in which the data within the _source_ are moved over.
+
