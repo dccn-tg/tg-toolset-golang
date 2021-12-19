@@ -80,7 +80,7 @@ $ repocli ls /dccn/DAC_3010000.01_173
 ...
 ```
 
-### removing a file or sub-directory
+### removing a file or directory
 
 Assuming that we want to remove the file `MANIFEST.txt.1` from the collection content listed above, we do
 
@@ -96,7 +96,7 @@ $ repocli rm -r /dccn/DAC_3010000.01_173/textx
 
 where the extra flag `-r` indicates recursive removal.
 
-### creating sub-directory
+### creating a directory
 
 To create a subdirectory `demo` in the collection, we do
 
@@ -112,7 +112,7 @@ $ repocli mkdir /dccn/DAC_3010000.01_173/demo1/data/sub-001/ses-mri01
 
 It can be done with or without the existence of the parent tree structure `demo1/data/sub-001`.
 
-### uploading/download single file
+### uploading/download a single file
 
 For uploading/downloading a single file to/from the collection in the repository.  One use the `put` and `get` sub-commands, respectively.  The `put` and `get` sub-arguments require two arguments.  The first argument refers to the _source_, while the second refers to the _destination_. 
 
