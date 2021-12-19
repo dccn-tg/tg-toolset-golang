@@ -11,7 +11,7 @@ The implemented operations are:
 - get: download a file or a directory
 - put: upload a file or a directory
 
-When performing an recursive operation over a directory, it performs a directory walk-through and applies the operation on individual files in parallel.  This approach breaks down a lengthy bulk-operation request into multiple shorter, less resource demanding requests.  It helps improve the overall success rate of the operation.
+When performing an recursive operation on a directory, the program does a directory walk-through and applies the operation on individual files in parallel.  This approach breaks down a lengthy bulk-operation request into multiple shorter, less resource demanding requests.  It helps improve the overall success rate of the operation.
 
 ## Build binary
 
