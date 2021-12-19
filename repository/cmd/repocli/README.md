@@ -162,13 +162,11 @@ For example, if we want to rename a file `/dccn/DAC_3010000.01_173/test.txt` to 
 $ repocli mv /dccn/DAC_3010000.01_173/test.txt /dccn/DAC_3010000.01_173/test.txt.old
 ```
 
-We could also rename an entire directory.  For example, if we want to rename a `/dccn/DAC_3010000.01_173/demo` to `/dccn/DAC_3010000.01_173/demo.new`, we use the command
+We could also rename an entire directory.  For example, if we want to rename a `/dccn/DAC_3010000.01_173/demo` to `/dccn/DAC_3010000.01_173/demo.new`, we use the command below (__note the tailing `/` of the _source_ for "moving the content over"_):
 
 ```bash
 $ repocli mv /dccn/DAC_3010000.01_173/demo/ /dccn/DAC_3010000.01_173/demo.new
 ```
-
-__Note the tailing `/` of the _source___
 
 Moving the _source_ directory into a the _destination_ directory can be achived by leaving the tailing `/` out the _source_ directory.  Taking the example above, if the tailing `/` is omitted, e.g.
 
