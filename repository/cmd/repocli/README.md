@@ -13,32 +13,6 @@ The implemented operations are:
 
 When performing an recursive operation on a directory, the program does a directory walk-through and applies the operation on individual files in parallel.  This approach breaks down a lengthy bulk-operation request into multiple shorter, less resource demanding requests.  It helps improve the overall success rate of the operation.
 
-## Build binary
-
-__Linux__
-
-```bash
-$ make build_repocli
-```
-
-The resulting binary is produced at `${GOPATH}/bin/repocli`.
-
-__Windows__
-
-```bash
-$ make build_repocli_windows
-```
-
-The resulting binary is produced at `${GOPATH}/bin/repocli.exe`.
-
-__MacOSX__
-
-```bash
-$ make build_repocli_macosx
-```
-
-The resulting binary is produced at `${GOPATH}/bin/repocli.darwin`.
-
 ## Usage
 
 ```
@@ -82,7 +56,7 @@ At the moment, the configuration is in plain text.  Therefore, it is highly reco
 $ chmod 600 $HOME/.repocli.yml
 ```
 
-### listing a collection
+### listing a collection or a sub-directory 
 
 Given a collection with identifier `di.dccn.DAC_3010000.01_173`, the following command lists the content of it: 
 
@@ -105,6 +79,8 @@ $ repocli ls /dccn/DAC_3010000.01_173
  -rw-rw-r--         2589 /dccn/DAC_3010000.01_173/Makefile
 ...
 ```
+
+where the directory `/dccn/DAC_3010000.01_173` is essentially a WebDAV directory in which the data of the collection is stored.
 
 ### removing a file or sub-directory (sub-collection)
 
