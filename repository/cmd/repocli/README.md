@@ -114,18 +114,20 @@ It can be done with or without the existence of the parent tree structure `demo1
 
 ### uploading/download a single file
 
-For uploading/downloading a single file to/from the collection in the repository.  One use the `put` and `get` sub-commands, respectively.  The `put` and `get` sub-arguments require two arguments.  The first argument refers to the _source_, while the second refers to the _destination_. 
+For uploading/downloading a single file to/from the collection in the repository.  One use the `put` and `get` sub-commands, respectively.  The `put` and `get` sub-commands require two arguments.  The first argument refers to the _source_ path; while the second to the _destination_ path.
 
-For example, to upload a local file `test.txt` to `/project/3010000.01/demo`, one does
+The WebDAV path should always be in form of the absolute path (i.e. started with `/`); while the local path can be in a format recognized by the shell.
+
+For example, to upload a local file `test.txt` in the present working directory to `/dccn/DAC_3010000.01_173/demo/test.txt`, one does
 
 ```bash
-$ repocli put test.txt /project/3010000.01/demo/test.txt
+$ repocli put ./test.txt /dccn/DAC_3010000.01_173/demo/test.txt
 ```
 
-To download a remote file `/project/3010000.01/demo/test.txt` to `test.txt.new` at local, one does
+To download a remote file `/dccn/DAC_3010000.01_173/demo/test.txt` to `test.txt.new` in the home directory at local (refered by the `$HOME` variable), one does
 
 ```bash
-$ repocli get /project/3010000.01/demo/test.txt test.txt.new
+$ repocli get /dccn/DAC_3010000.01_173/demo/test.txt $HOME/test.txt.new
 ```
 
 If the destination is a directory, file will be downloaded/uploaded into the directory with the same name.  If the destination is an existing file, the file will be overwritten by the content of the source.
@@ -138,9 +140,9 @@ Assuming that we have a local directory `/project/3010000.01/demo`, and we want 
 $ repocli put /project/3010000.01/demo/ /dccn/DAC_3010000.01_173/demo
 ```
 
-where the first argument to `put` is a directory locally as the source, and the second is a directory in the repository as the destination.
+where the first argument to `put` is a directory locally as the _source_, and the second is a directory in the repository as the _destination_.
 
-For downloading a collection (or a sub-directory) from the repository, one does
+For downloading a directory from the repository, one does
 
 ```bash
 $ repocli get /dccn/DAC_3010000.01_173/demo/ /project/3010000.01/demo.new
@@ -148,7 +150,7 @@ $ repocli get /dccn/DAC_3010000.01_173/demo/ /project/3010000.01/demo.new
 
 where the first argument is a directory in the repository as the source, and the second is a local directory as the destination.
 
-__Note:__ The same as the `rsync` command, the tailing `/` in the first argument (i.e. the source) will causes the program to _copy the content_ into the destination.  If the tailing `/` is not given, it will _copy the directory by name_ in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
+__Note:__ The same as the `rsync` command, the tailing `/` in the _source_ instructs the tool to _copy the content_ into the destination.  If the tailing `/` is left out, it will _copy the directory by name_ in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
 
 ### moving (i.e. renaming) a file or a directory
 
