@@ -56,9 +56,9 @@ At the moment, the configuration is in plain text.  Therefore, it is highly reco
 $ chmod 600 $HOME/.repocli.yml
 ```
 
-### listing a collection or a sub-directory 
+### listing a directory
 
-Given a collection with identifier `di.dccn.DAC_3010000.01_173`, the following command lists the content of it: 
+Given a collection with identifier `di.dccn.DAC_3010000.01_173`, the WebDAV directory in which the collection data is stored is `/dccn/DAC_3010000.01_173`.  To list the content of this WebDAV directory, one does
 
 ```bash
 $ repocli ls /dccn/DAC_3010000.01_173
@@ -80,9 +80,7 @@ $ repocli ls /dccn/DAC_3010000.01_173
 ...
 ```
 
-where the directory `/dccn/DAC_3010000.01_173` is essentially a WebDAV directory in which the data of the collection is stored.
-
-### removing a file or sub-directory (sub-collection)
+### removing a file or sub-directory
 
 Assuming that we want to remove the file `MANIFEST.txt.1` from the collection content listed above, we do
 
@@ -98,7 +96,7 @@ $ repocli rm -r /dccn/DAC_3010000.01_173/textx
 
 where the extra flag `-r` indicates recursive removal.
 
-### creating sub-directory in the collection
+### creating sub-directory
 
 To create a subdirectory `demo` in the collection, we do
 
@@ -114,7 +112,7 @@ $ repocli mkdir /dccn/DAC_3010000.01_173/demo1/data/sub-001/ses-mri01
 
 It can be done with or without the existence of the parent tree structure `demo1/data/sub-001`.
 
-### uploading/download single file to/from the collection
+### uploading/download single file
 
 For uploading/downloading a single file to/from the collection in the repository.  One use the `put` and `get` sub-commands, respectively.  The `put` and `get` sub-arguments require two arguments.  The first argument refers to the _source_, while the second refers to the _destination_. 
 
@@ -132,7 +130,7 @@ $ repocli get /project/3010000.01/demo/test.txt test.txt.new
 
 If the destination is a directory, file will be downloaded/uploaded into the directory with the same name.  If the destination is an existing file, the file will be overwritten by the content of the source.
 
-### resursive uploading/downloading to/from the collection
+### resursive uploading/downloading a directory
 
 Assuming that we have a local directory `/project/3010000.01/demo`, and we want to upload the content of it recursively to the collection under the sub-directory `demo`.  We use the command below:
 
@@ -152,7 +150,7 @@ where the first argument is a directory in the repository as the source, and the
 
 __Note:__ The same as the `rsync` command, the tailing `/` in the first argument (i.e. the source) will causes the program to _copy the content_ into the destination.  If the tailing `/` is not given, it will _copy the directory by name_ in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
 
-### moving/renaming file/directory in a collection
+### moving (i.e. renaming) a file or a directory
 
 For renaming a file within a collection, one uses the `mv` sub-command.
 
