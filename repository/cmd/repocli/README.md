@@ -50,7 +50,7 @@ repository:
   password: "password"
 ```
 
-At the moment, the configuration is in plain text.  Therefore, it is highly recommended to make the configuration file only accessible for the current user on the client. On Linux and MacOSX, one can run the following command in a terminal:
+At the moment, the configuration is in plain text.  It is highly recommended to make the configuration file only accessible to the current user. On Linux and MacOSX, one can run the following command in a terminal:
 
 ```bash
 $ chmod 600 $HOME/.repocli.yml
