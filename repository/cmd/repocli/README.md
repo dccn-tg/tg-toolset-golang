@@ -1,8 +1,8 @@
 # repocli: cross-platform user CLI for managing the Donders Repository data
 
-A command-line tool for performing basic operations on the Donders Repository data.  The tool uses the WebDAV protocol, therefore it is also a genetic tool for managing data that are accessible via an WebDAV interface.
+A command-line tool for performing basic operations on the data content (not the metadata) of the Donders Repository collections.  In essense, it uses the WebDAV protocol to implemente the operations; therefore it is also a genetic tool for managing data accessible via WebDAV.
 
-The implemented operations are:
+The following operations are currently implemented:
 
 - ls: list a directory
 - mkdir: create a new directory
