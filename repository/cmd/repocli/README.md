@@ -168,7 +168,7 @@ We could also rename an entire directory.  For example, if we want to rename a `
 $ repocli mv /dccn/DAC_3010000.01_173/demo /dccn/DAC_3010000.01_173/demo.new
 ```
 
-For moving a directory into a new directory can be achived by adding the tailing `/` to the _source_.  Take the example above, if the tailing `/` is presented, e.g.
+Moving a directory into a new directory can be achived by adding the tailing `/` to the _source_.  Take the example above, if the tailing `/` is presented, e.g.
 
 ```bash
 $ repocli mv /dccn/DAC_3010000.01_173/demo/ /dccn/DAC_3010000.01_173/demo.new
