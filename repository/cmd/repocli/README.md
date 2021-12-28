@@ -1,34 +1,17 @@
 # repocli: cross-platform user CLI for managing the Donders Repository data
 
-The CLI uses the WebDAV interface of the Donders Repository.
+A command-line tool for performing basic operations on the data content (not the metadata) of the Donders Repository collections.  In essense, it uses the WebDAV protocol to implemente the operations; therefore it is also a genetic tool for managing data accessible via WebDAV with the HTTP basic authentication.
 
-When performing an recursive operation over a directory, it performs a directory walk-through and applies the operation on individual files in parallel.  This approach breaks down a lengthy bulk-operation request into multiple shorter, less resource demanding requests.  It helps improve the overall success rate of the operation.
+The following operations are currently implemented:
 
-## Build binary
+- ls: list a directory
+- mkdir: create a new directory
+- mv: rename a file or a directory
+- rm: remove a file or a directory
+- get: download a file or a directory
+- put: upload a file or a directory
 
-__Linux__
-
-```bash
-$ make build_repocli
-```
-
-The resulting binary is produced at `${GOPATH}/bin/repocli`.
-
-__Windows__
-
-```bash
-$ make build_repocli_windows
-```
-
-The resulting binary is produced at `${GOPATH}/bin/repocli.exe`.
-
-__MacOSX__
-
-```bash
-$ make build_repocli_macosx
-```
-
-The resulting binary is produced at `${GOPATH}/bin/repocli.darwin`.
+When performing an recursive operation on a directory, the tool does a directory walk-through and applies the operation on individual files in parallel.  This approach breaks down a lengthy bulk-operation request into multiple shorter, less resource demanding requests.  It helps improve the overall success rate of the operation.
 
 ## Usage
 
@@ -67,15 +50,15 @@ repository:
   password: "password"
 ```
 
-At the moment, the configuration is in plain text.  Therefore, it is highly recommended to make the configuration file only accessible for the current user on the client. On Linux and MacOSX, one can run the following command in a terminal:
+At the moment, the configuration is in plain text.  It is highly recommended to make the configuration file only accessible to the current user. On Linux and MacOSX, one can run the following command in a terminal:
 
 ```bash
 $ chmod 600 $HOME/.repocli.yml
 ```
 
-### listing a collection
+### listing a directory
 
-Given a collection with identifier `di.dccn.DAC_3010000.01_173`, the following command lists the content of it: 
+Given a collection with identifier `di.dccn.DAC_3010000.01_173`, the WebDAV directory in which the collection data is stored is `/dccn/DAC_3010000.01_173`.  To list the content of this WebDAV directory, one does
 
 ```bash
 $ repocli ls /dccn/DAC_3010000.01_173
@@ -97,7 +80,7 @@ $ repocli ls /dccn/DAC_3010000.01_173
 ...
 ```
 
-### removing a file or sub-directory (sub-collection)
+### removing a file or directory
 
 Assuming that we want to remove the file `MANIFEST.txt.1` from the collection content listed above, we do
 
@@ -113,7 +96,7 @@ $ repocli rm -r /dccn/DAC_3010000.01_173/textx
 
 where the extra flag `-r` indicates recursive removal.
 
-### creating sub-directory in the collection
+### creating a directory
 
 To create a subdirectory `demo` in the collection, we do
 
@@ -129,25 +112,27 @@ $ repocli mkdir /dccn/DAC_3010000.01_173/demo1/data/sub-001/ses-mri01
 
 It can be done with or without the existence of the parent tree structure `demo1/data/sub-001`.
 
-### uploading/download single file to/from the collection
+### uploading/download a single file
 
-For uploading/downloading a single file to/from the collection in the repository.  One use the `put` and `get` sub-commands, respectively.  The `put` and `get` sub-arguments require two arguments.  The first argument refers to the _source_, while the second refers to the _destination_. 
+For uploading/downloading a single file to/from the collection in the repository.  One use the `put` and `get` sub-commands, respectively.  The `put` and `get` sub-commands require two arguments.  The first argument refers to the _source_ path; while the second to the _destination_ path.
 
-For example, to upload a local file `test.txt` to `/project/3010000.01/demo`, one does
+The WebDAV path should always be in form of the absolute path (i.e. started with `/`); while the local path can be in a format recognized by the shell.
+
+For example, to upload a local file `test.txt` in the present working directory to `/dccn/DAC_3010000.01_173/demo/test.txt`, one does
 
 ```bash
-$ repocli put test.txt /project/3010000.01/demo/test.txt
+$ repocli put ./test.txt /dccn/DAC_3010000.01_173/demo/test.txt
 ```
 
-To download a remote file `/project/3010000.01/demo/test.txt` to `test.txt.new` at local, one does
+To download a remote file `/dccn/DAC_3010000.01_173/demo/test.txt` to `test.txt.new` in the home directory at local (refered by the `$HOME` variable), one does
 
 ```bash
-$ repocli get /project/3010000.01/demo/test.txt test.txt.new
+$ repocli get /dccn/DAC_3010000.01_173/demo/test.txt $HOME/test.txt.new
 ```
 
 If the destination is a directory, file will be downloaded/uploaded into the directory with the same name.  If the destination is an existing file, the file will be overwritten by the content of the source.
 
-### resursive uploading/downloading to/from the collection
+### resursive uploading/downloading a directory
 
 Assuming that we have a local directory `/project/3010000.01/demo`, and we want to upload the content of it recursively to the collection under the sub-directory `demo`.  We use the command below:
 
@@ -155,9 +140,9 @@ Assuming that we have a local directory `/project/3010000.01/demo`, and we want 
 $ repocli put /project/3010000.01/demo/ /dccn/DAC_3010000.01_173/demo
 ```
 
-where the first argument to `put` is a directory locally as the source, and the second is a directory in the repository as the destination.
+where the first argument to `put` is a directory locally as the _source_, and the second is a directory in the repository as the _destination_.
 
-For downloading a collection (or a sub-directory) from the repository, one does
+For downloading a directory from the repository, one does
 
 ```bash
 $ repocli get /dccn/DAC_3010000.01_173/demo/ /project/3010000.01/demo.new
@@ -165,11 +150,11 @@ $ repocli get /dccn/DAC_3010000.01_173/demo/ /project/3010000.01/demo.new
 
 where the first argument is a directory in the repository as the source, and the second is a local directory as the destination.
 
-__Note:__ The same as the `rsync` command, the tailing `/` in the first argument (i.e. the source) will causes the program to _copy the content_ into the destination.  If the tailing `/` is not given, it will _copy the directory by name_ in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
+__Note:__ The same as the `rsync` command, the tailing `/` in the _source_ instructs the tool to _copy the content_ into the destination.  If the tailing `/` is left out, it will _copy the directory by name_ in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
 
-### moving/renaming file/directory in a collection
+### moving (i.e. renaming) a file or a directory
 
-For renaming a file within a collection, one uses the `mv` sub-command.
+For renaming a file within a collection, one uses the `mv` sub-command.  This sub-command also takes two arguments, the _source_ and the _destniation_.
 
 For example, if we want to rename a file `/dccn/DAC_3010000.01_173/test.txt` to `/dccn/DAC_3010000.01_173/test.txt.old` in the repository, we do
 
@@ -177,8 +162,17 @@ For example, if we want to rename a file `/dccn/DAC_3010000.01_173/test.txt` to 
 $ repocli mv /dccn/DAC_3010000.01_173/test.txt /dccn/DAC_3010000.01_173/test.txt.old
 ```
 
-We could also rename an entire directory.  For example, if we want to rename a `/dccn/DAC_3010000.01_173/demo` to `/dccn/DAC_3010000.01_173/demo.new`, we use the command
+We could also rename an entire directory.  For example, if we want to rename a `/dccn/DAC_3010000.01_173/demo` to `/dccn/DAC_3010000.01_173/demo.new`, we use the command below (__note the tailing `/` of the _source_ for "moving the content over"__):
+
+```bash
+$ repocli mv /dccn/DAC_3010000.01_173/demo/ /dccn/DAC_3010000.01_173/demo.new
+```
+
+Moving the _source_ directory into a the _destination_ directory can be achived by leaving the tailing `/` out the _source_ directory.  Taking the example above, if the tailing `/` is omitted, e.g.
 
 ```bash
 $ repocli mv /dccn/DAC_3010000.01_173/demo /dccn/DAC_3010000.01_173/demo.new
 ```
+
+the end result will a new directory `/dccn/DAC_3010000.01_173/demo.new/demo` in which the data within the _source_ directory are moved over.
+
