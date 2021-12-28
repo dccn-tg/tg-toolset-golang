@@ -63,8 +63,9 @@ func init() {
 
 	rmCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "remove directory recursively")
 	mvCmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
+	cpCmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
 
-	rootCmd.AddCommand(lsCmd, putCmd, getCmd, rmCmd, mvCmd, mkdirCmd)
+	rootCmd.AddCommand(lsCmd, putCmd, getCmd, rmCmd, mvCmd, cpCmd, mkdirCmd)
 }
 
 // initDataDir determines `dataDir` location and ensures the presence of it.
@@ -103,7 +104,7 @@ func initDataDir() error {
 // // command to change directory in the repository.
 // // At the moment, this command makes no sense as the current directory is not persistent.
 // var cdCmd = &cobra.Command{
-// 	Use:   "cd <repo_directory>",
+// 	Use:   "cd <repo_dir>",
 // 	Short: "Change directory in the repository",
 // 	Long:  ``,
 // 	Args:  cobra.ExactArgs(1),
@@ -124,10 +125,13 @@ func initDataDir() error {
 
 // command to list a file or the content of a directory in the repository.
 var lsCmd = &cobra.Command{
-	Use:   "ls <repo_file|repo_directory>",
-	Short: "List a file or the content of a directory in the repository",
-	Long:  ``,
-	Args:  cobra.MaximumNArgs(1),
+	Use:   "ls <repo_file|repo_dir>",
+	Short: "list file or directory in the repository",
+	Long: `List a repository file or the content in a repository directory.
+
+The <repo_file|repo_dir> should be an absolute path referring to the WebDAV's namespace, e.g. /dccn/DAC_3010000.01_173/README.txt or /dccn/DAC_3010000.01_173/raw/
+	`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		p := cwd
@@ -161,8 +165,8 @@ var lsCmd = &cobra.Command{
 }
 
 var putCmd = &cobra.Command{
-	Use:   "put <local_file|local_directory> <repo_file|repo_directory>",
-	Short: "Upload a file or a directory at local into a repository directory",
+	Use:   "put <local_file|local_dir> <repo_file|repo_dir>",
+	Short: "upload file or directory to the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -249,8 +253,8 @@ var putCmd = &cobra.Command{
 }
 
 var getCmd = &cobra.Command{
-	Use:   "get <repo_file|repo_directory> <local_file|local_directory>",
-	Short: "Download a file or a directory from the repository to the current working directory at local",
+	Use:   "get <repo_file|repo_dir> <local_file|local_dir>",
+	Short: "download file or directory from the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -338,9 +342,82 @@ var getCmd = &cobra.Command{
 	},
 }
 
+var cpCmd = &cobra.Command{
+	Use:   "cp <repo_file|repo_dir> <repo_file|repo_dir>",
+	Short: "copy file or directory in the repository",
+	Long:  ``,
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		src := getCleanRepoPath(args[0])
+		dst := getCleanRepoPath(args[1])
+
+		// source must exists
+		fsrc, err := cli.Stat(src)
+		if err != nil {
+			return err
+		}
+
+		fdst, derr := cli.Stat(dst)
+
+		if fsrc.IsDir() {
+
+			// destination path exists but not a directory.
+			if derr == nil && !fdst.IsDir() {
+				return fmt.Errorf("destination not a directory: %s", args[1])
+			}
+
+			// the source does not have a tailing path separator.  The whole local directory is
+			// created within the specifified directory
+			cpath := []rune(args[0])
+			if cpath[len(cpath)-1] != '/' {
+				dst = path.Join(dst, path.Base(src))
+			}
+
+			pfinfoSrc := pathFileInfo{
+				path: src,
+				info: fsrc,
+			}
+
+			pfinfoDst := pathFileInfo{
+				path: dst,
+			}
+
+			log.Debugf("copying %s to %s", pfinfoSrc.path, pfinfoDst.path)
+
+			if err := cli.MkdirAll(dst, pfinfoSrc.info.Mode()); err != nil {
+				return err
+			}
+
+			// start progress
+			p := Progress{}
+			tchan, pchan := p.Start(silent)
+
+			// run with 4 concurrent workers
+			cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, tchan, pchan)
+
+			// stop progress
+			p.Stop()
+
+			// log statistics
+			if !silent {
+				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+			}
+
+			return err
+		} else {
+			if derr == nil && fdst.IsDir() {
+				dst = path.Join(dst, path.Base(src))
+			}
+			log.Debugf("copying %s to %s", src, dst)
+			return cli.Copy(src, dst, overwrite)
+		}
+	},
+}
+
 var mvCmd = &cobra.Command{
-	Use:   "mv <repo_file|repo_directory> <repo_file|repo_directory>",
-	Short: "Move or rename a file or directory in the repository",
+	Use:   "mv <repo_file|repo_dir> <repo_file|repo_dir>",
+	Short: "move (rename) file or directory in the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -390,7 +467,7 @@ var mvCmd = &cobra.Command{
 			tchan, pchan := p.Start(silent)
 
 			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr, err := mvRepoDir(pfinfoSrc, pfinfoDst, overwrite, tchan, pchan)
+			cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, tchan, pchan)
 
 			// stop progress
 			p.Stop()
@@ -405,6 +482,7 @@ var mvCmd = &cobra.Command{
 			if derr == nil && fdst.IsDir() {
 				dst = path.Join(dst, path.Base(src))
 			}
+			log.Debugf("renaming %s to %s", src, dst)
 			return cli.Rename(src, dst, overwrite)
 		}
 	},
@@ -412,7 +490,7 @@ var mvCmd = &cobra.Command{
 
 var rmCmd = &cobra.Command{
 	Use:   "rm <file_repo|directory_repo>",
-	Short: "Remove a file or a directory from the repository",
+	Short: "remove file or directory from the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -449,8 +527,8 @@ var rmCmd = &cobra.Command{
 }
 
 var mkdirCmd = &cobra.Command{
-	Use:   "mkdir <repo_directory>",
-	Short: "Create a new directory in the repository",
+	Use:   "mkdir <repo_dir>",
+	Short: "create new directory in the repository",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -601,52 +679,6 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 	}
 }
 
-// walkRepoDirForCopy walks through a repo directory and creates inputs for moving files in the repo.
-func walkRepoDirForCopy(pfinfoSrc, pfinfoDst pathFileInfo, ichan chan opInput, tchan chan int, closeChanOnComplete bool) {
-
-	// read the entire content of the dir
-	files, err := cli.ReadDir(pfinfoSrc.path)
-	if err != nil {
-		return
-	}
-
-	tchan <- countFiles(files)
-
-	// loop over content
-	for _, finfo := range files {
-		p := path.Join(pfinfoSrc.path, finfo.Name())
-
-		// repo dir pathInfo
-		_pfinfoSrc := pathFileInfo{
-			path: p,
-			info: finfo,
-		}
-		// local dir pathInfo
-		_pfinfoDst := pathFileInfo{
-			path: filepath.Join(pfinfoDst.path, finfo.Name()),
-		}
-
-		if finfo.IsDir() {
-			// create sub directory in advance
-			if err := cli.Mkdir(_pfinfoDst.path, _pfinfoSrc.info.Mode()); err != nil {
-				log.Errorf("cannot create repo dir %s: %s", _pfinfoDst.path, err)
-				continue
-			}
-			// walk into sub directory without closing the channel
-			walkRepoDirForCopy(_pfinfoSrc, _pfinfoDst, ichan, tchan, false)
-		} else {
-			ichan <- opInput{
-				src: _pfinfoSrc,
-				dst: _pfinfoDst,
-			}
-		}
-	}
-
-	if closeChanOnComplete {
-		close(ichan)
-	}
-}
-
 // putRepoFile uploads a single local file to the repository.
 func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error {
 
@@ -697,7 +729,7 @@ func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error 
 	defer fileLocal.Close()
 
 	// progress bar
-	barDesc := prettifyProgressbarDesc(pfinfoRepo.info.Name())
+	barDesc := prettifyProgressbarDesc(path.Base(pfinfoRepo.path))
 	bar := pb.DefaultBytesSilent(pfinfoRepo.info.Size(), barDesc)
 	if showProgress {
 		bar = pb.DefaultBytes(pfinfoRepo.info.Size(), barDesc)
@@ -734,8 +766,24 @@ func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error 
 	return nil
 }
 
-// mvRepoDir moves directory from `src` to `dst` recursively.
-func mvRepoDir(src, dst pathFileInfo, overwrite bool, total chan int, processed chan struct{}) (cntOk, cntErr int, err error) {
+// simple webdav client wrapper to switch between Copy and Rename.
+func cliCopyOrRename(op Op, src, dst string) error {
+	if op == Move {
+		if err := cli.Rename(src, dst, overwrite); err != nil {
+			log.Errorf("cannot rename repo file %s: %s", src, err)
+			return err
+		}
+	} else {
+		if err := cli.Copy(src, dst, overwrite); err != nil {
+			log.Errorf("cannot copy repo file %s: %s", src, err)
+			return err
+		}
+	}
+	return nil
+}
+
+// copyOrMoveRepoDir moves directory from `src` to `dst` recursively.
+func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, total chan int, processed chan struct{}) (cntOk, cntErr int, err error) {
 
 	// read the entire content of the source directory
 	files, err := cli.ReadDir(src.path)
@@ -762,9 +810,7 @@ func mvRepoDir(src, dst pathFileInfo, overwrite bool, total chan int, processed 
 		go func(id int) {
 			defer wg.Done()
 			for finfo := range fchan {
-				err := cli.Rename(finfo.path, path.Join(dst.path, finfo.info.Name()), overwrite)
-				if err != nil {
-					log.Errorf("cannot rename repo file %s: %s", finfo.path, err)
+				if err := cliCopyOrRename(op, finfo.path, path.Join(dst.path, finfo.info.Name())); err != nil {
 					cntErrFiles[id]++
 				} else {
 					cntOkFiles[id]++
@@ -790,8 +836,8 @@ func mvRepoDir(src, dst pathFileInfo, overwrite bool, total chan int, processed 
 				path: pdst,
 			}
 
-			log.Debugf("moving dir %s to %s", psrc, pdst)
-			_cntOk, _cntErr, _ := mvRepoDir(_pfinfoSrc, _pfinfoDst, overwrite, total, processed)
+			log.Debugf("working on dir %s", psrc)
+			_cntOk, _cntErr, _ := copyOrMoveRepoDir(op, _pfinfoSrc, _pfinfoDst, total, processed)
 			cntErr += _cntErr
 			cntOk += _cntOk
 		} else {
@@ -814,8 +860,11 @@ func mvRepoDir(src, dst pathFileInfo, overwrite bool, total chan int, processed 
 		cntOk += cntOkFiles[i]
 
 	}
+
 	// remove the moved directory
-	err = cli.Remove(src.path)
+	if op == Move {
+		err = cli.Remove(src.path)
+	}
 
 	return
 }
