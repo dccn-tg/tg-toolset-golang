@@ -125,11 +125,14 @@ func initDataDir() error {
 
 // command to list a file or the content of a directory in the repository.
 var lsCmd = &cobra.Command{
-	Use:   "ls <repo_file|repo_dir>",
+	Use:   "ls [<repo_file|repo_dir>]",
 	Short: "list file or directory in the repository",
-	Long: `List a repository file or the content in a repository directory.
+	Long: `
+The "ls" subcommand is for listing a repository file or the content of a repository directory.
 
-The <repo_file|repo_dir> should be an absolute path referring to the WebDAV's namespace, e.g. /dccn/DAC_3010000.01_173/README.txt or /dccn/DAC_3010000.01_173/raw/
+The optional argument is used to specify the file or directory in the repository to be listed. The argument should be in form of an absolute WebDAV path (i.e. started with "/"), for example, "/dccn/DAC_3010000.01_173".
+
+If no argument is provided, it lists the content of the root ("/") WebDAV path.
 	`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -167,8 +170,28 @@ The <repo_file|repo_dir> should be an absolute path referring to the WebDAV's na
 var putCmd = &cobra.Command{
 	Use:   "put <local_file|local_dir> <repo_file|repo_dir>",
 	Short: "upload file or directory to the repository",
-	Long:  ``,
-	Args:  cobra.ExactArgs(2),
+	Long: `
+The "put" subcommand is for uploading a file or a directory from the local filesystem to the repository. It takes two mandatory input arguments for the upload source and destination, respectively.
+
+    ATTENTION!! During the upload, any existing file at the destination (repository) will be overwritten regardlessly. !!ATTENTION
+
+The first argument specifies the path of a local file/directory as the upload "source".  It can be an absolute or relative path.
+
+The second argument specifies the WebDAV path of a file/directory in the repository as the upload "destination".  It should be in form of an absolute path.
+
+When uploading a directory recursively, the tailing "/" on the source path instructs the tool to upload "the content" into the destination. If the tailing "/" is left out, it will upload "the directory by name" in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
+
+For example, 
+
+    $ repocli put /tmp/data /dccn/DAC_3010000.01_173/data
+
+results in the content of /tmp/data being uploaded into a new repository directory /dccn/DAC_3010000.01_173/data/data in the repository; while
+
+    $ repocli put /tmp/data/ /dccn/DAC_3010000.01_173/data
+
+will have the content of /tmp/data uploaded into /dccn/DAC_3010000.01_173/data.
+`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		// resolve into absolute path at local
@@ -255,8 +278,28 @@ var putCmd = &cobra.Command{
 var getCmd = &cobra.Command{
 	Use:   "get <repo_file|repo_dir> <local_file|local_dir>",
 	Short: "download file or directory from the repository",
-	Long:  ``,
-	Args:  cobra.ExactArgs(2),
+	Long: `
+The "get" subcommand is for downloading a file or a directory from the repository to the local filesystem. It takes two mandatory input arguments for the download source and destination, respectively.
+
+    ATTENTION!! During the download, any existing file at the destination (local filesystem) will be overwritten regardlessly. !!ATTENTION
+
+The first argument specifies the WebDAV path of a file/directory in the repository as the download "source". It should be in form of an absolute path. 
+
+The second argument specifies the local filesystem path of a file/directory as the download "destination". It can be an absolute or relative path.
+
+When downloading a directory recursively, the tailing "/" on the source path instructs the tool to download "the content" into the destination. If the tailing "/" is left out, it will download "the directory by name" in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
+
+For example, 
+
+    $ repocli get /dccn/DAC_3010000.01_173/data /tmp/data
+
+results in the content of /dccn/DAC_3010000.01_173/data being downloaded into a new local directory /tmp/data/data; while
+
+    $ repocli get /dccn/DAC_3010000.01_173/data/ /tmp/data
+
+will have the content of /dccn/DAC_3010000.01_173/data downloaded into /tmp/data.
+`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		p := getCleanRepoPath(args[0])
@@ -315,13 +358,13 @@ var getCmd = &cobra.Command{
 			// perform data transfer with 4 concurrent workers
 			cntOk, cntErr := runOp(Get, ichan, 4, pchan)
 
-			// stop progress
-			p.Stop()
-
 			// log statistics
 			if !silent {
 				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
 			}
+
+			// stop progress
+			p.Stop()
 
 			return nil
 
@@ -345,8 +388,28 @@ var getCmd = &cobra.Command{
 var cpCmd = &cobra.Command{
 	Use:   "cp <repo_file|repo_dir> <repo_file|repo_dir>",
 	Short: "copy file or directory in the repository",
-	Long:  ``,
-	Args:  cobra.ExactArgs(2),
+	Long: `
+The "cp" subcommand is for copying a file or a directory in the repository. It takes two mandatory input arguments.
+
+The first argument specifies an existing WebDAV path of a file/directory in the repository as the "source". It should be in form of an absolute path. 
+
+The second argument specifies another WebDAV path of a file/directory in the repository as the "destination". It should be in form of an absolute path.
+
+When copying a directory recursively, the tailing "/" on the source path instructs the tool to copy "the content" into the destination. If the tailing "/" is left out, it will copy "the directory by name" in to the destination, resulting in the content being copied into a (new) sub-directory in the destination.
+
+For example, 
+
+    $ repocli cp /dccn/DAC_3010000.01_173/data /dccn/DAC_3010000.01_173/data.new
+
+results in the content of /dccn/DAC_3010000.01_173/data being copied into a new repository directory /dccn/DAC_3010000.01_173/data.new/data; while
+
+    $ repocli cp /dccn/DAC_3010000.01_173/data/ /dccn/DAC_3010000.01_173/data.new
+
+will have the content of /dccn/DAC_3010000.01_173/data copied into /dccn/DAC_3010000.01_173/data.new.
+
+By default, the copy process will skip existing files at the destination.  One can use the "-f" flag to overwrite existing files.
+`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		src := getCleanRepoPath(args[0])
@@ -396,15 +459,19 @@ var cpCmd = &cobra.Command{
 			// run with 4 concurrent workers
 			cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, tchan, pchan)
 
-			// stop progress
-			p.Stop()
-
 			// log statistics
 			if !silent {
 				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
 			}
 
-			return err
+			if err != nil {
+				return err
+			}
+
+			// stop progress
+			p.Stop()
+
+			return nil
 		} else {
 			if derr == nil && fdst.IsDir() {
 				dst = path.Join(dst, path.Base(src))
@@ -417,9 +484,31 @@ var cpCmd = &cobra.Command{
 
 var mvCmd = &cobra.Command{
 	Use:   "mv <repo_file|repo_dir> <repo_file|repo_dir>",
-	Short: "move (rename) file or directory in the repository",
-	Long:  ``,
-	Args:  cobra.ExactArgs(2),
+	Short: "move file or directory in the repository",
+	Long: `
+The "mv" subcommand is for moving a file or a directory in the repository. It takes two mandatory input arguments.
+
+The first argument specifies an existing WebDAV path of a file/directory in the repository as the "source". It should be in form of an absolute path. 
+
+The second argument specifies another WebDAV path of a file/directory in the repository as the "destination". It should be in form of an absolute path.
+
+When moving a directory recursively, the tailing "/" on the source path instructs the tool to move "the content" into the destination. If the tailing "/" is left out, it will move "the directory by name" in to the destination, resulting in the content being moved into a (new) sub-directory in the destination.
+
+For example, 
+
+    $ repocli mv /dccn/DAC_3010000.01_173/data /dccn/DAC_3010000.01_173/data.new
+
+results in the content of /dccn/DAC_3010000.01_173/data being moved into a new repository directory /dccn/DAC_3010000.01_173/data.new/data; while
+
+    $ repocli mv /dccn/DAC_3010000.01_173/data/ /dccn/DAC_3010000.01_173/data.new
+
+will have the content of /dccn/DAC_3010000.01_173/data moved into /dccn/DAC_3010000.01_173/data.new.
+
+By default, the move process will skip existing files at the destination.  One can use the "-f" flag to overwrite existing files.
+
+Files not successfully moved over will be kept at the source.
+`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		src := getCleanRepoPath(args[0])
@@ -469,15 +558,19 @@ var mvCmd = &cobra.Command{
 			// perform data transfer with 4 concurrent workers
 			cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, tchan, pchan)
 
-			// stop progress
-			p.Stop()
-
 			// log statistics
 			if !silent {
 				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
 			}
 
-			return err
+			if err != nil {
+				return err
+			}
+
+			// stop progress
+			p.Stop()
+
+			return nil
 		} else {
 			if derr == nil && fdst.IsDir() {
 				dst = path.Join(dst, path.Base(src))
@@ -491,8 +584,14 @@ var mvCmd = &cobra.Command{
 var rmCmd = &cobra.Command{
 	Use:   "rm <file_repo|directory_repo>",
 	Short: "remove file or directory from the repository",
-	Long:  ``,
-	Args:  cobra.ExactArgs(1),
+	Long: `
+The "rm" subcommand is for removing a file or a directory in the repository.
+
+The mandatory argument is used to specify the file or directory in the repository to be removed. The argument should be in form of an absolute WebDAV path (i.e. started with "/"), for example, "/dccn/DAC_3010000.01_173/data".
+
+When removing a directory containing files or sub-directories, the flag "-r" should be applied to do the removal recursively.
+`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		rp := getCleanRepoPath(args[0])
@@ -511,15 +610,19 @@ var rmCmd = &cobra.Command{
 			// perform data transfer with 4 concurrent workers
 			cntOk, cntErr, err := rmRepoDir(rp, recursive, tchan, pchan)
 
-			// stop progress
-			p.Stop()
-
 			// log statistics
 			if !silent {
 				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
 			}
 
-			return err
+			if err != nil {
+				return err
+			}
+
+			// stop progress
+			p.Stop()
+
+			return nil
 		} else {
 			return cli.Remove(rp)
 		}
@@ -529,8 +632,14 @@ var rmCmd = &cobra.Command{
 var mkdirCmd = &cobra.Command{
 	Use:   "mkdir <repo_dir>",
 	Short: "create new directory in the repository",
-	Long:  ``,
-	Args:  cobra.ExactArgs(1),
+	Long: `
+The "mkdir" subcommand is for creating a new directory in the repository.
+
+The mandatory argument is used to specify the new directory in the repository to be created. The argument should be in form of an absolute WebDAV path (i.e. started with "/"), for example, "/dccn/DAC_3010000.01_173/data".
+
+During the creation, any missing parents directories are also created automatically (only if the user is authorized).
+`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cli.MkdirAll(getCleanRepoPath(args[0]), 0664)
 	},
@@ -861,8 +970,8 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, total chan int, processed c
 
 	}
 
-	// remove the moved directory
-	if op == Move {
+	// remove the moved directory only if there is no error
+	if op == Move && cntErr == 0 {
 		err = cli.Remove(src.path)
 	}
 
