@@ -1057,11 +1057,11 @@ func rmRepoDir(repoPath string, recursive bool, pbar *pb.ProgressBar) (cntOk, cn
 //     bar := initDynamicMaxProgressbar()
 //     bar.ChangeMax(bar.GetMax() - 1)
 //
-func initDynamicMaxProgressbar(description string) *pb.ProgressBar {
+func initDynamicMaxProgressbar(desc string) *pb.ProgressBar {
 	if silent {
-		return pb.DefaultSilent(1, description)
+		return pb.DefaultSilent(1, desc)
 	}
-	return pb.Default(1, description)
+	return pb.Default(1, desc)
 }
 
 // prettifyProgressbarDesc returns a shortened description string up to 15 UTF-8 characters.
