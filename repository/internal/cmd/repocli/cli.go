@@ -975,7 +975,7 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, pbar *pb.ProgressBar) (cntO
 func rmRepoDir(repoPath string, recursive bool, pbar *pb.ProgressBar) (cntOk, cntErr int, err error) {
 
 	// path on repo should be specified in absolute path form
-	if !filepath.IsAbs(repoPath) {
+	if !path.IsAbs(repoPath) {
 		err = fmt.Errorf("not an absolute path: %s", repoPath)
 		return
 	}
