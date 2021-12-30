@@ -239,18 +239,17 @@ will have the content of /tmp/data uploaded into /dccn/DAC_3010000.01_173/data.
 			cli.MkdirAll(pfinfoRepo.path, pfinfoLocal.info.Mode())
 
 			// start progress
-			p := Progress{}
-			tchan, pchan := p.Start(silent)
+			pbar := initDynamicMaxProgressbar("uploading")
 
 			// walk through repo directories
 			ichan := make(chan opInput)
-			go walkLocalDirForPut(pfinfoLocal, pfinfoRepo, ichan, tchan, true)
+			go func() {
+				walkLocalDirForPut(pfinfoLocal, pfinfoRepo, ichan, true, pbar)
+				pbar.ChangeMax(pbar.GetMax() - 1)
+			}()
 
 			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr := runOp(Put, ichan, 4, pchan)
-
-			// stop progress
-			p.Stop()
+			cntOk, cntErr := runOp(Put, ichan, 4, pbar)
 
 			// log statistics
 			if !silent {
@@ -347,24 +346,23 @@ will have the content of /dccn/DAC_3010000.01_173/data downloaded into /tmp/data
 				return err
 			}
 
-			// start progress
-			p := Progress{}
-			tchan, pchan := p.Start(silent)
+			// progress bar
+			pbar := initDynamicMaxProgressbar("downloading")
 
 			// walk through repo directories
 			ichan := make(chan opInput)
-			go walkRepoDirForGet(pfinfoRepo, pfinfoLocal, ichan, tchan, true)
+			go func() {
+				walkRepoDirForGet(pfinfoRepo, pfinfoLocal, ichan, true, pbar)
+				pbar.ChangeMax(pbar.GetMax() - 1)
+			}()
 
 			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr := runOp(Get, ichan, 4, pchan)
+			cntOk, cntErr := runOp(Get, ichan, 4, pbar)
 
 			// log statistics
 			if !silent {
 				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
 			}
-
-			// stop progress
-			p.Stop()
 
 			return nil
 
@@ -453,11 +451,12 @@ By default, the copy process will skip existing files at the destination.  One c
 			}
 
 			// start progress
-			p := Progress{}
-			tchan, pchan := p.Start(silent)
+			pbar := initDynamicMaxProgressbar("copying")
 
 			// run with 4 concurrent workers
-			cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, tchan, pchan)
+			cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, pbar)
+
+			pbar.ChangeMax(pbar.GetMax() - 1)
 
 			// log statistics
 			if !silent {
@@ -467,9 +466,6 @@ By default, the copy process will skip existing files at the destination.  One c
 			if err != nil {
 				return err
 			}
-
-			// stop progress
-			p.Stop()
 
 			return nil
 		} else {
@@ -552,11 +548,12 @@ Files not successfully moved over will be kept at the source.
 			}
 
 			// start progress
-			p := Progress{}
-			tchan, pchan := p.Start(silent)
+			pbar := initDynamicMaxProgressbar("moving")
 
 			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, tchan, pchan)
+			cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, pbar)
+
+			pbar.ChangeMax(pbar.GetMax() - 1)
 
 			// log statistics
 			if !silent {
@@ -566,9 +563,6 @@ Files not successfully moved over will be kept at the source.
 			if err != nil {
 				return err
 			}
-
-			// stop progress
-			p.Stop()
 
 			return nil
 		} else {
@@ -604,11 +598,12 @@ When removing a directory containing files or sub-directories, the flag "-r" sho
 		if f.IsDir() {
 
 			// start progress
-			p := Progress{}
-			tchan, pchan := p.Start(silent)
+			pbar := initDynamicMaxProgressbar("removing")
 
 			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr, err := rmRepoDir(rp, recursive, tchan, pchan)
+			cntOk, cntErr, err := rmRepoDir(rp, recursive, pbar)
+
+			pbar.ChangeMax(pbar.GetMax() - 1)
 
 			// log statistics
 			if !silent {
@@ -618,9 +613,6 @@ When removing a directory containing files or sub-directories, the flag "-r" sho
 			if err != nil {
 				return err
 			}
-
-			// stop progress
-			p.Stop()
 
 			return nil
 		} else {
@@ -656,7 +648,7 @@ func getCleanRepoPath(p string) string {
 
 // runOp performs file operation `Op` with input data provided through the
 // channel `ichan`.
-func runOp(op Op, ichan chan opInput, nworkers int, pchan chan struct{}) (cntOk, cntErr int) {
+func runOp(op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk, cntErr int) {
 
 	// initalize concurrent workers
 	var wg sync.WaitGroup
@@ -686,7 +678,7 @@ func runOp(op Op, ichan chan opInput, nworkers int, pchan chan struct{}) (cntOk,
 				} else {
 					cntOk += 1
 				}
-				pchan <- struct{}{}
+				pbar.Add(1)
 			}
 		}()
 	}
@@ -698,14 +690,14 @@ func runOp(op Op, ichan chan opInput, nworkers int, pchan chan struct{}) (cntOk,
 }
 
 // walkLocalDirForPut walks through a local directory and creates inputs for putting files from local to repo.
-func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput, tchan chan int, closeChanOnComplete bool) {
+func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput, closeChanOnComplete bool, pbar *pb.ProgressBar) {
 	// read the entire content of the dir
 	files, err := ioutil.ReadDir(pfinfoLocal.path)
 	if err != nil {
 		return
 	}
 
-	tchan <- countFiles(files)
+	pbar.ChangeMax(pbar.GetMax() + countFiles(files))
 
 	for _, finfo := range files {
 		p := path.Join(pfinfoLocal.path, finfo.Name())
@@ -727,7 +719,7 @@ func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput
 				continue
 			}
 			// walk into sub directory without closing the channel
-			walkLocalDirForPut(_pfinfoLocal, _pfinfoRepo, ichan, tchan, false)
+			walkLocalDirForPut(_pfinfoLocal, _pfinfoRepo, ichan, false, pbar)
 		} else {
 			ichan <- opInput{
 				src: _pfinfoLocal,
@@ -742,7 +734,7 @@ func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput
 }
 
 // walkRepoDirForGet walks through a repo directory and creates inputs for getting files from repo to local.
-func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput, tchan chan int, closeChanOnComplete bool) {
+func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput, closeChanOnComplete bool, pbar *pb.ProgressBar) {
 
 	// read the entire content of the dir
 	files, err := cli.ReadDir(pfinfoRepo.path)
@@ -751,7 +743,7 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 	}
 
 	// push number of total files in this directory for updating progress bar
-	tchan <- countFiles(files)
+	pbar.ChangeMax(pbar.GetMax() + countFiles(files))
 
 	// loop over content
 	for _, finfo := range files {
@@ -769,12 +761,12 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 
 		if finfo.IsDir() {
 			// create sub directory in advance
-			if err := os.Mkdir(_pfinfoLocal.path, _pfinfoRepo.info.Mode()); err != nil {
+			if err := os.MkdirAll(_pfinfoLocal.path, _pfinfoRepo.info.Mode()); err != nil {
 				log.Errorf("cannot create local dir %s: %s", _pfinfoLocal.path, err)
 				continue
 			}
 			// walk into sub directory without closing the channel
-			walkRepoDirForGet(_pfinfoRepo, _pfinfoLocal, ichan, tchan, false)
+			walkRepoDirForGet(_pfinfoRepo, _pfinfoLocal, ichan, false, pbar)
 		} else {
 			ichan <- opInput{
 				src: _pfinfoRepo,
@@ -892,7 +884,7 @@ func cliCopyOrRename(op Op, src, dst string) error {
 }
 
 // copyOrMoveRepoDir moves directory from `src` to `dst` recursively.
-func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, total chan int, processed chan struct{}) (cntOk, cntErr int, err error) {
+func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, pbar *pb.ProgressBar) (cntOk, cntErr int, err error) {
 
 	// read the entire content of the source directory
 	files, err := cli.ReadDir(src.path)
@@ -900,7 +892,7 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, total chan int, processed c
 		return
 	}
 
-	total <- countFiles(files)
+	pbar.ChangeMax(pbar.GetMax() + countFiles(files))
 
 	// make attempt to create all parent directories of the destination.
 	cli.MkdirAll(dst.path, src.info.Mode())
@@ -924,7 +916,7 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, total chan int, processed c
 				} else {
 					cntOkFiles[id]++
 				}
-				processed <- struct{}{}
+				pbar.Add(1)
 			}
 		}(i)
 	}
@@ -946,7 +938,7 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, total chan int, processed c
 			}
 
 			log.Debugf("working on dir %s", psrc)
-			_cntOk, _cntErr, _ := copyOrMoveRepoDir(op, _pfinfoSrc, _pfinfoDst, total, processed)
+			_cntOk, _cntErr, _ := copyOrMoveRepoDir(op, _pfinfoSrc, _pfinfoDst, pbar)
 			cntErr += _cntErr
 			cntOk += _cntOk
 		} else {
@@ -979,7 +971,7 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, total chan int, processed c
 }
 
 // rmRepoDir removes the directory `path` from the repository recursively.
-func rmRepoDir(repoPath string, recursive bool, total chan int, processed chan struct{}) (cntOk, cntErr int, err error) {
+func rmRepoDir(repoPath string, recursive bool, pbar *pb.ProgressBar) (cntOk, cntErr int, err error) {
 
 	// path on repo should be specified in absolute path form
 	if !filepath.IsAbs(repoPath) {
@@ -999,7 +991,7 @@ func rmRepoDir(repoPath string, recursive bool, total chan int, processed chan s
 		return
 	}
 
-	total <- countFiles(files)
+	pbar.ChangeMax(pbar.GetMax() + countFiles(files))
 
 	// channel for deleting files concurrently.
 	fchan := make(chan string)
@@ -1022,7 +1014,7 @@ func rmRepoDir(repoPath string, recursive bool, total chan int, processed chan s
 				} else {
 					cntOkFiles[id]++
 				}
-				processed <- struct{}{}
+				pbar.Add(1)
 			}
 		}(i)
 	}
@@ -1031,7 +1023,7 @@ func rmRepoDir(repoPath string, recursive bool, total chan int, processed chan s
 	for _, f := range files {
 		p := path.Join(repoPath, f.Name())
 		if f.IsDir() {
-			_cntOK, _cntErr, _ := rmRepoDir(p, recursive, total, processed)
+			_cntOK, _cntErr, _ := rmRepoDir(p, recursive, pbar)
 			cntOk += _cntOK
 			cntErr += _cntErr
 		} else {
@@ -1054,6 +1046,22 @@ func rmRepoDir(repoPath string, recursive bool, total chan int, processed chan s
 	// remove the directory itself
 	err = cli.Remove(repoPath)
 	return
+}
+
+// initDynamicMaxProgressbar initiates a new progress bar with a given description.
+//
+// This function assumes the caller is responsible for updating the bar's max steps
+// dynamically, and therefore the initial max is set to `1`. Caller should also reduce
+// the final max by `1` due to this artificial initial max, for example:
+//
+//     bar := initDynamicMaxProgressbar()
+//     bar.ChangeMax(bar.GetMax() - 1)
+//
+func initDynamicMaxProgressbar(description string) *pb.ProgressBar {
+	if silent {
+		return pb.DefaultSilent(1, description)
+	}
+	return pb.Default(1, description)
 }
 
 // prettifyProgressbarDesc returns a shortened description string up to 15 UTF-8 characters.
