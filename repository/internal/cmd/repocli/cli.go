@@ -239,7 +239,7 @@ will have the content of /tmp/data uploaded into /dccn/DAC_3010000.01_173/data.
 			cli.MkdirAll(pfinfoRepo.path, pfinfoLocal.info.Mode())
 
 			// start progress
-			pbar := initDynamicMaxProgressbar("uploading")
+			pbar := initDynamicMaxProgressbar("uploading...")
 
 			// walk through repo directories
 			ichan := make(chan opInput)
@@ -347,7 +347,7 @@ will have the content of /dccn/DAC_3010000.01_173/data downloaded into /tmp/data
 			}
 
 			// progress bar
-			pbar := initDynamicMaxProgressbar("downloading")
+			pbar := initDynamicMaxProgressbar("downloading...")
 
 			// walk through repo directories
 			ichan := make(chan opInput)
@@ -451,7 +451,7 @@ By default, the copy process will skip existing files at the destination.  One c
 			}
 
 			// start progress
-			pbar := initDynamicMaxProgressbar("copying")
+			pbar := initDynamicMaxProgressbar("copying...")
 
 			// run with 4 concurrent workers
 			cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, pbar)
@@ -548,7 +548,7 @@ Files not successfully moved over will be kept at the source.
 			}
 
 			// start progress
-			pbar := initDynamicMaxProgressbar("moving")
+			pbar := initDynamicMaxProgressbar("moving...")
 
 			// perform data transfer with 4 concurrent workers
 			cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, pbar)
@@ -598,7 +598,7 @@ When removing a directory containing files or sub-directories, the flag "-r" sho
 		if f.IsDir() {
 
 			// start progress
-			pbar := initDynamicMaxProgressbar("removing")
+			pbar := initDynamicMaxProgressbar("removing...")
 
 			// perform data transfer with 4 concurrent workers
 			cntOk, cntErr, err := rmRepoDir(rp, recursive, pbar)
@@ -674,6 +674,7 @@ func runOp(op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk
 					err = fmt.Errorf("unknown operation: %d", op)
 				}
 				if err != nil {
+					log.Errorf("%s", err)
 					cntErr += 1
 				} else {
 					cntOk += 1
@@ -1061,7 +1062,7 @@ func initDynamicMaxProgressbar(desc string) *pb.ProgressBar {
 	if silent {
 		return pb.DefaultSilent(1, desc)
 	}
-	return pb.Default(1, desc)
+	return pb.Default(1, fmt.Sprintf("%-20s", desc))
 }
 
 // prettifyProgressbarDesc returns a shortened description string up to 15 UTF-8 characters.
