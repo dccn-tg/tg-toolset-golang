@@ -1,13 +1,18 @@
 package repocli
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"syscall"
 
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	dav "github.com/studio-b12/gowebdav"
 	"golang.org/x/term"
+	"gopkg.in/yaml.v2"
 )
 
 // command to change directory in the repository.
@@ -59,18 +64,76 @@ var loginCmd = &cobra.Command{
 // promptLogin asks username and password input for
 // authenticating to the webdav interface.
 func promptLogin() error {
-	repoUser := stringPrompt("username:")
-	repoPass := passwordPrompt("password:")
+	repoUser := stringPrompt("username")
+	repoPass := passwordPrompt("password")
+
+	save := boolPrompt("save credential")
 
 	// try to connect the repo webdav to check authentication
 	cli = dav.NewClient(davBaseURL, repoUser, repoPass)
-	return cli.Connect()
+	if err := cli.Connect(); err != nil {
+		return err
+	}
+
+	// save credential to `configFile`
+	if save {
+		return saveCredential(repoUser, repoPass)
+	}
+
+	return nil
+}
+
+// saveCredential saves the username/password to the file `configFile` with file mode 600.
+func saveCredential(username, password string) error {
+	conf, err := yaml.Marshal(&struct {
+		Repository config.RepositoryConfiguration `yaml:"repository"`
+	}{
+		config.RepositoryConfiguration{
+			Username: username,
+			Password: password,
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	vconf := viper.New()
+	vconf.SetConfigType("yaml")
+	err = vconf.ReadConfig(bytes.NewBuffer(conf))
+	if err != nil {
+		return err
+	}
+
+	if err := vconf.WriteConfigAs(configFile); err != nil {
+		return err
+	}
+
+	if err := os.Chmod(configFile, 0600); err != nil {
+		return err
+	}
+
+	log.Infof("credential saved in %s", configFile)
+
+	return nil
+}
+
+// boolPrompt asks for a string value `y/n` and return a boolean accordingly.
+func boolPrompt(label string) bool {
+	var s string
+	fmt.Fprintf(os.Stderr, label+" [y/N]: ")
+	fmt.Scanf("%s", &s)
+
+	if s == "y" || s == "Y" {
+		return true
+	}
+	return false
 }
 
 // stringPrompt asks for a string value using the label
 func stringPrompt(label string) string {
 	var s string
-	fmt.Fprintf(os.Stderr, label+" ")
+	fmt.Fprintf(os.Stderr, label+": ")
 	fmt.Scanf("%s", &s)
 	return s
 }
@@ -79,7 +142,7 @@ func stringPrompt(label string) string {
 func passwordPrompt(label string) string {
 	var s string
 	for {
-		fmt.Fprint(os.Stderr, label+" ")
+		fmt.Fprint(os.Stderr, label+": ")
 		b, _ := term.ReadPassword(int(syscall.Stdin))
 		s = string(b)
 		if s != "" {
