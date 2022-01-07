@@ -71,7 +71,7 @@ The CLI's specific prompt `> repocli` will be displayed as the screenshot below,
 
 ![screenshot of the shell mode](screenshot-shell.png)
 
-In the shell mode, the following additional operations are also enabled:
+In the shell mode, the following additional operations are enabled:
 
 - cd: change present working directory
 - pwd: show the present working directory
