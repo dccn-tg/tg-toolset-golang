@@ -6,6 +6,7 @@ The following operations are currently implemented:
 
 - ls: list a directory
 - mkdir: create a new directory
+- cp: copy a file or a directory
 - mv: rename a file or a directory
 - rm: remove a file or a directory
 - get: download a file or a directory
@@ -23,16 +24,17 @@ Usage:
 
 Available Commands:
   completion  generate the autocompletion script for the specified shell
-  get         Download a file or a directory from the repository to the current working directory at local
+  cp          copy file or directory in the repository
+  get         download file or directory from the repository
   help        Help about any command
-  ls          List a file or the content of a directory in the repository
-  mkdir       Create a new directory in the repository
-  mv          Move or rename a file or directory in the repository
-  put         Upload a file or a directory at local into a repository directory
-  rm          Remove a file or a directory from the repository
+  ls          list file or directory in the repository
+  mkdir       create new directory in the repository
+  mv          move file or directory in the repository
+  put         upload file or directory to the repository
+  rm          remove file or directory from the repository
 
 Flags:
-  -c, --config path       path of the configuration YAML file. (default "$HOME/.repocli.yml")
+  -c, --config path       path of the configuration YAML file. (default "/home/tg/honlee/.repocli.yml")
   -h, --help              help for repocli
   -n, --nthreads number   number of concurrent worker threads. (default 4)
   -s, --silent            set to slient mode (i.e. do not show progress)
