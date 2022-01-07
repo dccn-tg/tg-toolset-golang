@@ -32,6 +32,7 @@ Available Commands:
   mv          move file or directory in the repository
   put         upload file or directory to the repository
   rm          remove file or directory from the repository
+  shell       Start an interactive shell.
 
 Flags:
   -c, --config path       path of the configuration YAML file. (default "/home/tg/honlee/.repocli.yml")
@@ -57,6 +58,18 @@ At the moment, the configuration is in plain text.  It is highly recommended to 
 ```bash
 $ chmod 600 $HOME/.repocli.yml
 ```
+
+__The shell mode__
+
+In addition to run the operations as individual shell commands (useful for shell scripting), the CLI can also be used in an interactive shell.  One uses the `shell` command to enter the shell mode:
+
+```bash
+$ repocli shell
+```
+
+The CLI's specific prompt `> repocli` will be displayed as the screenshot below, waiting for furhter commands from the user.
+
+![screenshot of the shell mode](screenshot-shell.png)
 
 ### listing a directory
 
