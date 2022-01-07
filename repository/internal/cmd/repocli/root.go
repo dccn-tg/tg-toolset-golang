@@ -9,6 +9,7 @@ import (
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	shell "github.com/brianstrauch/cobra-shell"
+	"github.com/c-bata/go-prompt"
 	"github.com/spf13/cobra"
 	dav "github.com/studio-b12/gowebdav"
 )
@@ -56,7 +57,21 @@ func init() {
 	)
 
 	// subcommand for enable interactive shell prompt
-	rootCmd.AddCommand(shell.New(rootCmd))
+	rootCmd.AddCommand(
+		shell.New(
+			rootCmd,
+			prompt.OptionSuggestionBGColor(prompt.DarkGray),
+			prompt.OptionSuggestionTextColor(prompt.LightGray),
+			prompt.OptionDescriptionBGColor(prompt.LightGray),
+			prompt.OptionDescriptionTextColor(prompt.DarkGray),
+			prompt.OptionSelectedDescriptionTextColor(prompt.DarkGray),
+			prompt.OptionSelectedDescriptionBGColor(prompt.Blue),
+			prompt.OptionSelectedSuggestionTextColor(prompt.DarkGray),
+			prompt.OptionSelectedSuggestionBGColor(prompt.Blue),
+			prompt.OptionScrollbarBGColor(prompt.Blue),
+			prompt.OptionScrollbarThumbColor(prompt.DarkGray),
+		),
+	)
 
 	// initiate default logger
 	cfg = log.Configuration{
