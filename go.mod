@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/Donders-Institute/filer-gateway v0.0.0-20211105161122-6429935a9e76
+	github.com/brianstrauch/cobra-shell v0.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.1

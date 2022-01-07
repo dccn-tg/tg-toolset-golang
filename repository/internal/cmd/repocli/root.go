@@ -8,6 +8,7 @@ import (
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	shell "github.com/brianstrauch/cobra-shell"
 	"github.com/spf13/cobra"
 	dav "github.com/studio-b12/gowebdav"
 )
@@ -53,6 +54,9 @@ func init() {
 		"url", "l", "https://webdav.data.donders.ru.nl",
 		"`URL` of the webdav server.",
 	)
+
+	// subcommand for enable interactive shell prompt
+	rootCmd.AddCommand(shell.New(rootCmd))
 
 	// initiate default logger
 	cfg = log.Configuration{
