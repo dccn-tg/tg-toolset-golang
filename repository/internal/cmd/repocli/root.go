@@ -20,6 +20,8 @@ var nthreads int
 
 var silent bool
 
+var shellMode bool
+
 // var cliUsername string
 // var cliPassword string
 var davBaseURL string
@@ -56,22 +58,26 @@ func init() {
 		"`URL` of the webdav server.",
 	)
 
-	// subcommand for enable interactive shell prompt
-	rootCmd.AddCommand(
-		shell.New(
-			rootCmd,
-			prompt.OptionSuggestionBGColor(prompt.DarkGray),
-			prompt.OptionSuggestionTextColor(prompt.LightGray),
-			prompt.OptionDescriptionBGColor(prompt.LightGray),
-			prompt.OptionDescriptionTextColor(prompt.DarkGray),
-			prompt.OptionSelectedDescriptionTextColor(prompt.Black),
-			prompt.OptionSelectedDescriptionBGColor(prompt.Blue),
-			prompt.OptionSelectedSuggestionTextColor(prompt.Black),
-			prompt.OptionSelectedSuggestionBGColor(prompt.Blue),
-			prompt.OptionScrollbarBGColor(prompt.Blue),
-			prompt.OptionScrollbarThumbColor(prompt.DarkGray),
-		),
+	// subcommand for entering interactive shell prompt
+	shellCmd := shell.New(
+		rootCmd,
+		prompt.OptionSuggestionBGColor(prompt.DarkGray),
+		prompt.OptionSuggestionTextColor(prompt.LightGray),
+		prompt.OptionDescriptionBGColor(prompt.LightGray),
+		prompt.OptionDescriptionTextColor(prompt.DarkGray),
+		prompt.OptionSelectedDescriptionTextColor(prompt.Black),
+		prompt.OptionSelectedDescriptionBGColor(prompt.Blue),
+		prompt.OptionSelectedSuggestionTextColor(prompt.Black),
+		prompt.OptionSelectedSuggestionBGColor(prompt.Blue),
+		prompt.OptionScrollbarBGColor(prompt.Blue),
+		prompt.OptionScrollbarThumbColor(prompt.DarkGray),
 	)
+	shellCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		shellMode = true
+		// enable subcommands that make sense in interactive shell
+		rootCmd.AddCommand(loginCmd, cdCmd, pwdCmd)
+	}
+	rootCmd.AddCommand(shellCmd)
 
 	// initiate default logger
 	cfg = log.Configuration{
@@ -86,7 +92,7 @@ func init() {
 // This function fatals out if there is an error.
 func loadConfig() config.Configuration {
 	conf, err := config.LoadConfig(configFile)
-	if err != nil {
+	if err != nil && !shellMode {
 		log.Fatalf("%s", err)
 	}
 	return conf
@@ -98,6 +104,7 @@ var rootCmd = &cobra.Command{
 	Long:         ``,
 	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+
 		// reset logger level based on command flag
 		if cmd.Flags().Changed("verbose") {
 			cfg.ConsoleLevel = log.Debug
@@ -110,12 +117,14 @@ var rootCmd = &cobra.Command{
 		repoUser := repoCfg.Username
 		repoPass := repoCfg.Password
 
-		if repoUser == "" || repoPass == "" {
+		if !shellMode && (repoUser == "" || repoPass == "") {
 			return fmt.Errorf("username or password is missing")
 		}
 
-		// load global webdav client object
-		cli = dav.NewClient(davBaseURL, repoUser, repoPass)
+		if cli == nil {
+			// load global webdav client object
+			cli = dav.NewClient(davBaseURL, repoUser, repoPass)
+		}
 
 		return nil
 	},

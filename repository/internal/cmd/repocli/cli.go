@@ -101,28 +101,6 @@ func initDataDir() error {
 	return nil
 }
 
-// // command to change directory in the repository.
-// // At the moment, this command makes no sense as the current directory is not persistent.
-// var cdCmd = &cobra.Command{
-// 	Use:   "cd <repo_dir>",
-// 	Short: "Change directory in the repository",
-// 	Long:  ``,
-// 	Args:  cobra.ExactArgs(1),
-// 	RunE: func(cmd *cobra.Command, args []string) error {
-
-// 		p := getCleanRepoPath(args[0])
-
-// 		// stat the path to check if the path is a valid directory
-// 		if f, err := cli.Stat(p); err != nil || !f.IsDir() {
-// 			return fmt.Errorf("invalid directory: %s", p)
-// 		}
-
-// 		// set cwd to the new path
-// 		cwd = p
-// 		return nil
-// 	},
-// }
-
 // command to list a file or the content of a directory in the repository.
 var lsCmd = &cobra.Command{
 	Use:   "ls [<repo_file|repo_dir>]",
@@ -130,7 +108,7 @@ var lsCmd = &cobra.Command{
 	Long: `
 The "ls" subcommand is for listing a repository file or the content of a repository directory.
 
-The optional argument is used to specify the file or directory in the repository to be listed. The argument should be in form of an absolute WebDAV path (i.e. started with "/"), for example, "/dccn/DAC_3010000.01_173".
+The optional argument is used to specify the file or directory in the repository to be listed. The argument can be in form of an absolute or relative WebDAV path with the path separator "/", for example, "/dccn/DAC_3010000.01_173/data".
 
 If no argument is provided, it lists the content of the root ("/") WebDAV path.
 	`,
@@ -175,9 +153,9 @@ The "put" subcommand is for uploading a file or a directory from the local files
 
     ATTENTION!! During the upload, any existing file at the destination (repository) will be overwritten regardlessly. !!ATTENTION
 
-The first argument specifies the path of a local file/directory as the upload "source".  It can be an absolute or relative path.
+The first argument specifies the path of a local file/directory as the upload "source".  It can be an absolute or relative path with the os-dependent path separator.
 
-The second argument specifies the WebDAV path of a file/directory in the repository as the upload "destination".  It should be in form of an absolute path.
+The second argument specifies the WebDAV path of a file/directory in the repository as the upload "destination".  It can be an absolute or relative path with the path separator "/".
 
 When uploading a directory recursively, the tailing "/" on the source path instructs the tool to upload "the content" into the destination. If the tailing "/" is left out, it will upload "the directory by name" in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
 
@@ -282,9 +260,9 @@ The "get" subcommand is for downloading a file or a directory from the repositor
 
     ATTENTION!! During the download, any existing file at the destination (local filesystem) will be overwritten regardlessly. !!ATTENTION
 
-The first argument specifies the WebDAV path of a file/directory in the repository as the download "source". It should be in form of an absolute path. 
+The first argument specifies the WebDAV path of a file/directory in the repository as the download "source". It can be an absolute or relative path with the path separator "/".
 
-The second argument specifies the local filesystem path of a file/directory as the download "destination". It can be an absolute or relative path.
+The second argument specifies the local filesystem path of a file/directory as the download "destination". It can be an absolute or relative path with the os-dependent path separator.
 
 When downloading a directory recursively, the tailing "/" on the source path instructs the tool to download "the content" into the destination. If the tailing "/" is left out, it will download "the directory by name" in to the destination, resulting in the content being put into a (new) sub-directory in the destination.
 
@@ -389,9 +367,9 @@ var cpCmd = &cobra.Command{
 	Long: `
 The "cp" subcommand is for copying a file or a directory in the repository. It takes two mandatory input arguments.
 
-The first argument specifies an existing WebDAV path of a file/directory in the repository as the "source". It should be in form of an absolute path. 
+The first argument specifies an existing WebDAV path of a file/directory in the repository as the "source". It can be an absolute or relative path with the path separator "/".
 
-The second argument specifies another WebDAV path of a file/directory in the repository as the "destination". It should be in form of an absolute path.
+The second argument specifies another WebDAV path of a file/directory in the repository as the "destination". It can be an absolute or relative path with the path separator "/".
 
 When copying a directory recursively, the tailing "/" on the source path instructs the tool to copy "the content" into the destination. If the tailing "/" is left out, it will copy "the directory by name" in to the destination, resulting in the content being copied into a (new) sub-directory in the destination.
 
@@ -484,9 +462,9 @@ var mvCmd = &cobra.Command{
 	Long: `
 The "mv" subcommand is for moving a file or a directory in the repository. It takes two mandatory input arguments.
 
-The first argument specifies an existing WebDAV path of a file/directory in the repository as the "source". It should be in form of an absolute path. 
+The first argument specifies an existing WebDAV path of a file/directory in the repository as the "source". It can be an absolute or relative path with the path separator "/".
 
-The second argument specifies another WebDAV path of a file/directory in the repository as the "destination". It should be in form of an absolute path.
+The second argument specifies another WebDAV path of a file/directory in the repository as the "destination". It can be an absolute or relative path with the path separator "/".
 
 When moving a directory recursively, the tailing "/" on the source path instructs the tool to move "the content" into the destination. If the tailing "/" is left out, it will move "the directory by name" in to the destination, resulting in the content being moved into a (new) sub-directory in the destination.
 
@@ -581,7 +559,7 @@ var rmCmd = &cobra.Command{
 	Long: `
 The "rm" subcommand is for removing a file or a directory in the repository.
 
-The mandatory argument is used to specify the file or directory in the repository to be removed. The argument should be in form of an absolute WebDAV path (i.e. started with "/"), for example, "/dccn/DAC_3010000.01_173/data".
+The mandatory argument is used to specify the file or directory in the repository to be removed.  The argument can be in form of an absolute or relative WebDAV path with the path separator "/", for example, "/dccn/DAC_3010000.01_173/data".
 
 When removing a directory containing files or sub-directories, the flag "-r" should be applied to do the removal recursively.
 `,
@@ -627,7 +605,7 @@ var mkdirCmd = &cobra.Command{
 	Long: `
 The "mkdir" subcommand is for creating a new directory in the repository.
 
-The mandatory argument is used to specify the new directory in the repository to be created. The argument should be in form of an absolute WebDAV path (i.e. started with "/"), for example, "/dccn/DAC_3010000.01_173/data".
+The mandatory argument is used to specify the new directory in the repository to be created. The argument can be in form of an absolute or relative WebDAV path with the path separator "/", for example, "/dccn/DAC_3010000.01_173/data".
 
 During the creation, any missing parents directories are also created automatically (only if the user is authorized).
 `,
