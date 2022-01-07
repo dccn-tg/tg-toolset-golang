@@ -71,6 +71,12 @@ The CLI's specific prompt `> repocli` will be displayed as the screenshot below,
 
 ![screenshot of the shell mode](screenshot-shell.png)
 
+In the shell mode, the following additional operations are also enabled:
+
+- cd: change present working directory
+- pwd: show the present working directory
+- login: login the repository
+
 ### listing a directory
 
 Given a collection with identifier `di.dccn.DAC_3010000.01_173`, the WebDAV directory in which the collection data is stored is `/dccn/DAC_3010000.01_173`.  To list the content of this WebDAV directory, one does
