@@ -22,8 +22,6 @@ var silent bool
 
 var shellMode bool
 
-// var cliUsername string
-// var cliPassword string
 var davBaseURL string
 
 var cfg log.Configuration
@@ -42,16 +40,6 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&nthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
 	rootCmd.PersistentFlags().BoolVarP(&silent, "silent", "s", false, "set to slient mode (i.e. do not show progress)")
 
-	// rootCmd.PersistentFlags().StringVarP(
-	// 	&cliUsername,
-	// 	"user", "u", "",
-	// 	"`username` of the repository data access account.",
-	// )
-	// rootCmd.PersistentFlags().StringVarP(
-	// 	&cliPassword,
-	// 	"pass", "p", "",
-	// 	"`password` of the repository data access account.",
-	// )
 	rootCmd.PersistentFlags().StringVarP(
 		&davBaseURL,
 		"url", "l", "https://webdav.data.donders.ru.nl",
