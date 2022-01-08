@@ -12,7 +12,7 @@ The following operations are currently implemented:
 - get: download a file or a directory
 - put: upload a file or a directory
 
-When performing an recursive operation on a directory, the tool does a directory walk-through and applies the operation on individual files in parallel.  This approach breaks down a lengthy bulk-operation request into multiple shorter, less resource demanding requests.  It helps improve the overall success rate of the operation.
+When performing recursive operation on a directory, the tool does a directory walk-through and applies the operation on individual files in parallel.  This approach breaks down a lengthy bulk-operation request into multiple shorter, less resource demanding requests.  It helps improve the overall success rate of the operation.
 
 ## Usage
 
@@ -32,6 +32,7 @@ Available Commands:
   mv          move file or directory in the repository
   put         upload file or directory to the repository
   rm          remove file or directory from the repository
+  shell       Start an interactive shell.
 
 Flags:
   -c, --config path       path of the configuration YAML file. (default "/home/tg/honlee/.repocli.yml")
@@ -57,6 +58,24 @@ At the moment, the configuration is in plain text.  It is highly recommended to 
 ```bash
 $ chmod 600 $HOME/.repocli.yml
 ```
+
+__The shell mode__
+
+In addition to run the operations as individual shell commands (useful for shell scripting), the CLI can also be used in an interactive shell.  One uses the `shell` command to enter the shell mode:
+
+```bash
+$ repocli shell
+```
+
+The CLI's specific prompt `> repocli` will be displayed as the screenshot below, waiting for furhter commands from the user.
+
+![screenshot of the shell mode](screenshot-shell.png)
+
+In the shell mode, the following additional operations are enabled:
+
+- cd: change present working directory
+- pwd: show the present working directory
+- login: login the repository
 
 ### listing a directory
 
