@@ -88,7 +88,7 @@ func loadConfig() config.Configuration {
 
 var rootCmd = &cobra.Command{
 	Use:          "repocli",
-	Short:        "A user's CLI for managing data content of the Donders Repository collections.",
+	Short:        "A CLI for managing data content of the Donders Repository collections.",
 	Long:         ``,
 	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
