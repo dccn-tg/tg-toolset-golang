@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -54,6 +55,7 @@ var cwd string = "/"
 var dataDir string
 var recursive bool
 var overwrite bool
+var longformat bool
 
 func init() {
 
@@ -61,6 +63,7 @@ func init() {
 		log.Fatalf("%s", err)
 	}
 
+	lsCmd.Flags().BoolVarP(&longformat, "long", "l", false, "list files with more detail")
 	rmCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "remove directory recursively")
 	mvCmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
 	cpCmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
@@ -126,20 +129,36 @@ If no argument is provided, it lists the content of the root ("/") WebDAV path.
 			return err
 		}
 
+		files := make([]fs.FileInfo, 0)
+
 		// path is not a dir, assuming it is just a file, print the info and return
 		if !f.IsDir() {
-			fmt.Printf("%11s %12d %s\n", f.Mode(), f.Size(), p)
-			return nil
+			files = append(files, f)
+		} else {
+			// path is a dir, read the entire content of the dir
+			if files, err = cli.ReadDir(p); err != nil {
+				return err
+			}
 		}
 
-		// path is a dir, read the entire content of the dir
-		files, err := cli.ReadDir(p)
-		if err != nil {
-			return nil
-		}
-		fmt.Printf("%s:\n", p)
-		for _, f := range files {
-			fmt.Printf("%11s %12d %s\n", f.Mode(), f.Size(), path.Join(p, f.Name()))
+		if longformat {
+			for _, f := range files {
+				fmt.Printf("%11s %12d %s %s\n", f.Mode(), f.Size(), f.ModTime().Format(time.UnixDate), path.Join(p, f.Name()))
+			}
+		} else {
+			isDirMarker := make(map[bool]rune, 2)
+			isDirMarker[true] = '/'
+			isDirMarker[false] = 0
+
+			for _, f := range files {
+				if f.Name() == "" {
+					// in case of listing a single file, the `f.Name`` from the `cli.State` is empty.
+					// we need to get the filename from the input argument `p`
+					fmt.Printf("%s%c\n", path.Base(p), isDirMarker[f.Mode().IsDir()])
+					continue
+				}
+				fmt.Printf("%s%c\n", f.Name(), isDirMarker[f.Mode().IsDir()])
+			}
 		}
 		return nil
 	},

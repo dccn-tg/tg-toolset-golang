@@ -42,7 +42,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(
 		&davBaseURL,
-		"url", "l", "https://webdav.data.donders.ru.nl",
+		"url", "u", "https://webdav.data.donders.ru.nl",
 		"`URL` of the webdav server.",
 	)
 
