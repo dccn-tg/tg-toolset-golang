@@ -8,7 +8,7 @@ import (
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	shell "github.com/brianstrauch/cobra-shell"
+	shell "github.com/Donders-Institute/tg-toolset-golang/pkg/shell"
 	"github.com/c-bata/go-prompt"
 	"github.com/spf13/cobra"
 	dav "github.com/studio-b12/gowebdav"
@@ -28,17 +28,31 @@ var cfg log.Configuration
 
 var cli *dav.Client
 
+// current working directory
+var cwd string = "/"
+
+var lcwd string
+
+var rootCmd = New()
+
 func init() {
 
+	// current user
 	user, err := user.Current()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
+	// current working directory at local
+	lcwd, err = os.Getwd()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", filepath.Join(user.HomeDir, ".repocli.yml"), "`path` of the configuration YAML file.")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().IntVarP(&nthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
-	rootCmd.PersistentFlags().BoolVarP(&silent, "silent", "s", false, "set to slient mode (i.e. do not show progress)")
+	// rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	// rootCmd.PersistentFlags().IntVarP(&nthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
+	// rootCmd.PersistentFlags().BoolVarP(&silent, "silent", "s", false, "set to slient mode (i.e. do not show progress)")
 
 	rootCmd.PersistentFlags().StringVarP(
 		&davBaseURL,
@@ -49,6 +63,7 @@ func init() {
 	// subcommand for entering interactive shell prompt
 	shellCmd := shell.New(
 		rootCmd,
+		New,
 		prompt.OptionSuggestionBGColor(prompt.DarkGray),
 		prompt.OptionSuggestionTextColor(prompt.LightGray),
 		prompt.OptionDescriptionBGColor(prompt.LightGray),
@@ -63,7 +78,7 @@ func init() {
 	shellCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		shellMode = true
 		// enable subcommands that make sense in interactive shell
-		rootCmd.AddCommand(loginCmd, cdCmd, pwdCmd)
+		rootCmd.AddCommand(loginCmd, cdCmd, pwdCmd, lcdCmd, lpwdCmd, llsCmd())
 	}
 	rootCmd.AddCommand(shellCmd)
 
@@ -86,36 +101,50 @@ func loadConfig() config.Configuration {
 	return conf
 }
 
-var rootCmd = &cobra.Command{
-	Use:          "repocli",
-	Short:        "A CLI for managing data content of the Donders Repository collections.",
-	Long:         ``,
-	SilenceUsage: true,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+func New() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "repocli",
+		Short:        "A CLI for managing data content of the Donders Repository collections.",
+		Long:         ``,
+		SilenceUsage: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-		// reset logger level based on command flag
-		if cmd.Flags().Changed("verbose") {
-			cfg.ConsoleLevel = log.Debug
-		}
-		log.NewLogger(cfg, log.InstanceLogrusLogger)
+			// reset logger level based on command flag
+			if cmd.Flags().Changed("verbose") {
+				cfg.ConsoleLevel = log.Debug
+			}
+			log.NewLogger(cfg, log.InstanceLogrusLogger)
 
-		// load repo configuration
-		repoCfg := loadConfig().Repository
+			// load repo configuration
+			repoCfg := loadConfig().Repository
 
-		repoUser := repoCfg.Username
-		repoPass := repoCfg.Password
+			repoUser := repoCfg.Username
+			repoPass := repoCfg.Password
 
-		if !shellMode && (repoUser == "" || repoPass == "") {
-			return fmt.Errorf("username or password is missing")
-		}
+			if !shellMode && (repoUser == "" || repoPass == "") {
+				return fmt.Errorf("username or password is missing")
+			}
 
-		if cli == nil {
-			// load global webdav client object
-			cli = dav.NewClient(davBaseURL, repoUser, repoPass)
-		}
+			if cli == nil {
+				// load global webdav client object
+				cli = dav.NewClient(davBaseURL, repoUser, repoPass)
+			}
 
-		return nil
-	},
+			return nil
+		},
+	}
+
+	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	cmd.PersistentFlags().IntVarP(&nthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
+	cmd.PersistentFlags().BoolVarP(&silent, "silent", "s", false, "set to slient mode (i.e. do not show progress)")
+
+	if shellMode {
+		cmd.AddCommand(loginCmd, cdCmd, pwdCmd, lcdCmd, lpwdCmd, llsCmd())
+	}
+
+	cmd.AddCommand(lsCmd(), putCmd, getCmd, rmCmd(), mvCmd(), cpCmd(), mkdirCmd)
+
+	return cmd
 }
 
 // Execute is the main entry point of the cluster command.

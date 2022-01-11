@@ -3,8 +3,11 @@ package repocli
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -48,6 +51,107 @@ var pwdCmd = &cobra.Command{
 		fmt.Printf("%s\n", cwd)
 		return nil
 	},
+}
+
+// command to show present working directory at local.
+// This command only makes sense in shell mode.
+var lcdCmd = &cobra.Command{
+	Use:   "lcd",
+	Short: "change present working directory at local",
+	Long:  ``,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		p, err := filepath.Abs(args[0])
+
+		if err != nil {
+			return err
+		}
+
+		if err := os.Chdir(p); err != nil {
+			return err
+		}
+
+		lcwd = p
+		return nil
+	},
+}
+
+// command to show present working directory at local.
+// This command only makes sense in shell mode.
+var lpwdCmd = &cobra.Command{
+	Use:   "lpwd",
+	Short: "print present working directory at local",
+	Long:  ``,
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Printf("%s\n", lcwd)
+		return nil
+	},
+}
+
+// command to show content of a local directory.
+// This command only makes sense in shell mode.
+func llsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "lls",
+		Short: "list a local file or directory",
+		Long:  ``,
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			p := lcwd
+			var err error
+			if len(args) == 1 {
+				p, err = filepath.Abs(args[0])
+				if err != nil {
+					return err
+				}
+			}
+
+			f, err := os.Stat(p)
+			if err != nil {
+				return err
+			}
+
+			files := make([]fs.FileInfo, 0)
+			if !f.IsDir() {
+				files = append(files, f)
+				// set path `p` to the file's parent directory
+				p = filepath.Dir(p)
+			} else {
+				if entries, err := os.ReadDir(p); err != nil {
+					return err
+				} else {
+					for _, entry := range entries {
+						if info, err := entry.Info(); err != nil {
+							log.Errorf("cannot get info of file or directory: %s", entry.Name())
+						} else {
+							files = append(files, info)
+						}
+					}
+				}
+			}
+
+			if longformat {
+				for _, f := range files {
+					fmt.Printf("%11s %12d %s %s\n", f.Mode(), f.Size(), f.ModTime().Format(time.UnixDate), filepath.Join(p, f.Name()))
+				}
+			} else {
+				isDirMarker := make(map[bool]rune, 2)
+				isDirMarker[true] = '/'
+				isDirMarker[false] = 0
+
+				for _, f := range files {
+					fmt.Printf("%s%c\n", f.Name(), isDirMarker[f.Mode().IsDir()])
+				}
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&longformat, "long", "l", false, "list files with more detail")
+
+	return cmd
 }
 
 // command to login repository

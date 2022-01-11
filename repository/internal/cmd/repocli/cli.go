@@ -6,10 +6,8 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -50,118 +48,115 @@ const (
 	Copy
 )
 
-// current working directory
-var cwd string = "/"
-var dataDir string
+//var dataDir string
 var recursive bool
 var overwrite bool
 var longformat bool
 
-func init() {
-
-	if err := initDataDir(); err != nil {
-		log.Fatalf("%s", err)
-	}
-
-	lsCmd.Flags().BoolVarP(&longformat, "long", "l", false, "list files with more detail")
-	rmCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "remove directory recursively")
-	mvCmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
-	cpCmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
-
-	rootCmd.AddCommand(lsCmd, putCmd, getCmd, rmCmd, mvCmd, cpCmd, mkdirCmd)
-}
+// func init() {
+// 	if err := initDataDir(); err != nil {
+// 		log.Fatalf("%s", err)
+// 	}
+// }
 
 // initDataDir determines `dataDir` location and ensures the presence of it.
-func initDataDir() error {
+// func initDataDir() error {
 
-	switch runtime.GOOS {
-	case "windows":
-		// for windows, uses `%APPDATA%\repocli`
-		dataDir = filepath.Join(os.Getenv("APPDATA"), "repocli")
-	case "darwin", "freebsd", "linux":
-		// get current user for retriving the `HomeDir`.
-		// TODO: user a better option? https://github.com/mitchellh/go-homedir
-		u, err := user.Current()
-		if err != nil {
-			return fmt.Errorf("cannot determine current user: %s", err)
-		}
+// 	switch runtime.GOOS {
+// 	case "windows":
+// 		// for windows, uses `%APPDATA%\repocli`
+// 		dataDir = filepath.Join(os.Getenv("APPDATA"), "repocli")
+// 	case "darwin", "freebsd", "linux":
+// 		// get current user for retriving the `HomeDir`.
+// 		// TODO: user a better option? https://github.com/mitchellh/go-homedir
+// 		u, err := user.Current()
+// 		if err != nil {
+// 			return fmt.Errorf("cannot determine current user: %s", err)
+// 		}
 
-		// for darwin, freebsd, linux, use `$HOME/.local/share/repocli` as default;
-		// and respect to `$XDG_DATA_HOME` variable for systems making use of
-		// XDG base directory.
-		xdgDataHome := filepath.Join(u.HomeDir, ".local", "share")
-		if v := os.Getenv("XDG_DATA_HOME"); v != "" {
-			xdgDataHome = v
-		}
-		dataDir = filepath.Join(xdgDataHome, "repocli")
-	default:
-		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
-	}
+// 		// for darwin, freebsd, linux, use `$HOME/.local/share/repocli` as default;
+// 		// and respect to `$XDG_DATA_HOME` variable for systems making use of
+// 		// XDG base directory.
+// 		xdgDataHome := filepath.Join(u.HomeDir, ".local", "share")
+// 		if v := os.Getenv("XDG_DATA_HOME"); v != "" {
+// 			xdgDataHome = v
+// 		}
+// 		dataDir = filepath.Join(xdgDataHome, "repocli")
+// 	default:
+// 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+// 	}
 
-	// ensure the presence of `dataDir`
-	os.MkdirAll(dataDir, 0644)
+// 	// ensure the presence of `dataDir`
+// 	os.MkdirAll(dataDir, 0644)
 
-	return nil
-}
+// 	return nil
+// }
 
 // command to list a file or the content of a directory in the repository.
-var lsCmd = &cobra.Command{
-	Use:   "ls [<repo_file|repo_dir>]",
-	Short: "list file or directory in the repository",
-	Long: `
+func lsCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "ls [<repo_file|repo_dir>]",
+		Short: "list file or directory in the repository",
+		Long: `
 The "ls" subcommand is for listing a repository file or the content of a repository directory.
 
 The optional argument is used to specify the file or directory in the repository to be listed. The argument can be in form of an absolute or relative WebDAV path with the path separator "/", for example, "/dccn/DAC_3010000.01_173/data".
 
 If no argument is provided, it lists the content of the root ("/") WebDAV path.
-	`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+		`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		p := cwd
-		if len(args) == 1 {
-			p = getCleanRepoPath(args[0])
-		}
+			p := cwd
+			if len(args) == 1 {
+				p = getCleanRepoPath(args[0])
+			}
 
-		// check path state
-		f, err := cli.Stat(p)
-		if err != nil {
-			return err
-		}
-
-		files := make([]fs.FileInfo, 0)
-
-		// path is not a dir, assuming it is just a file, print the info and return
-		if !f.IsDir() {
-			files = append(files, f)
-		} else {
-			// path is a dir, read the entire content of the dir
-			if files, err = cli.ReadDir(p); err != nil {
+			// check path state
+			f, err := cli.Stat(p)
+			if err != nil {
 				return err
 			}
-		}
 
-		if longformat {
-			for _, f := range files {
-				fmt.Printf("%11s %12d %s %s\n", f.Mode(), f.Size(), f.ModTime().Format(time.UnixDate), path.Join(p, f.Name()))
-			}
-		} else {
-			isDirMarker := make(map[bool]rune, 2)
-			isDirMarker[true] = '/'
-			isDirMarker[false] = 0
+			files := make([]fs.FileInfo, 0)
 
-			for _, f := range files {
-				if f.Name() == "" {
-					// in case of listing a single file, the `f.Name`` from the `cli.State` is empty.
-					// we need to get the filename from the input argument `p`
-					fmt.Printf("%s%c\n", path.Base(p), isDirMarker[f.Mode().IsDir()])
-					continue
+			// path is not a dir, assuming it is just a file, print the info and return
+			if !f.IsDir() {
+				files = append(files, f)
+			} else {
+				// path is a dir, read the entire content of the dir
+				if files, err = cli.ReadDir(p); err != nil {
+					return err
 				}
-				fmt.Printf("%s%c\n", f.Name(), isDirMarker[f.Mode().IsDir()])
 			}
-		}
-		return nil
-	},
+
+			if longformat {
+				for _, f := range files {
+					fmt.Printf("%11s %12d %s %s\n", f.Mode(), f.Size(), f.ModTime().Format(time.UnixDate), path.Join(p, f.Name()))
+				}
+			} else {
+				isDirMarker := make(map[bool]rune, 2)
+				isDirMarker[true] = '/'
+				isDirMarker[false] = 0
+
+				for _, f := range files {
+					if f.Name() == "" {
+						// in case of listing a single file, the `f.Name`` from the `cli.State` is empty.
+						// we need to get the filename from the input argument `p`
+						fmt.Printf("%s%c\n", path.Base(p), isDirMarker[f.Mode().IsDir()])
+						continue
+					}
+					fmt.Printf("%s%c\n", f.Name(), isDirMarker[f.Mode().IsDir()])
+				}
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&longformat, "long", "l", false, "list files with more detail")
+
+	return cmd
 }
 
 var putCmd = &cobra.Command{
@@ -380,10 +375,11 @@ will have the content of /dccn/DAC_3010000.01_173/data downloaded into /tmp/data
 	},
 }
 
-var cpCmd = &cobra.Command{
-	Use:   "cp <repo_file|repo_dir> <repo_file|repo_dir>",
-	Short: "copy file or directory in the repository",
-	Long: `
+func cpCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cp <repo_file|repo_dir> <repo_file|repo_dir>",
+		Short: "copy file or directory in the repository",
+		Long: `
 The "cp" subcommand is for copying a file or a directory in the repository. It takes two mandatory input arguments.
 
 The first argument specifies an existing WebDAV path of a file/directory in the repository as the "source". It can be an absolute or relative path with the path separator "/".
@@ -394,91 +390,96 @@ When copying a directory recursively, the tailing "/" on the source path instruc
 
 For example, 
 
-    $ repocli cp /dccn/DAC_3010000.01_173/data /dccn/DAC_3010000.01_173/data.new
+	$ repocli cp /dccn/DAC_3010000.01_173/data /dccn/DAC_3010000.01_173/data.new
 
 results in the content of /dccn/DAC_3010000.01_173/data being copied into a new repository directory /dccn/DAC_3010000.01_173/data.new/data; while
 
-    $ repocli cp /dccn/DAC_3010000.01_173/data/ /dccn/DAC_3010000.01_173/data.new
+	$ repocli cp /dccn/DAC_3010000.01_173/data/ /dccn/DAC_3010000.01_173/data.new
 
 will have the content of /dccn/DAC_3010000.01_173/data copied into /dccn/DAC_3010000.01_173/data.new.
 
 By default, the copy process will skip existing files at the destination.  One can use the "-f" flag to overwrite existing files.
-`,
-	Args: cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		src := getCleanRepoPath(args[0])
-		dst := getCleanRepoPath(args[1])
+			src := getCleanRepoPath(args[0])
+			dst := getCleanRepoPath(args[1])
 
-		// source must exists
-		fsrc, err := cli.Stat(src)
-		if err != nil {
-			return err
-		}
-
-		fdst, derr := cli.Stat(dst)
-
-		if fsrc.IsDir() {
-
-			// destination path exists but not a directory.
-			if derr == nil && !fdst.IsDir() {
-				return fmt.Errorf("destination not a directory: %s", args[1])
-			}
-
-			// the source does not have a tailing path separator.  The whole local directory is
-			// created within the specifified directory
-			cpath := []rune(args[0])
-			if cpath[len(cpath)-1] != '/' {
-				dst = path.Join(dst, path.Base(src))
-			}
-
-			pfinfoSrc := pathFileInfo{
-				path: src,
-				info: fsrc,
-			}
-
-			pfinfoDst := pathFileInfo{
-				path: dst,
-			}
-
-			log.Debugf("copying %s to %s", pfinfoSrc.path, pfinfoDst.path)
-
-			if err := cli.MkdirAll(dst, pfinfoSrc.info.Mode()); err != nil {
-				return err
-			}
-
-			// start progress
-			pbar := initDynamicMaxProgressbar("copying...")
-
-			// run with 4 concurrent workers
-			cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, pbar)
-
-			pbar.ChangeMax(pbar.GetMax() - 1)
-
-			// log statistics
-			if !silent {
-				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
-			}
-
+			// source must exists
+			fsrc, err := cli.Stat(src)
 			if err != nil {
 				return err
 			}
 
-			return nil
-		} else {
-			if derr == nil && fdst.IsDir() {
-				dst = path.Join(dst, path.Base(src))
+			fdst, derr := cli.Stat(dst)
+
+			if fsrc.IsDir() {
+
+				// destination path exists but not a directory.
+				if derr == nil && !fdst.IsDir() {
+					return fmt.Errorf("destination not a directory: %s", args[1])
+				}
+
+				// the source does not have a tailing path separator.  The whole local directory is
+				// created within the specifified directory
+				cpath := []rune(args[0])
+				if cpath[len(cpath)-1] != '/' {
+					dst = path.Join(dst, path.Base(src))
+				}
+
+				pfinfoSrc := pathFileInfo{
+					path: src,
+					info: fsrc,
+				}
+
+				pfinfoDst := pathFileInfo{
+					path: dst,
+				}
+
+				log.Debugf("copying %s to %s", pfinfoSrc.path, pfinfoDst.path)
+
+				if err := cli.MkdirAll(dst, pfinfoSrc.info.Mode()); err != nil {
+					return err
+				}
+
+				// start progress
+				pbar := initDynamicMaxProgressbar("copying...")
+
+				// run with 4 concurrent workers
+				cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, pbar)
+
+				pbar.ChangeMax(pbar.GetMax() - 1)
+
+				// log statistics
+				if !silent {
+					log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+				}
+
+				if err != nil {
+					return err
+				}
+
+				return nil
+			} else {
+				if derr == nil && fdst.IsDir() {
+					dst = path.Join(dst, path.Base(src))
+				}
+				log.Debugf("copying %s to %s", src, dst)
+				return cli.Copy(src, dst, overwrite)
 			}
-			log.Debugf("copying %s to %s", src, dst)
-			return cli.Copy(src, dst, overwrite)
-		}
-	},
+		},
+	}
+	cmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
+	return cmd
 }
 
-var mvCmd = &cobra.Command{
-	Use:   "mv <repo_file|repo_dir> <repo_file|repo_dir>",
-	Short: "move file or directory in the repository",
-	Long: `
+func mvCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "mv <repo_file|repo_dir> <repo_file|repo_dir>",
+		Short: "move file or directory in the repository",
+		Long: `
 The "mv" subcommand is for moving a file or a directory in the repository. It takes two mandatory input arguments.
 
 The first argument specifies an existing WebDAV path of a file/directory in the repository as the "source". It can be an absolute or relative path with the path separator "/".
@@ -487,135 +488,143 @@ The second argument specifies another WebDAV path of a file/directory in the rep
 
 When moving a directory recursively, the tailing "/" on the source path instructs the tool to move "the content" into the destination. If the tailing "/" is left out, it will move "the directory by name" in to the destination, resulting in the content being moved into a (new) sub-directory in the destination.
 
-For example, 
+For example,
 
-    $ repocli mv /dccn/DAC_3010000.01_173/data /dccn/DAC_3010000.01_173/data.new
+	$ repocli mv /dccn/DAC_3010000.01_173/data /dccn/DAC_3010000.01_173/data.new
 
 results in the content of /dccn/DAC_3010000.01_173/data being moved into a new repository directory /dccn/DAC_3010000.01_173/data.new/data; while
 
-    $ repocli mv /dccn/DAC_3010000.01_173/data/ /dccn/DAC_3010000.01_173/data.new
+	$ repocli mv /dccn/DAC_3010000.01_173/data/ /dccn/DAC_3010000.01_173/data.new
 
 will have the content of /dccn/DAC_3010000.01_173/data moved into /dccn/DAC_3010000.01_173/data.new.
 
 By default, the move process will skip existing files at the destination.  One can use the "-f" flag to overwrite existing files.
 
 Files not successfully moved over will be kept at the source.
-`,
-	Args: cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		src := getCleanRepoPath(args[0])
-		dst := getCleanRepoPath(args[1])
+			src := getCleanRepoPath(args[0])
+			dst := getCleanRepoPath(args[1])
 
-		// source must exists
-		fsrc, err := cli.Stat(src)
-		if err != nil {
-			return err
-		}
-
-		fdst, derr := cli.Stat(dst)
-
-		if fsrc.IsDir() {
-
-			// destination path exists but not a directory.
-			if derr == nil && !fdst.IsDir() {
-				return fmt.Errorf("destination not a directory: %s", args[1])
-			}
-
-			// the source does not have a tailing path separator.  The whole local directory is
-			// created within the specifified directory
-			cpath := []rune(args[0])
-			if cpath[len(cpath)-1] != '/' {
-				dst = path.Join(dst, path.Base(src))
-			}
-
-			pfinfoSrc := pathFileInfo{
-				path: src,
-				info: fsrc,
-			}
-
-			pfinfoDst := pathFileInfo{
-				path: dst,
-			}
-
-			log.Debugf("renaming %s to %s", pfinfoSrc.path, pfinfoDst.path)
-
-			if err := cli.MkdirAll(dst, pfinfoSrc.info.Mode()); err != nil {
-				return err
-			}
-
-			// start progress
-			pbar := initDynamicMaxProgressbar("moving...")
-
-			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, pbar)
-
-			pbar.ChangeMax(pbar.GetMax() - 1)
-
-			// log statistics
-			if !silent {
-				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
-			}
-
+			// source must exists
+			fsrc, err := cli.Stat(src)
 			if err != nil {
 				return err
 			}
 
-			return nil
-		} else {
-			if derr == nil && fdst.IsDir() {
-				dst = path.Join(dst, path.Base(src))
+			fdst, derr := cli.Stat(dst)
+
+			if fsrc.IsDir() {
+
+				// destination path exists but not a directory.
+				if derr == nil && !fdst.IsDir() {
+					return fmt.Errorf("destination not a directory: %s", args[1])
+				}
+
+				// the source does not have a tailing path separator.  The whole local directory is
+				// created within the specifified directory
+				cpath := []rune(args[0])
+				if cpath[len(cpath)-1] != '/' {
+					dst = path.Join(dst, path.Base(src))
+				}
+
+				pfinfoSrc := pathFileInfo{
+					path: src,
+					info: fsrc,
+				}
+
+				pfinfoDst := pathFileInfo{
+					path: dst,
+				}
+
+				log.Debugf("renaming %s to %s", pfinfoSrc.path, pfinfoDst.path)
+
+				if err := cli.MkdirAll(dst, pfinfoSrc.info.Mode()); err != nil {
+					return err
+				}
+
+				// start progress
+				pbar := initDynamicMaxProgressbar("moving...")
+
+				// perform data transfer with 4 concurrent workers
+				cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, pbar)
+
+				pbar.ChangeMax(pbar.GetMax() - 1)
+
+				// log statistics
+				if !silent {
+					log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+				}
+
+				if err != nil {
+					return err
+				}
+
+				return nil
+			} else {
+				if derr == nil && fdst.IsDir() {
+					dst = path.Join(dst, path.Base(src))
+				}
+				log.Debugf("renaming %s to %s", src, dst)
+				return cli.Rename(src, dst, overwrite)
 			}
-			log.Debugf("renaming %s to %s", src, dst)
-			return cli.Rename(src, dst, overwrite)
-		}
-	},
+		},
+	}
+	cmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
+	return cmd
 }
 
-var rmCmd = &cobra.Command{
-	Use:   "rm <file_repo|directory_repo>",
-	Short: "remove file or directory from the repository",
-	Long: `
+func rmCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "rm <file_repo|directory_repo>",
+		Short: "remove file or directory from the repository",
+		Long: `
 The "rm" subcommand is for removing a file or a directory in the repository.
 
 The mandatory argument is used to specify the file or directory in the repository to be removed.  The argument can be in form of an absolute or relative WebDAV path with the path separator "/", for example, "/dccn/DAC_3010000.01_173/data".
 
 When removing a directory containing files or sub-directories, the flag "-r" should be applied to do the removal recursively.
-`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+		`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		rp := getCleanRepoPath(args[0])
+			rp := getCleanRepoPath(args[0])
 
-		f, err := cli.Stat(rp)
-		if err != nil {
-			return err
-		}
-
-		if f.IsDir() {
-
-			// start progress
-			pbar := initDynamicMaxProgressbar("removing...")
-
-			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr, err := rmRepoDir(rp, recursive, pbar)
-
-			pbar.ChangeMax(pbar.GetMax() - 1)
-
-			// log statistics
-			if !silent {
-				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
-			}
-
+			f, err := cli.Stat(rp)
 			if err != nil {
 				return err
 			}
 
-			return nil
-		} else {
-			return cli.Remove(rp)
-		}
-	},
+			if f.IsDir() {
+
+				// start progress
+				pbar := initDynamicMaxProgressbar("removing...")
+
+				// perform data transfer with 4 concurrent workers
+				cntOk, cntErr, err := rmRepoDir(rp, recursive, pbar)
+
+				pbar.ChangeMax(pbar.GetMax() - 1)
+
+				// log statistics
+				if !silent {
+					log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+				}
+
+				if err != nil {
+					return err
+				}
+
+				return nil
+			} else {
+				return cli.Remove(rp)
+			}
+		},
+	}
+	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "remove directory recursively")
+	return cmd
 }
 
 var mkdirCmd = &cobra.Command{
