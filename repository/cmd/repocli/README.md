@@ -66,7 +66,7 @@ repository:
 
 If the `-u` option and the `baseurl` key are both specified, the value provided by the `-u` option takes precedence.
 
-At the moment, the configuration is in plain text.  It is highly recommended to make the configuration file only accessible to the current user. On Linux and MacOSX, one can run the following command in a terminal:
+__SECURITY WARNING:__ The configuration is in plain text and thus you should make the configuration file only accessible to yourself. On Linux and MacOSX, one can run the following command in a terminal:
 
 ```bash
 $ chmod 600 $HOME/.repocli.yml
