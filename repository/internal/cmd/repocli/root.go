@@ -132,7 +132,7 @@ func New() *cobra.Command {
 				return fmt.Errorf("repo baseURL is missing")
 			}
 
-			if cli == nil || baseURL != davBaseURL {
+			if cli == nil || (baseURL != "" && baseURL != davBaseURL) {
 				// initiate a new webdav client with new baseURL
 				davBaseURL = baseURL
 				cli = dav.NewClient(baseURL, repoUser, repoPass)
