@@ -53,45 +53,6 @@ var recursive bool
 var overwrite bool
 var longformat bool
 
-// func init() {
-// 	if err := initDataDir(); err != nil {
-// 		log.Fatalf("%s", err)
-// 	}
-// }
-
-// initDataDir determines `dataDir` location and ensures the presence of it.
-// func initDataDir() error {
-
-// 	switch runtime.GOOS {
-// 	case "windows":
-// 		// for windows, uses `%APPDATA%\repocli`
-// 		dataDir = filepath.Join(os.Getenv("APPDATA"), "repocli")
-// 	case "darwin", "freebsd", "linux":
-// 		// get current user for retriving the `HomeDir`.
-// 		// TODO: user a better option? https://github.com/mitchellh/go-homedir
-// 		u, err := user.Current()
-// 		if err != nil {
-// 			return fmt.Errorf("cannot determine current user: %s", err)
-// 		}
-
-// 		// for darwin, freebsd, linux, use `$HOME/.local/share/repocli` as default;
-// 		// and respect to `$XDG_DATA_HOME` variable for systems making use of
-// 		// XDG base directory.
-// 		xdgDataHome := filepath.Join(u.HomeDir, ".local", "share")
-// 		if v := os.Getenv("XDG_DATA_HOME"); v != "" {
-// 			xdgDataHome = v
-// 		}
-// 		dataDir = filepath.Join(xdgDataHome, "repocli")
-// 	default:
-// 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
-// 	}
-
-// 	// ensure the presence of `dataDir`
-// 	os.MkdirAll(dataDir, 0644)
-
-// 	return nil
-// }
-
 // command to list a file or the content of a directory in the repository.
 func lsCmd() *cobra.Command {
 

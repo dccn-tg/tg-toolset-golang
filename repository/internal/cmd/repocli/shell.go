@@ -168,6 +168,14 @@ var loginCmd = &cobra.Command{
 // promptLogin asks username and password input for
 // authenticating to the webdav interface.
 func promptLogin() error {
+
+	// prompt for baseurl if it is not set in current shell
+	if davBaseURL == "" {
+		davBaseURL = stringPrompt("repo baseurl")
+	}
+
+	fmt.Fprintf(os.Stderr, "login for %s\n", davBaseURL)
+
 	repoUser := stringPrompt("username")
 	repoPass := passwordPrompt("password")
 
