@@ -39,7 +39,7 @@ func LoadConfig(cpath string) (Configuration, error) {
 
 	viper.SetConfigFile(cfg)
 	if err := viper.ReadInConfig(); err != nil {
-		return conf, fmt.Errorf("Error reading config file, %s", err)
+		return conf, fmt.Errorf("cannot read config file, %s", err)
 	}
 
 	err = viper.Unmarshal(&conf)

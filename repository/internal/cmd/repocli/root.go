@@ -11,6 +11,7 @@ import (
 	shell "github.com/Donders-Institute/tg-toolset-golang/pkg/shell"
 	"github.com/c-bata/go-prompt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	dav "github.com/studio-b12/gowebdav"
 )
 
@@ -56,7 +57,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(
 		&davBaseURL,
-		"url", "u", "https://webdav.data.donders.ru.nl",
+		"url", "u", davBaseURL,
 		"`URL` of the webdav server.",
 	)
 
@@ -116,18 +117,25 @@ func New() *cobra.Command {
 			log.NewLogger(cfg, log.InstanceLogrusLogger)
 
 			// load repo configuration
+			viper.BindPFlag("repository.baseurl", cmd.Flags().Lookup("url"))
 			repoCfg := loadConfig().Repository
 
 			repoUser := repoCfg.Username
 			repoPass := repoCfg.Password
+			baseURL := repoCfg.BaseURL
 
 			if !shellMode && (repoUser == "" || repoPass == "") {
 				return fmt.Errorf("username or password is missing")
 			}
 
-			if cli == nil {
-				// load global webdav client object
-				cli = dav.NewClient(davBaseURL, repoUser, repoPass)
+			if !shellMode && (baseURL == "") {
+				return fmt.Errorf("repo baseURL is missing")
+			}
+
+			if cli == nil || baseURL != davBaseURL {
+				// initiate a new webdav client with new baseURL
+				davBaseURL = baseURL
+				cli = dav.NewClient(baseURL, repoUser, repoPass)
 			}
 
 			return nil

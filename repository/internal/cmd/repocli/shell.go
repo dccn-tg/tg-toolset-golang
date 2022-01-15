@@ -181,18 +181,19 @@ func promptLogin() error {
 
 	// save credential to `configFile`
 	if save {
-		return saveCredential(repoUser, repoPass)
+		return saveCredential(davBaseURL, repoUser, repoPass)
 	}
 
 	return nil
 }
 
 // saveCredential saves the username/password to the file `configFile` with file mode 600.
-func saveCredential(username, password string) error {
+func saveCredential(baseURL, username, password string) error {
 	conf, err := yaml.Marshal(&struct {
 		Repository config.RepositoryConfiguration `yaml:"repository"`
 	}{
 		config.RepositoryConfiguration{
+			BaseURL:  baseURL,
 			Username: username,
 			Password: password,
 		},
