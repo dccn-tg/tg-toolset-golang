@@ -32,17 +32,19 @@ Available Commands:
   mv          move file or directory in the repository
   put         upload file or directory to the repository
   rm          remove file or directory from the repository
-  shell       Start an interactive shell.
+  shell       start an interactive shell
 
 Flags:
-  -c, --config path       path of the configuration YAML file. (default "/home/tg/honlee/.repocli.yml")
+  -c, --config path       path of the configuration YAML file. (default "/home/honlee/.repocli.yml")
   -h, --help              help for repocli
   -n, --nthreads number   number of concurrent worker threads. (default 4)
   -s, --silent            set to slient mode (i.e. do not show progress)
-  -l, --url URL           URL of the webdav server. (default "https://webdav.data.donders.ru.nl")
+  -u, --url URL           URL of the webdav server.
   -v, --verbose           verbose output
 
 Use "repocli [command] --help" for more information about a command.
+
+A CLI for managing data content of the Donders Repository collections.
 ```
 
 The username/password of the data-access account should be provided in the configuration file (i.e. the `-c` flag) in YAML format.  The default location of this configuration file is `${HOME}/.repocli.yml` on Linux/MacOSX and `C:\Users\<username>\.repocli.yml` on Windows. Hereafter is an example:
@@ -52,6 +54,17 @@ repository:
   username: "username"
   password: "password"
 ```
+
+When using the single-command mode (i.e. not the shell mode, see below), the base URL of the repository should also be provided via the `-u` option.  It can also be provided via the `baseurl` key in the configuration file, e.g.
+
+```yaml
+repository:
+  baseurl: "https://webdav.data.donders.ru.nl"
+  username: "username"
+  password: "password"
+```
+
+If the `-u` option and the `baseurl` key are both specified, the value provided by the `-u` option takes precedence.
 
 At the moment, the configuration is in plain text.  It is highly recommended to make the configuration file only accessible to the current user. On Linux and MacOSX, one can run the following command in a terminal:
 
@@ -73,16 +86,27 @@ The CLI's specific prompt `> repocli` will be displayed as the screenshot below,
 
 In the shell mode, the following additional operations are enabled:
 
-- cd: change present working directory
-- pwd: show the present working directory
 - login: login the repository
+- cd: change the present working directory in the repository
+- pwd: show the present working directory in the repository
+- lcd: change the present working directory at local
+- lpwd: show the present working directory at local
+- lls: list content in the present working directory at local
+
+The `login` operation can be used to configure a new connection if you choose to save the credential.  For instance, you can start the shell mode using the `-c` option to point to a non-existing file:
+
+```bash
+$ repocli shell -c myrepo.yml
+```
+
+Then follow the prompt to provide the necessary information for connection and choose `y` to save the credential.  Once the login is done successfully, the file `myrepo.xml` will be created with the connection information. You can then reuse the configuration file in the future.
 
 ### listing a directory
 
 Given a collection with identifier `di.dccn.DAC_3010000.01_173`, the WebDAV directory in which the collection data is stored is `/dccn/DAC_3010000.01_173`.  To list the content of this WebDAV directory, one does
 
 ```bash
-$ repocli ls /dccn/DAC_3010000.01_173
+$ repocli ls -l /dccn/DAC_3010000.01_173
 /dccn/DAC_3010000.01_173:
  drwxrwxr-x            0 /dccn/DAC_3010000.01_173/Cropped
  drwxrwxr-x            0 /dccn/DAC_3010000.01_173/raw
