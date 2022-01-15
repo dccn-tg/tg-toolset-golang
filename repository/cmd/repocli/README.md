@@ -74,7 +74,7 @@ $ chmod 600 $HOME/.repocli.yml
 
 __The shell mode__
 
-In addition to run the operations as individual shell commands (useful for shell scripting), the CLI can also be used in an interactive shell.  One uses the `shell` command to enter the shell mode:
+In addition to run the operations as individual commands (single-command mode), the CLI can also be used in an interactive shell.  One uses the `shell` command to enter the shell mode:
 
 ```bash
 $ repocli shell
