@@ -174,7 +174,7 @@ func promptLogin() error {
 		davBaseURL = stringPrompt("repo baseurl")
 	}
 
-	fmt.Fprintf(os.Stderr, "login for %s\n", davBaseURL)
+	fmt.Fprintf(os.Stdout, "login for %s\n", davBaseURL)
 
 	repoUser := stringPrompt("username")
 	repoPass := passwordPrompt("password")
@@ -234,7 +234,7 @@ func saveCredential(baseURL, username, password string) error {
 // boolPrompt asks for a string value `y/n` and return a boolean accordingly.
 func boolPrompt(label string) bool {
 	var s string
-	fmt.Fprintf(os.Stderr, label+" [y/N]: ")
+	fmt.Fprintf(os.Stdout, label+" [y/N]: ")
 	fmt.Scanf("%s", &s)
 
 	if s == "y" || s == "Y" {
@@ -246,7 +246,7 @@ func boolPrompt(label string) bool {
 // stringPrompt asks for a string value using the label
 func stringPrompt(label string) string {
 	var s string
-	fmt.Fprintf(os.Stderr, label+": ")
+	fmt.Fprintf(os.Stdout, label+": ")
 	fmt.Scanf("%s", &s)
 	return s
 }
@@ -255,7 +255,7 @@ func stringPrompt(label string) string {
 func passwordPrompt(label string) string {
 	var s string
 	for {
-		fmt.Fprint(os.Stderr, label+": ")
+		fmt.Fprint(os.Stdout, label+": ")
 		b, _ := term.ReadPassword(int(syscall.Stdin))
 		s = string(b)
 		if s != "" {

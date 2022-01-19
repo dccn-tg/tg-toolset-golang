@@ -1,6 +1,7 @@
 package repocli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -120,13 +121,13 @@ If no argument is provided, it lists the content of the root ("/") WebDAV path.
 	return cmd
 }
 
-var putCmd = &cobra.Command{
-	Use:   "put <local_file|local_dir> <repo_file|repo_dir>",
-	Short: "upload file or directory to the repository",
-	Long: `
-The "put" subcommand is for uploading a file or a directory from the local filesystem to the repository. It takes two mandatory input arguments for the upload source and destination, respectively.
+func putCmd() *cobra.Command {
 
-    ATTENTION!! During the upload, any existing file at the destination (repository) will be overwritten regardlessly. !!ATTENTION
+	cmd := &cobra.Command{
+		Use:   "put <local_file|local_dir> <repo_file|repo_dir>",
+		Short: "upload file or directory to the repository",
+		Long: `
+The "put" subcommand is for uploading a file or a directory from the local filesystem to the repository. It takes two mandatory input arguments for the upload source and destination, respectively.
 
 The first argument specifies the path of a local file/directory as the upload "source".  It can be an absolute or relative path with the os-dependent path separator.
 
@@ -136,104 +137,111 @@ When uploading a directory recursively, the tailing "/" on the source path instr
 
 For example, 
 
-    $ repocli put /tmp/data /dccn/DAC_3010000.01_173/data
+	$ repocli put /tmp/data /dccn/DAC_3010000.01_173/data
 
 results in the content of /tmp/data being uploaded into a new repository directory /dccn/DAC_3010000.01_173/data/data in the repository; while
 
-    $ repocli put /tmp/data/ /dccn/DAC_3010000.01_173/data
+	$ repocli put /tmp/data/ /dccn/DAC_3010000.01_173/data
 
 will have the content of /tmp/data uploaded into /dccn/DAC_3010000.01_173/data.
-`,
-	Args: cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
 
-		// resolve into absolute path at local
-		lfpath, err := filepath.Abs(args[0])
-		if err != nil {
-			return nil
-		}
+By default, the upload process will skip existing files already in the repository.  One can use the "-f" flag to overwrite existing files.
+	`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		// get local path's FileInfo
-		lfinfo, err := os.Stat(lfpath)
-		if err != nil {
-			return err
-		}
-
-		// a file or a directory
-		pfinfoLocal := pathFileInfo{
-			path: lfpath,
-			info: lfinfo,
-		}
-
-		p := getCleanRepoPath(args[1])
-		f, rerr := cli.Stat(p)
-
-		if lfinfo.IsDir() {
-
-			if rerr == nil && !f.IsDir() {
-				return fmt.Errorf("destination not a directory: %s", args[1])
+			// resolve into absolute path at local
+			lfpath, err := filepath.Abs(args[0])
+			if err != nil {
+				return nil
 			}
 
-			// the source does not have a tailing path separator.  The whole local directory is
-			// created within the specifified directory
-			cpath := []rune(args[0])
-			if cpath[len(cpath)-1] != os.PathSeparator {
-				p = path.Join(p, lfinfo.Name())
+			// get local path's FileInfo
+			lfinfo, err := os.Stat(lfpath)
+			if err != nil {
+				return err
 			}
 
-			log.Debugf("upload content of %s into %s", pfinfoLocal.path, p)
-
-			// repo pathInfo
-			pfinfoRepo := pathFileInfo{
-				path: p,
+			// a file or a directory
+			pfinfoLocal := pathFileInfo{
+				path: lfpath,
+				info: lfinfo,
 			}
 
-			// create top-level directory in advance
-			cli.MkdirAll(pfinfoRepo.path, pfinfoLocal.info.Mode())
+			p := getCleanRepoPath(args[1])
+			f, rerr := cli.Stat(p)
 
-			// start progress
-			pbar := initDynamicMaxProgressbar("uploading...")
+			if lfinfo.IsDir() {
 
-			// walk through repo directories
-			ichan := make(chan opInput)
-			go func() {
-				walkLocalDirForPut(pfinfoLocal, pfinfoRepo, ichan, true, pbar)
-				pbar.ChangeMax(pbar.GetMax() - 1)
-			}()
+				if rerr == nil && !f.IsDir() {
+					return fmt.Errorf("destination not a directory: %s", args[1])
+				}
 
-			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr := runOp(Put, ichan, 4, pbar)
+				// the source does not have a tailing path separator.  The whole local directory is
+				// created within the specifified directory
+				cpath := []rune(args[0])
+				if cpath[len(cpath)-1] != os.PathSeparator {
+					p = path.Join(p, lfinfo.Name())
+				}
 
-			// log statistics
-			if !silent {
-				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+				log.Debugf("upload content of %s into %s", pfinfoLocal.path, p)
+
+				// repo pathInfo
+				pfinfoRepo := pathFileInfo{
+					path: p,
+				}
+
+				// create top-level directory in advance
+				cli.MkdirAll(pfinfoRepo.path, pfinfoLocal.info.Mode())
+
+				// start progress
+				pbar := initDynamicMaxProgressbar("uploading...")
+
+				// walk through repo directories
+				ichan := make(chan opInput)
+				go func() {
+					walkLocalDirForPut(pfinfoLocal, pfinfoRepo, ichan, true, pbar)
+					pbar.ChangeMax(pbar.GetMax() - 1)
+				}()
+
+				// perform data transfer with 4 concurrent workers
+				cntOk, cntErr := runOp(Put, ichan, 4, pbar)
+
+				// log statistics
+				if !silent {
+					log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+				}
+
+				return nil
+			} else {
+
+				// path exists in collection, and it is a directory
+				// the uploaded file will be put into the directory with the same filename.
+				if rerr == nil && f.IsDir() {
+					p = path.Join(p, lfinfo.Name())
+				}
+
+				// construct filepath at repository
+				pfinfoRepo := pathFileInfo{
+					path: p,
+				}
+				return putRepoFile(pfinfoLocal, pfinfoRepo, true)
 			}
+		},
+	}
 
-			return nil
-		} else {
+	cmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
 
-			// path exists in collection, and it is a directory
-			// the uploaded file will be put into the directory with the same filename.
-			if rerr == nil && f.IsDir() {
-				p = path.Join(p, lfinfo.Name())
-			}
-
-			// construct filepath at repository
-			pfinfoRepo := pathFileInfo{
-				path: p,
-			}
-			return putRepoFile(pfinfoLocal, pfinfoRepo, true)
-		}
-	},
+	return cmd
 }
 
-var getCmd = &cobra.Command{
-	Use:   "get <repo_file|repo_dir> <local_file|local_dir>",
-	Short: "download file or directory from the repository",
-	Long: `
-The "get" subcommand is for downloading a file or a directory from the repository to the local filesystem. It takes two mandatory input arguments for the download source and destination, respectively.
+func getCmd() *cobra.Command {
 
-    ATTENTION!! During the download, any existing file at the destination (local filesystem) will be overwritten regardlessly. !!ATTENTION
+	cmd := &cobra.Command{
+		Use:   "get <repo_file|repo_dir> <local_file|local_dir>",
+		Short: "download file or directory from the repository",
+		Long: `
+The "get" subcommand is for downloading a file or a directory from the repository to the local filesystem. It takes two mandatory input arguments for the download source and destination, respectively.
 
 The first argument specifies the WebDAV path of a file/directory in the repository as the download "source". It can be an absolute or relative path with the path separator "/".
 
@@ -243,97 +251,104 @@ When downloading a directory recursively, the tailing "/" on the source path ins
 
 For example, 
 
-    $ repocli get /dccn/DAC_3010000.01_173/data /tmp/data
+	$ repocli get /dccn/DAC_3010000.01_173/data /tmp/data
 
 results in the content of /dccn/DAC_3010000.01_173/data being downloaded into a new local directory /tmp/data/data; while
 
-    $ repocli get /dccn/DAC_3010000.01_173/data/ /tmp/data
+	$ repocli get /dccn/DAC_3010000.01_173/data/ /tmp/data
 
 will have the content of /dccn/DAC_3010000.01_173/data downloaded into /tmp/data.
-`,
-	Args: cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
 
-		p := getCleanRepoPath(args[0])
+By default, the download process will skip existing files already in the repository.  One can use the "-f" flag to overwrite existing files.
+	`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		f, err := cli.Stat(p)
-		if err != nil {
-			return err
-		}
+			p := getCleanRepoPath(args[0])
 
-		// repo pathInfo
-		pfinfoRepo := pathFileInfo{
-			path: p,
-			info: f,
-		}
-
-		// get local path's FileInfo
-		lp, err := filepath.Abs(args[1])
-		if err != nil {
-			return err
-		}
-		lfinfo, lerr := os.Stat(lp)
-
-		// download recursively
-		if f.IsDir() {
-
-			// destination path exists but not a directory.
-			if lerr == nil && !lfinfo.IsDir() {
-				return fmt.Errorf("destination not a directory: %s", args[1])
-			}
-
-			// the source does not have a tailing path separator.  The whole local directory is
-			// created within the specifified directory
-			cpath := []rune(args[0])
-			if cpath[len(cpath)-1] != '/' {
-				lp = filepath.Join(lp, path.Base(p))
-			}
-
-			pfinfoLocal := pathFileInfo{
-				path: lp,
-			}
-
-			log.Debugf("download content of %s into %s", pfinfoRepo.path, pfinfoLocal.path)
-
-			if err := os.MkdirAll(lp, pfinfoRepo.info.Mode()); err != nil {
+			f, err := cli.Stat(p)
+			if err != nil {
 				return err
 			}
 
-			// progress bar
-			pbar := initDynamicMaxProgressbar("downloading...")
-
-			// walk through repo directories
-			ichan := make(chan opInput)
-			go func() {
-				walkRepoDirForGet(pfinfoRepo, pfinfoLocal, ichan, true, pbar)
-				pbar.ChangeMax(pbar.GetMax() - 1)
-			}()
-
-			// perform data transfer with 4 concurrent workers
-			cntOk, cntErr := runOp(Get, ichan, 4, pbar)
-
-			// log statistics
-			if !silent {
-				log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+			// repo pathInfo
+			pfinfoRepo := pathFileInfo{
+				path: p,
+				info: f,
 			}
 
-			return nil
+			// get local path's FileInfo
+			lp, err := filepath.Abs(args[1])
+			if err != nil {
+				return err
+			}
+			lfinfo, lerr := os.Stat(lp)
 
-		} else {
+			// download recursively
+			if f.IsDir() {
 
-			if lerr == nil && lfinfo.IsDir() {
-				lp = filepath.Join(lp, path.Base(p))
+				// destination path exists but not a directory.
+				if lerr == nil && !lfinfo.IsDir() {
+					return fmt.Errorf("destination not a directory: %s", args[1])
+				}
+
+				// the source does not have a tailing path separator.  The whole local directory is
+				// created within the specifified directory
+				cpath := []rune(args[0])
+				if cpath[len(cpath)-1] != '/' {
+					lp = filepath.Join(lp, path.Base(p))
+				}
+
+				pfinfoLocal := pathFileInfo{
+					path: lp,
+				}
+
+				log.Debugf("download content of %s into %s", pfinfoRepo.path, pfinfoLocal.path)
+
+				if err := os.MkdirAll(lp, pfinfoRepo.info.Mode()); err != nil {
+					return err
+				}
+
+				// progress bar
+				pbar := initDynamicMaxProgressbar("downloading...")
+
+				// walk through repo directories
+				ichan := make(chan opInput)
+				go func() {
+					walkRepoDirForGet(pfinfoRepo, pfinfoLocal, ichan, true, pbar)
+					pbar.ChangeMax(pbar.GetMax() - 1)
+				}()
+
+				// perform data transfer with 4 concurrent workers
+				cntOk, cntErr := runOp(Get, ichan, 4, pbar)
+
+				// log statistics
+				if !silent {
+					log.Infof("no. succeeded: %d, no. failed: %d", cntOk, cntErr)
+				}
+
+				return nil
+
+			} else {
+
+				if lerr == nil && lfinfo.IsDir() {
+					lp = filepath.Join(lp, path.Base(p))
+				}
+
+				pfinfoLocal := pathFileInfo{
+					path: lp,
+				}
+
+				// download single file
+				return getRepoFile(pfinfoRepo, pfinfoLocal, !silent)
 			}
 
-			pfinfoLocal := pathFileInfo{
-				path: lp,
-			}
+		},
+	}
 
-			// download single file
-			return getRepoFile(pfinfoRepo, pfinfoLocal, !silent)
-		}
+	cmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
 
-	},
+	return cmd
 }
 
 func cpCmd() *cobra.Command {
@@ -751,6 +766,12 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 // putRepoFile uploads a single local file to the repository.
 func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error {
 
+	if _, err := cli.Stat(pfinfoRepo.path); !errors.Is(err, os.ErrNotExist) && !overwrite {
+		// file already exists, and don't want to be overwritten.
+		log.Debugf("skip existing file %s\n", pfinfoRepo.path)
+		return nil
+	}
+
 	// open pathLocal
 	reader, err := os.Open(pfinfoLocal.path)
 	if err != nil {
@@ -789,6 +810,12 @@ func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error 
 
 // getRepoFile downloads a single file from the repository to a local file.
 func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error {
+
+	if _, err := os.Stat(pfinfoLocal.path); !errors.Is(err, os.ErrNotExist) && !overwrite {
+		// file already exists, and don't want to be overwritten.
+		log.Debugf("skip existing file %s\n", pfinfoLocal.path)
+		return nil
+	}
 
 	// open pathLocal
 	fileLocal, err := os.OpenFile(pfinfoLocal.path, os.O_WRONLY|os.O_CREATE, pfinfoRepo.info.Mode())

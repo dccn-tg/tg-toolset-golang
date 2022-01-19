@@ -116,7 +116,7 @@ func New() *cobra.Command {
 			}
 			log.NewLogger(cfg, log.InstanceLogrusLogger)
 
-			// load repo configuration
+			// load repo configuration, with flag `--url` overwritten the `repository.baseurl` in the config file.
 			viper.BindPFlag("repository.baseurl", cmd.Flags().Lookup("url"))
 			repoCfg := loadConfig().Repository
 
@@ -150,7 +150,7 @@ func New() *cobra.Command {
 		cmd.AddCommand(loginCmd, cdCmd, pwdCmd, lcdCmd, lpwdCmd, llsCmd())
 	}
 
-	cmd.AddCommand(lsCmd(), putCmd, getCmd, rmCmd(), mvCmd(), cpCmd(), mkdirCmd)
+	cmd.AddCommand(lsCmd(), putCmd(), getCmd(), rmCmd(), mvCmd(), cpCmd(), mkdirCmd)
 
 	return cmd
 }
