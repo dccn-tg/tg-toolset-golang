@@ -766,10 +766,12 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 // putRepoFile uploads a single local file to the repository.
 func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error {
 
-	if _, err := cli.Stat(pfinfoRepo.path); !errors.Is(err, os.ErrNotExist) && !overwrite {
-		// file already exists, and don't want to be overwritten.
-		log.Debugf("skip existing file %s\n", pfinfoRepo.path)
-		return nil
+	if !overwrite {
+		// don't want existing files to be overwritten
+		if _, err := cli.Stat(pfinfoRepo.path); !errors.Is(err, os.ErrNotExist) {
+			log.Debugf("skip existing file %s\n", pfinfoRepo.path)
+			return nil
+		}
 	}
 
 	// open pathLocal
@@ -811,10 +813,12 @@ func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error 
 // getRepoFile downloads a single file from the repository to a local file.
 func getRepoFile(pfinfoRepo, pfinfoLocal pathFileInfo, showProgress bool) error {
 
-	if _, err := os.Stat(pfinfoLocal.path); !errors.Is(err, os.ErrNotExist) && !overwrite {
-		// file already exists, and don't want to be overwritten.
-		log.Debugf("skip existing file %s\n", pfinfoLocal.path)
-		return nil
+	if !overwrite {
+		// don't want existing files to be overwritten.
+		if _, err := os.Stat(pfinfoLocal.path); !errors.Is(err, os.ErrNotExist) {
+			log.Debugf("skip existing file %s\n", pfinfoLocal.path)
+			return nil
+		}
 	}
 
 	// open pathLocal
