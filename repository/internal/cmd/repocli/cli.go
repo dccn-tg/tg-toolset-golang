@@ -194,8 +194,8 @@ By default, the upload process will skip existing files already in the repositor
 				// create top-level directory in advance
 				cli.MkdirAll(pfinfoRepo.path, pfinfoLocal.info.Mode())
 
-				// start progress
-				pbar := initDynamicMaxProgressbar("uploading...")
+				// start progress showing transfer rate in bytes
+				pbar := initDynamicMaxProgressbar("uploading...", true)
 
 				// walk through repo directories
 				ichan := make(chan opInput)
@@ -309,8 +309,8 @@ By default, the download process will skip existing files already in the reposit
 					return err
 				}
 
-				// progress bar
-				pbar := initDynamicMaxProgressbar("downloading...")
+				// progress bar showing transfer rate in bytes
+				pbar := initDynamicMaxProgressbar("downloading...", true)
 
 				// walk through repo directories
 				ichan := make(chan opInput)
@@ -419,8 +419,8 @@ By default, the copy process will skip existing files at the destination.  One c
 					return err
 				}
 
-				// start progress
-				pbar := initDynamicMaxProgressbar("copying...")
+				// start progress with copying rate in number of copied files
+				pbar := initDynamicMaxProgressbar("copying...", false)
 
 				// run with 4 concurrent workers
 				cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, pbar)
@@ -521,8 +521,8 @@ Files not successfully moved over will be kept at the source.
 					return err
 				}
 
-				// start progress
-				pbar := initDynamicMaxProgressbar("moving...")
+				// start progress in moving rate in number of moved files
+				pbar := initDynamicMaxProgressbar("moving...", true)
 
 				// perform data transfer with 4 concurrent workers
 				cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, pbar)
@@ -576,8 +576,8 @@ When removing a directory containing files or sub-directories, the flag "-r" sho
 
 			if f.IsDir() {
 
-				// start progress
-				pbar := initDynamicMaxProgressbar("removing...")
+				// start progress with removing rate in number of files
+				pbar := initDynamicMaxProgressbar("removing...", false)
 
 				// perform data transfer with 4 concurrent workers
 				cntOk, cntErr, err := rmRepoDir(rp, recursive, pbar)
@@ -640,11 +640,14 @@ func runOp(op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk
 			defer wg.Done()
 			for inputs := range ichan {
 				var err error
+				pinc := int64(1) // progress increment
 				switch op {
 				case Put:
 					err = putRepoFile(inputs.src, inputs.dst, false)
+					pinc = inputs.src.info.Size()
 				case Get:
 					err = getRepoFile(inputs.src, inputs.dst, false)
+					pinc = inputs.src.info.Size()
 				case Move:
 					err = cli.Rename(inputs.src.path, inputs.dst.path, overwrite)
 				case Remove:
@@ -661,7 +664,7 @@ func runOp(op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk
 				} else {
 					cntOk += 1
 				}
-				pbar.Add(1)
+				pbar.Add64(pinc)
 			}
 		}()
 	}
@@ -680,7 +683,7 @@ func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput
 		return
 	}
 
-	pbar.ChangeMax(pbar.GetMax() + countFiles(files))
+	pbar.ChangeMax64(pbar.GetMax64() + countSize(files))
 
 	for _, finfo := range files {
 		p := path.Join(pfinfoLocal.path, finfo.Name())
@@ -726,7 +729,7 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 	}
 
 	// push number of total files in this directory for updating progress bar
-	pbar.ChangeMax(pbar.GetMax() + countFiles(files))
+	pbar.ChangeMax64(pbar.GetMax64() + countSize(files))
 
 	// loop over content
 	for _, finfo := range files {
@@ -891,7 +894,7 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, pbar *pb.ProgressBar) (cntO
 		return
 	}
 
-	pbar.ChangeMax(pbar.GetMax() + countFiles(files))
+	pbar.ChangeMax64(pbar.GetMax64() + countFiles(files))
 
 	// make attempt to create all parent directories of the destination.
 	cli.MkdirAll(dst.path, src.info.Mode())
@@ -990,7 +993,7 @@ func rmRepoDir(repoPath string, recursive bool, pbar *pb.ProgressBar) (cntOk, cn
 		return
 	}
 
-	pbar.ChangeMax(pbar.GetMax() + countFiles(files))
+	pbar.ChangeMax64(pbar.GetMax64() + countFiles(files))
 
 	// channel for deleting files concurrently.
 	fchan := make(chan string)
@@ -1056,11 +1059,32 @@ func rmRepoDir(repoPath string, recursive bool, pbar *pb.ProgressBar) (cntOk, cn
 //     bar := initDynamicMaxProgressbar()
 //     bar.ChangeMax(bar.GetMax() - 1)
 //
-func initDynamicMaxProgressbar(desc string) *pb.ProgressBar {
+func initDynamicMaxProgressbar(desc string, showBytes bool) *pb.ProgressBar {
 	if silent {
+		if showBytes {
+			return pb.DefaultBytesSilent(1, desc)
+		}
 		return pb.DefaultSilent(1, desc)
 	}
-	return pb.Default(1, fmt.Sprintf("%-20s", desc))
+
+	bar := pb.NewOptions64(
+		1,
+		pb.OptionSetDescription(fmt.Sprintf("%-20s", desc)),
+		pb.OptionSetWriter(os.Stderr),
+		pb.OptionShowBytes(showBytes),
+		pb.OptionSetWidth(10),
+		pb.OptionThrottle(65*time.Millisecond),
+		pb.OptionShowCount(),
+		pb.OptionOnCompletion(func() {
+			fmt.Printf("\n")
+		}),
+		pb.OptionSpinnerType(14),
+		pb.OptionFullWidth(),
+		pb.OptionSetPredictTime(true),
+	)
+
+	bar.RenderBlank()
+	return bar
 }
 
 // prettifyProgressbarDesc returns a shortened description string up to 15 UTF-8 characters.
@@ -1078,10 +1102,21 @@ func prettifyProgressbarDesc(origin string) string {
 }
 
 // countFiles returns number of non-directory files in the given slice of `paths`.
-func countFiles(paths []fs.FileInfo) (count int) {
+func countFiles(paths []fs.FileInfo) (count int64) {
 	for _, p := range paths {
 		if !p.IsDir() {
 			count += 1
+		}
+	}
+	return
+}
+
+// countSize returns total size of non-directory files in the given slice of `paths`.
+func countSize(paths []fs.FileInfo) (size int64) {
+	for _, p := range paths {
+		if !p.IsDir() {
+			log.Debugf("%d\n", p.Size())
+			size += p.Size()
 		}
 	}
 	return
