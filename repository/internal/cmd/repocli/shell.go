@@ -38,6 +38,17 @@ var cdCmd = &cobra.Command{
 		cwd = p
 		return nil
 	},
+	ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		// get list of content in this directory
+		if len(args) == 0 {
+			p := cwd
+			if toComplete != "" {
+				p = toComplete
+			}
+			return append([]string{".", ".."}, getContentNamesRepo(p, true)...), cobra.ShellCompDirectiveNoFileComp
+		}
+		return nil, cobra.ShellCompDirectiveError
+	},
 }
 
 // command to show present working directory in the repository.
@@ -73,6 +84,17 @@ var lcdCmd = &cobra.Command{
 
 		lcwd = p
 		return nil
+	},
+	ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		// get list of content in this directory
+		if len(args) == 0 {
+			p := lcwd
+			if toComplete != "" {
+				p = toComplete
+			}
+			return append([]string{".", ".."}, getContentNamesLocal(p, true)...), cobra.ShellCompDirectiveNoFileComp
+		}
+		return nil, cobra.ShellCompDirectiveError
 	},
 }
 
@@ -163,6 +185,37 @@ var loginCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return promptLogin()
 	},
+}
+
+// getContentNamesInLocalDir get a lists of entry names in the local directory.
+// it returns an empty list in case of error.
+func getContentNamesLocal(path string, dirOnly bool) []string {
+	names := make([]string, 0)
+	if entries, err := os.ReadDir(path); err == nil {
+		for _, entry := range entries {
+			if finfo, err := entry.Info(); err == nil && (!dirOnly || finfo.IsDir()) {
+				names = append(names, finfo.Name())
+			}
+		}
+	}
+
+	fmt.Printf("path:%s, %v\n", path, names)
+
+	return names
+}
+
+// getContentNamesInLocalDir get a lists of entry names in the local directory.
+func getContentNamesRepo(path string, dirOnly bool) []string {
+	names := make([]string, 0)
+	if entries, err := cli.ReadDir(getCleanRepoPath(path)); err == nil {
+		for _, finfo := range entries {
+			if !dirOnly || finfo.IsDir() {
+				names = append(names, finfo.Name())
+			}
+		}
+	}
+
+	return names
 }
 
 // promptLogin asks username and password input for

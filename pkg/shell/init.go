@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/c-bata/go-prompt"
@@ -112,10 +114,18 @@ func (s *cobraShell) completer(d prompt.Document) []prompt.Suggest {
 		return nil
 	}
 
-	if !isFlag(args[len(args)-1]) {
-		// Clear partial strings to generate all possible completions
+	suggestionPathPrefix := ""
+	switch {
+	case isLocalDir(args[len(args)-1]):
+		suggestionPathPrefix = fmt.Sprintf("%s%c", filepath.Dir(args[len(args)-1]), os.PathSeparator)
+		args[len(args)-1] = suggestionPathPrefix
+	case isUnixDir(args[len(args)-1]):
+		suggestionPathPrefix = fmt.Sprintf("%s%c", path.Dir(args[len(args)-1]), '/')
+		args[len(args)-1] = suggestionPathPrefix
+	case !isFlag(args[len(args)-1]):
 		args[len(args)-1] = ""
 	}
+
 	key := strings.Join(args, " ")
 
 	suggestions, ok := s.cache[key]
@@ -131,7 +141,7 @@ func (s *cobraShell) completer(d prompt.Document) []prompt.Suggest {
 		if err != nil {
 			return nil
 		}
-		suggestions = parseSuggestions(out)
+		suggestions = parseSuggestions(out, suggestionPathPrefix)
 		s.cache[key] = suggestions
 	}
 
@@ -167,25 +177,11 @@ func readCommandOutput(cmd *cobra.Command, args []string) (string, error) {
 }
 
 func execute(cmd *cobra.Command, args []string) error {
-
 	cmd.SetArgs(args)
-	err := cmd.Execute()
-
-	// Reset flag values between runs, due to a limitation in Cobra
-	// Note: this doesn't work if the next command is constructed from
-	//       the prompt history, with which the flags from the history
-	//       is taken into the next command even if the flags are
-	//       removed/changed.
-	// if cmd, _, err := cmd.Find(args); err == nil {
-	// 	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
-	// 		_ = flag.Value.Set(flag.DefValue)
-	// 	})
-	// }
-
-	return err
+	return cmd.Execute()
 }
 
-func parseSuggestions(out string) []prompt.Suggest {
+func parseSuggestions(out, suggestionTextPrefix string) []prompt.Suggest {
 	var suggestions []prompt.Suggest
 
 	x := strings.Split(out, "\n")
@@ -203,7 +199,7 @@ func parseSuggestions(out string) []prompt.Suggest {
 			}
 
 			suggestions = append(suggestions, prompt.Suggest{
-				Text:        escapeSpecialCharacters(x[0]),
+				Text:        fmt.Sprintf("%s%s", suggestionTextPrefix, escapeSpecialCharacters(x[0])),
 				Description: description,
 			})
 		}
@@ -226,4 +222,12 @@ func escapeSpecialCharacters(val string) string {
 
 func isFlag(arg string) bool {
 	return strings.HasPrefix(arg, "-")
+}
+
+func isLocalDir(arg string) bool {
+	return strings.ContainsRune(arg, os.PathSeparator)
+}
+
+func isUnixDir(arg string) bool {
+	return strings.ContainsRune(arg, '/')
 }
