@@ -21,7 +21,7 @@ func trapCancel(ctx context.Context) {
 
 	select {
 	case s := <-c:
-		log.Debugf("Got cancel signal %d, cancelling ...\n", s)
+		log.Warnf("Got cancel signal, cancelling ...\n", s)
 
 	case <-ctx.Done():
 	}
