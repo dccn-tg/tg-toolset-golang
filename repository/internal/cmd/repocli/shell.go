@@ -198,9 +198,6 @@ func getContentNamesLocal(path string, dirOnly bool) []string {
 			}
 		}
 	}
-
-	fmt.Printf("path:%s, %v\n", path, names)
-
 	return names
 }
 
@@ -214,7 +211,6 @@ func getContentNamesRepo(path string, dirOnly bool) []string {
 			}
 		}
 	}
-
 	return names
 }
 
