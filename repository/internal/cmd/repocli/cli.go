@@ -1,6 +1,7 @@
 package repocli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -114,6 +115,17 @@ If no argument is provided, it lists the content of the root ("/") WebDAV path.
 			}
 			return nil
 		},
+		ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// get list of content in this directory
+			if shellMode && len(args) == 0 {
+				p := cwd
+				if toComplete != "" {
+					p = toComplete
+				}
+				return append([]string{".", ".."}, getContentNamesRepo(p, false)...), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveError
+		},
 	}
 
 	cmd.Flags().BoolVarP(&longformat, "long", "l", false, "list files with more detail")
@@ -152,8 +164,9 @@ By default, the upload process will skip existing files already in the repositor
 
 			// resolve into absolute path at local
 			lfpath, err := filepath.Abs(args[0])
+
 			if err != nil {
-				return nil
+				return err
 			}
 
 			// get local path's FileInfo
@@ -161,6 +174,15 @@ By default, the upload process will skip existing files already in the repositor
 			if err != nil {
 				return err
 			}
+
+			// handle signal for interruption
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			go func() {
+				trapCancel(ctx)
+				log.Debugf("stopping command: %s\n", cmd.Name())
+				cancel()
+			}()
 
 			// a file or a directory
 			pfinfoLocal := pathFileInfo{
@@ -200,12 +222,12 @@ By default, the upload process will skip existing files already in the repositor
 				// walk through repo directories
 				ichan := make(chan opInput)
 				go func() {
-					walkLocalDirForPut(pfinfoLocal, pfinfoRepo, ichan, true, pbar)
+					walkLocalDirForPut(ctx, pfinfoLocal, pfinfoRepo, ichan, true, pbar)
 					pbar.ChangeMax(pbar.GetMax() - 1)
 				}()
 
 				// perform data transfer with 4 concurrent workers
-				cntOk, cntErr := runOp(Put, ichan, 4, pbar)
+				cntOk, cntErr := runOp(ctx, Put, ichan, 4, pbar)
 
 				// log statistics
 				if !silent {
@@ -227,6 +249,26 @@ By default, the upload process will skip existing files already in the repositor
 				}
 				return putRepoFile(pfinfoLocal, pfinfoRepo, true)
 			}
+		},
+		ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// get list of content in this directory
+			if shellMode {
+				switch len(args) {
+				case 0:
+					p := lcwd
+					if toComplete != "" {
+						p = toComplete
+					}
+					return append([]string{".", ".."}, getContentNamesLocal(p, false)...), cobra.ShellCompDirectiveNoFileComp
+				case 1:
+					p := cwd
+					if toComplete != "" {
+						p = toComplete
+					}
+					return append([]string{".", ".."}, getContentNamesRepo(p, false)...), cobra.ShellCompDirectiveNoFileComp
+				}
+			}
+			return nil, cobra.ShellCompDirectiveError
 		},
 	}
 
@@ -282,6 +324,16 @@ By default, the download process will skip existing files already in the reposit
 			if err != nil {
 				return err
 			}
+
+			// handle signal for interruption
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			go func() {
+				trapCancel(ctx)
+				log.Debugf("stopping command: %s\n", cmd.Name())
+				cancel()
+			}()
+
 			lfinfo, lerr := os.Stat(lp)
 
 			// download recursively
@@ -315,12 +367,12 @@ By default, the download process will skip existing files already in the reposit
 				// walk through repo directories
 				ichan := make(chan opInput)
 				go func() {
-					walkRepoDirForGet(pfinfoRepo, pfinfoLocal, ichan, true, pbar)
+					walkRepoDirForGet(ctx, pfinfoRepo, pfinfoLocal, ichan, true, pbar)
 					pbar.ChangeMax(pbar.GetMax() - 1)
 				}()
 
 				// perform data transfer with 4 concurrent workers
-				cntOk, cntErr := runOp(Get, ichan, 4, pbar)
+				cntOk, cntErr := runOp(ctx, Get, ichan, 4, pbar)
 
 				// log statistics
 				if !silent {
@@ -343,6 +395,26 @@ By default, the download process will skip existing files already in the reposit
 				return getRepoFile(pfinfoRepo, pfinfoLocal, !silent)
 			}
 
+		},
+		ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// get list of content in this directory
+			if shellMode {
+				switch len(args) {
+				case 0:
+					p := cwd
+					if toComplete != "" {
+						p = toComplete
+					}
+					return append([]string{".", ".."}, getContentNamesRepo(p, false)...), cobra.ShellCompDirectiveNoFileComp
+				case 1:
+					p := lcwd
+					if toComplete != "" {
+						p = toComplete
+					}
+					return append([]string{".", ".."}, getContentNamesLocal(p, false)...), cobra.ShellCompDirectiveNoFileComp
+				}
+			}
+			return nil, cobra.ShellCompDirectiveError
 		},
 	}
 
@@ -388,6 +460,14 @@ By default, the copy process will skip existing files at the destination.  One c
 				return err
 			}
 
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			go func() {
+				trapCancel(ctx)
+				log.Debugf("stopping command: %s\n", cmd.Name())
+				cancel()
+			}()
+
 			fdst, derr := cli.Stat(dst)
 
 			if fsrc.IsDir() {
@@ -423,7 +503,7 @@ By default, the copy process will skip existing files at the destination.  One c
 				pbar := initDynamicMaxProgressbar("copying...", false)
 
 				// run with 4 concurrent workers
-				cntOk, cntErr, err := copyOrMoveRepoDir(Copy, pfinfoSrc, pfinfoDst, pbar)
+				cntOk, cntErr, err := copyOrMoveRepoDir(ctx, Copy, pfinfoSrc, pfinfoDst, pbar)
 
 				pbar.ChangeMax(pbar.GetMax() - 1)
 
@@ -444,6 +524,17 @@ By default, the copy process will skip existing files at the destination.  One c
 				log.Debugf("copying %s to %s", src, dst)
 				return cli.Copy(src, dst, overwrite)
 			}
+		},
+		ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// get list of content in this directory
+			if shellMode && len(args) < 2 {
+				p := cwd
+				if toComplete != "" {
+					p = toComplete
+				}
+				return append([]string{".", ".."}, getContentNamesRepo(p, false)...), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveError
 		},
 	}
 	cmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
@@ -490,6 +581,14 @@ Files not successfully moved over will be kept at the source.
 				return err
 			}
 
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			go func() {
+				trapCancel(ctx)
+				log.Debugf("stopping command: %s\n", cmd.Name())
+				cancel()
+			}()
+
 			fdst, derr := cli.Stat(dst)
 
 			if fsrc.IsDir() {
@@ -525,7 +624,7 @@ Files not successfully moved over will be kept at the source.
 				pbar := initDynamicMaxProgressbar("moving...", true)
 
 				// perform data transfer with 4 concurrent workers
-				cntOk, cntErr, err := copyOrMoveRepoDir(Move, pfinfoSrc, pfinfoDst, pbar)
+				cntOk, cntErr, err := copyOrMoveRepoDir(ctx, Move, pfinfoSrc, pfinfoDst, pbar)
 
 				pbar.ChangeMax(pbar.GetMax() - 1)
 
@@ -546,6 +645,17 @@ Files not successfully moved over will be kept at the source.
 				log.Debugf("renaming %s to %s", src, dst)
 				return cli.Rename(src, dst, overwrite)
 			}
+		},
+		ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// get list of content in this directory
+			if shellMode && len(args) < 2 {
+				p := cwd
+				if toComplete != "" {
+					p = toComplete
+				}
+				return append([]string{".", ".."}, getContentNamesRepo(p, false)...), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveError
 		},
 	}
 	cmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
@@ -574,13 +684,21 @@ When removing a directory containing files or sub-directories, the flag "-r" sho
 				return err
 			}
 
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			go func() {
+				trapCancel(ctx)
+				log.Debugf("stopping command: %s\n", cmd.Name())
+				cancel()
+			}()
+
 			if f.IsDir() {
 
 				// start progress with removing rate in number of files
 				pbar := initDynamicMaxProgressbar("removing...", false)
 
 				// perform data transfer with 4 concurrent workers
-				cntOk, cntErr, err := rmRepoDir(rp, recursive, pbar)
+				cntOk, cntErr, err := rmRepoDir(ctx, rp, recursive, pbar)
 
 				pbar.ChangeMax(pbar.GetMax() - 1)
 
@@ -597,6 +715,17 @@ When removing a directory containing files or sub-directories, the flag "-r" sho
 			} else {
 				return cli.Remove(rp)
 			}
+		},
+		ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// get list of content in this directory
+			if shellMode && len(args) == 0 {
+				p := cwd
+				if toComplete != "" {
+					p = toComplete
+				}
+				return append([]string{".", ".."}, getContentNamesRepo(p, false)...), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveError
 		},
 	}
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "remove directory recursively")
@@ -617,6 +746,17 @@ During the creation, any missing parents directories are also created automatica
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cli.MkdirAll(getCleanRepoPath(args[0]), 0664)
 	},
+	ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		// get list of content in this directory
+		if shellMode && len(args) == 0 {
+			p := cwd
+			if toComplete != "" {
+				p = toComplete
+			}
+			return append([]string{".", ".."}, getContentNamesRepo(p, false)...), cobra.ShellCompDirectiveNoFileComp
+		}
+		return nil, cobra.ShellCompDirectiveError
+	},
 }
 
 // getCleanRepoPath resolves provided path into a clean absolute path taking into account
@@ -630,7 +770,7 @@ func getCleanRepoPath(p string) string {
 
 // runOp performs file operation `Op` with input data provided through the
 // channel `ichan`.
-func runOp(op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk, cntErr int) {
+func runOp(ctx context.Context, op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk, cntErr int) {
 
 	// initalize concurrent workers
 	var wg sync.WaitGroup
@@ -638,33 +778,45 @@ func runOp(op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for inputs := range ichan {
-				var err error
-				pinc := int64(1) // progress increment
-				switch op {
-				case Put:
-					err = putRepoFile(inputs.src, inputs.dst, false)
-					pinc = inputs.src.info.Size()
-				case Get:
-					err = getRepoFile(inputs.src, inputs.dst, false)
-					pinc = inputs.src.info.Size()
-				case Move:
-					err = cli.Rename(inputs.src.path, inputs.dst.path, overwrite)
-				case Remove:
-					err = cli.Remove(inputs.src.path)
-				case Copy:
-					cli.Copy(inputs.src.path, inputs.dst.path, overwrite)
-				default:
-					// do nothing
-					err = fmt.Errorf("unknown operation: %d", op)
+		loop:
+			for {
+				select {
+				case <-ctx.Done():
+					log.Debugf("stopping runOp for %v\n", op)
+					break loop
+				case inputs, ok := <-ichan:
+
+					if !ok {
+						break loop
+					}
+
+					var err error
+					pinc := int64(1) // progress increment
+					switch op {
+					case Put:
+						err = putRepoFile(inputs.src, inputs.dst, false)
+						pinc = inputs.src.info.Size()
+					case Get:
+						err = getRepoFile(inputs.src, inputs.dst, false)
+						pinc = inputs.src.info.Size()
+					case Move:
+						err = cli.Rename(inputs.src.path, inputs.dst.path, overwrite)
+					case Remove:
+						err = cli.Remove(inputs.src.path)
+					case Copy:
+						cli.Copy(inputs.src.path, inputs.dst.path, overwrite)
+					default:
+						// do nothing
+						err = fmt.Errorf("unknown operation: %d", op)
+					}
+					if err != nil {
+						log.Errorf("%s", err)
+						cntErr += 1
+					} else {
+						cntOk += 1
+					}
+					pbar.Add64(pinc)
 				}
-				if err != nil {
-					log.Errorf("%s", err)
-					cntErr += 1
-				} else {
-					cntOk += 1
-				}
-				pbar.Add64(pinc)
 			}
 		}()
 	}
@@ -676,7 +828,7 @@ func runOp(op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk
 }
 
 // walkLocalDirForPut walks through a local directory and creates inputs for putting files from local to repo.
-func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput, closeChanOnComplete bool, pbar *pb.ProgressBar) {
+func walkLocalDirForPut(ctx context.Context, pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput, closeChanOnComplete bool, pbar *pb.ProgressBar) {
 	// read the entire content of the dir
 	files, err := ioutil.ReadDir(pfinfoLocal.path)
 	if err != nil {
@@ -685,31 +837,38 @@ func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput
 
 	pbar.ChangeMax64(pbar.GetMax64() + countSize(files))
 
+loop:
 	for _, finfo := range files {
-		p := path.Join(pfinfoLocal.path, finfo.Name())
+		select {
+		case <-ctx.Done():
+			log.Debugf("stopping walkRepoDirForPut ...\n")
+			break loop
+		default:
+			p := path.Join(pfinfoLocal.path, finfo.Name())
 
-		// local dir pathInfo
-		_pfinfoLocal := pathFileInfo{
-			path: p,
-			info: finfo,
-		}
-		// repo dir pathInfo
-		_pfinfoRepo := pathFileInfo{
-			path: path.Join(pfinfoRepo.path, finfo.Name()),
-		}
-
-		if finfo.IsDir() {
-			// create sub directory in advance
-			if err := cli.Mkdir(_pfinfoRepo.path, _pfinfoLocal.info.Mode()); err != nil {
-				log.Errorf("cannot create repo dir %s: %s", _pfinfoRepo.path, err)
-				continue
+			// local dir pathInfo
+			_pfinfoLocal := pathFileInfo{
+				path: p,
+				info: finfo,
 			}
-			// walk into sub directory without closing the channel
-			walkLocalDirForPut(_pfinfoLocal, _pfinfoRepo, ichan, false, pbar)
-		} else {
-			ichan <- opInput{
-				src: _pfinfoLocal,
-				dst: _pfinfoRepo,
+			// repo dir pathInfo
+			_pfinfoRepo := pathFileInfo{
+				path: path.Join(pfinfoRepo.path, finfo.Name()),
+			}
+
+			if finfo.IsDir() {
+				// create sub directory in advance
+				if err := cli.Mkdir(_pfinfoRepo.path, _pfinfoLocal.info.Mode()); err != nil {
+					log.Errorf("cannot create repo dir %s: %s", _pfinfoRepo.path, err)
+					continue
+				}
+				// walk into sub directory without closing the channel
+				walkLocalDirForPut(ctx, _pfinfoLocal, _pfinfoRepo, ichan, false, pbar)
+			} else {
+				ichan <- opInput{
+					src: _pfinfoLocal,
+					dst: _pfinfoRepo,
+				}
 			}
 		}
 	}
@@ -720,7 +879,7 @@ func walkLocalDirForPut(pfinfoLocal, pfinfoRepo pathFileInfo, ichan chan opInput
 }
 
 // walkRepoDirForGet walks through a repo directory and creates inputs for getting files from repo to local.
-func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput, closeChanOnComplete bool, pbar *pb.ProgressBar) {
+func walkRepoDirForGet(ctx context.Context, pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput, closeChanOnComplete bool, pbar *pb.ProgressBar) {
 
 	// read the entire content of the dir
 	files, err := cli.ReadDir(pfinfoRepo.path)
@@ -732,31 +891,38 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 	pbar.ChangeMax64(pbar.GetMax64() + countSize(files))
 
 	// loop over content
+loop:
 	for _, finfo := range files {
-		p := path.Join(pfinfoRepo.path, finfo.Name())
+		select {
+		case <-ctx.Done():
+			log.Debugf("stopping walkRepoDirForGet ...\n")
+			break loop
+		default:
+			p := path.Join(pfinfoRepo.path, finfo.Name())
 
-		// repo dir pathInfo
-		_pfinfoRepo := pathFileInfo{
-			path: p,
-			info: finfo,
-		}
-		// local dir pathInfo
-		_pfinfoLocal := pathFileInfo{
-			path: filepath.Join(pfinfoLocal.path, finfo.Name()),
-		}
-
-		if finfo.IsDir() {
-			// create sub directory in advance
-			if err := os.MkdirAll(_pfinfoLocal.path, _pfinfoRepo.info.Mode()); err != nil {
-				log.Errorf("cannot create local dir %s: %s", _pfinfoLocal.path, err)
-				continue
+			// repo dir pathInfo
+			_pfinfoRepo := pathFileInfo{
+				path: p,
+				info: finfo,
 			}
-			// walk into sub directory without closing the channel
-			walkRepoDirForGet(_pfinfoRepo, _pfinfoLocal, ichan, false, pbar)
-		} else {
-			ichan <- opInput{
-				src: _pfinfoRepo,
-				dst: _pfinfoLocal,
+			// local dir pathInfo
+			_pfinfoLocal := pathFileInfo{
+				path: filepath.Join(pfinfoLocal.path, finfo.Name()),
+			}
+
+			if finfo.IsDir() {
+				// create sub directory in advance
+				if err := os.MkdirAll(_pfinfoLocal.path, _pfinfoRepo.info.Mode()); err != nil {
+					log.Errorf("cannot create local dir %s: %s", _pfinfoLocal.path, err)
+					continue
+				}
+				// walk into sub directory without closing the channel
+				walkRepoDirForGet(ctx, _pfinfoRepo, _pfinfoLocal, ichan, false, pbar)
+			} else {
+				ichan <- opInput{
+					src: _pfinfoRepo,
+					dst: _pfinfoLocal,
+				}
 			}
 		}
 	}
@@ -766,12 +932,20 @@ func walkRepoDirForGet(pfinfoRepo, pfinfoLocal pathFileInfo, ichan chan opInput,
 	}
 }
 
+// is404NotFountError checkes if the `err.Error()` contains a string `404 Not Found`.
+func is404NotFountError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "404 Not Found")
+}
+
 // putRepoFile uploads a single local file to the repository.
 func putRepoFile(pfinfoLocal, pfinfoRepo pathFileInfo, showProgress bool) error {
 
 	if !overwrite {
 		// don't want existing files to be overwritten
-		if _, err := cli.Stat(pfinfoRepo.path); !errors.Is(err, os.ErrNotExist) {
+		if _, err := cli.Stat(pfinfoRepo.path); !is404NotFountError(err) {
 			log.Debugf("skip existing file %s\n", pfinfoRepo.path)
 			return nil
 		}
@@ -886,7 +1060,7 @@ func cliCopyOrRename(op Op, src, dst string) error {
 }
 
 // copyOrMoveRepoDir moves directory from `src` to `dst` recursively.
-func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, pbar *pb.ProgressBar) (cntOk, cntErr int, err error) {
+func copyOrMoveRepoDir(ctx context.Context, op Op, src, dst pathFileInfo, pbar *pb.ProgressBar) (cntOk, cntErr int, err error) {
 
 	// read the entire content of the source directory
 	files, err := cli.ReadDir(src.path)
@@ -912,41 +1086,53 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, pbar *pb.ProgressBar) (cntO
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
+		loop:
 			for finfo := range fchan {
-				if err := cliCopyOrRename(op, finfo.path, path.Join(dst.path, finfo.info.Name())); err != nil {
-					cntErrFiles[id]++
-				} else {
-					cntOkFiles[id]++
+				select {
+				case <-ctx.Done():
+					log.Debugf("stopping %v ...\n", op)
+					break loop
+				default:
+					if err := cliCopyOrRename(op, finfo.path, path.Join(dst.path, finfo.info.Name())); err != nil {
+						cntErrFiles[id]++
+					} else {
+						cntOkFiles[id]++
+					}
+					pbar.Add(1)
 				}
-				pbar.Add(1)
 			}
 		}(i)
 	}
 
 	// loop over content
+loop:
 	for _, finfo := range files {
-		psrc := path.Join(src.path, finfo.Name())
-		pdst := path.Join(dst.path, path.Base(finfo.Name()))
-		if finfo.IsDir() {
+		select {
+		case <-ctx.Done():
+			log.Debugf("stopping dir walk for %v ...\n", op)
+			break loop
+		default:
+			psrc := path.Join(src.path, finfo.Name())
+			pdst := path.Join(dst.path, path.Base(finfo.Name()))
+			if finfo.IsDir() {
+				// repo dir pathInfo
+				_pfinfoSrc := pathFileInfo{
+					path: psrc,
+					info: finfo,
+				}
 
-			// repo dir pathInfo
-			_pfinfoSrc := pathFileInfo{
-				path: psrc,
-				info: finfo,
-			}
+				_pfinfoDst := pathFileInfo{
+					path: pdst,
+				}
 
-			_pfinfoDst := pathFileInfo{
-				path: pdst,
-			}
-
-			log.Debugf("working on dir %s", psrc)
-			_cntOk, _cntErr, _ := copyOrMoveRepoDir(op, _pfinfoSrc, _pfinfoDst, pbar)
-			cntErr += _cntErr
-			cntOk += _cntOk
-		} else {
-			fchan <- pathFileInfo{
-				path: psrc,
-				info: finfo,
+				_cntOk, _cntErr, _ := copyOrMoveRepoDir(ctx, op, _pfinfoSrc, _pfinfoDst, pbar)
+				cntErr += _cntErr
+				cntOk += _cntOk
+			} else {
+				fchan <- pathFileInfo{
+					path: psrc,
+					info: finfo,
+				}
 			}
 		}
 	}
@@ -973,7 +1159,7 @@ func copyOrMoveRepoDir(op Op, src, dst pathFileInfo, pbar *pb.ProgressBar) (cntO
 }
 
 // rmRepoDir removes the directory `path` from the repository recursively.
-func rmRepoDir(repoPath string, recursive bool, pbar *pb.ProgressBar) (cntOk, cntErr int, err error) {
+func rmRepoDir(ctx context.Context, repoPath string, recursive bool, pbar *pb.ProgressBar) (cntOk, cntErr int, err error) {
 
 	// path on repo should be specified in absolute path form
 	if !path.IsAbs(repoPath) {
@@ -1008,28 +1194,42 @@ func rmRepoDir(repoPath string, recursive bool, pbar *pb.ProgressBar) (cntOk, cn
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
+		loop:
 			for f := range fchan {
-				err := cli.Remove(f)
-				if err != nil {
-					log.Errorf("cannot remove repo file %s: %s", f, err)
-					cntErrFiles[id]++
-				} else {
-					cntOkFiles[id]++
+				select {
+				case <-ctx.Done():
+					log.Debugf("stopping remove ...\n")
+					break loop
+				default:
+					err := cli.Remove(f)
+					if err != nil {
+						log.Errorf("cannot remove repo file %s: %s", f, err)
+						cntErrFiles[id]++
+					} else {
+						cntOkFiles[id]++
+					}
+					pbar.Add(1)
 				}
-				pbar.Add(1)
 			}
 		}(i)
 	}
 
 	// loop over content
+loop:
 	for _, f := range files {
-		p := path.Join(repoPath, f.Name())
-		if f.IsDir() {
-			_cntOK, _cntErr, _ := rmRepoDir(p, recursive, pbar)
-			cntOk += _cntOK
-			cntErr += _cntErr
-		} else {
-			fchan <- p
+		select {
+		case <-ctx.Done():
+			log.Debugf("stopping dir walk for remove ...\n")
+			break loop
+		default:
+			p := path.Join(repoPath, f.Name())
+			if f.IsDir() {
+				_cntOK, _cntErr, _ := rmRepoDir(ctx, p, recursive, pbar)
+				cntOk += _cntOK
+				cntErr += _cntErr
+			} else {
+				fchan <- p
+			}
 		}
 	}
 
@@ -1115,7 +1315,6 @@ func countFiles(paths []fs.FileInfo) (count int64) {
 func countSize(paths []fs.FileInfo) (size int64) {
 	for _, p := range paths {
 		if !p.IsDir() {
-			log.Debugf("%d\n", p.Size())
 			size += p.Size()
 		}
 	}

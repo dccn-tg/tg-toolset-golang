@@ -8,7 +8,7 @@ import (
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	shell "github.com/Donders-Institute/tg-toolset-golang/pkg/shell"
+	"github.com/Donders-Institute/tg-toolset-golang/pkg/shell"
 	"github.com/c-bata/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -50,11 +50,8 @@ func init() {
 		log.Fatalf(err.Error())
 	}
 
+	// additional persistent flags
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", filepath.Join(user.HomeDir, ".repocli.yml"), "`path` of the configuration YAML file.")
-	// rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	// rootCmd.PersistentFlags().IntVarP(&nthreads, "nthreads", "n", 4, "`number` of concurrent worker threads.")
-	// rootCmd.PersistentFlags().BoolVarP(&silent, "silent", "s", false, "set to slient mode (i.e. do not show progress)")
-
 	rootCmd.PersistentFlags().StringVarP(
 		&davBaseURL,
 		"url", "u", davBaseURL,
@@ -102,6 +99,40 @@ func loadConfig() config.Configuration {
 	return conf
 }
 
+// var TestCmd = &cobra.Command{
+// 	Use:   "test",
+// 	Short: "a test command",
+// 	Long:  ``,
+// 	RunE: func(cmd *cobra.Command, args []string) error {
+
+// 		ctx, cancel := context.WithCancel(cmd.Context())
+// 		defer cancel()
+// 		go func() {
+// 			trapCancel(ctx)
+// 			cmd.Printf("stopping command: %s\n", cmd.Name())
+// 			cancel()
+// 		}()
+
+// 		tick := time.NewTicker(1000 * time.Millisecond)
+// 		defer tick.Stop()
+
+// 		cnt := 0
+// 		for {
+// 			select {
+// 			case <-tick.C:
+// 				cmd.Printf("running ...\n")
+// 				cnt++
+// 				if cnt > 10 {
+// 					cmd.Printf("loop finished\n")
+// 					return nil
+// 				}
+// 			case <-ctx.Done():
+// 				return fmt.Errorf("loop interrupted")
+// 			}
+// 		}
+// 	},
+// }
+
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "repocli",
@@ -111,8 +142,10 @@ func New() *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
 			// reset logger level based on command flag
-			if cmd.Flags().Changed("verbose") {
+			if cmd.Flags().Lookup("verbose").Value.String() == "true" {
 				cfg.ConsoleLevel = log.Debug
+			} else {
+				cfg.ConsoleLevel = log.Info
 			}
 			log.NewLogger(cfg, log.InstanceLogrusLogger)
 
