@@ -2,6 +2,7 @@ package repocli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -116,9 +117,11 @@ var lpwdCmd = &cobra.Command{
 func llsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lls",
-		Short: "list a local file or directory",
-		Long:  ``,
-		Args:  cobra.MaximumNArgs(1),
+		Short: "list files or directories at local",
+		Long: `
+The "lls" subcommand is for listing files and directories at local, with wildcard support.
+		`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			p := lcwd
@@ -130,25 +133,32 @@ func llsCmd() *cobra.Command {
 				}
 			}
 
-			f, err := os.Stat(p)
-			if err != nil {
-				return err
-			}
-
 			files := make([]fs.FileInfo, 0)
-			if !f.IsDir() {
-				files = append(files, f)
-				// set path `p` to the file's parent directory
-				p = filepath.Dir(p)
-			} else {
-				if entries, err := os.ReadDir(p); err != nil {
-					return err
+			if f, err := os.Stat(p); err == nil {
+				if !f.IsDir() {
+					// user input is a file
+					files = append(files, f)
 				} else {
+					// user input is a directory
+					entries, err := os.ReadDir(p)
+					if err != nil {
+						return err
+					}
 					for _, entry := range entries {
 						if info, err := entry.Info(); err != nil {
-							log.Errorf("cannot get info of file or directory: %s", entry.Name())
+							log.Errorf("%s: %s", err, entry.Name())
 						} else {
 							files = append(files, info)
+						}
+					}
+				}
+			} else if errors.Is(err, os.ErrNotExist) && len(args) == 1 {
+				// assuming the user input is a wildcard
+				p = filepath.Dir(p)
+				if matches, err := filepath.Glob(args[0]); err == nil && matches != nil {
+					for _, m := range matches {
+						if f, err := os.Stat(m); err == nil {
+							files = append(files, f)
 						}
 					}
 				}
