@@ -169,6 +169,17 @@ func llsCmd() *cobra.Command {
 			}
 			return nil
 		},
+		ValidArgsFunction: func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// get list of content in this directory
+			if len(args) == 0 {
+				p := lcwd
+				if toComplete != "" {
+					p = toComplete
+				}
+				return append([]string{".", ".."}, getContentNamesLocal(p, false)...), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveError
+		},
 	}
 
 	cmd.Flags().BoolVarP(&longformat, "long", "l", false, "list files with more detail")
