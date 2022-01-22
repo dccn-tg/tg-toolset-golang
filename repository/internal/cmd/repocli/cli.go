@@ -62,7 +62,7 @@ func lsCmd() *cobra.Command {
 		Use:   "ls [<repo_file|repo_dir>]",
 		Short: "list file or directory in the repository",
 		Long: `
-The "ls" subcommand is for listing a repository file or the content of a repository directory.
+The "ls" subcommand is for listing a repository file or the content of a repository directory, with wildcard support.
 
 The optional argument is used to specify the file or directory in the repository to be listed. The argument can be in form of an absolute or relative WebDAV path with the path separator "/", for example, "/dccn/DAC_3010000.01_173/data".
 
@@ -76,24 +76,41 @@ If no argument is provided, it lists the content of the root ("/") WebDAV path.
 				p = getCleanRepoPath(args[0])
 			}
 
-			// check path state
-			f, err := cli.Stat(p)
-			if err != nil {
-				return err
-			}
-
 			files := make([]fs.FileInfo, 0)
 
-			// path is not a dir, assuming it is just a file, print the info and return
-			if !f.IsDir() {
-				files = append(files, f)
+			// check path state
+			if f, err := cli.Stat(p); err == nil {
+				if !f.IsDir() {
+					// path is a file
+					files = append(files, f)
+				} else {
+					// path is a dir, read the entire content of the dir
+					if files, err = cli.ReadDir(p); err != nil {
+						return err
+					}
+				}
 			} else {
-				// path is a dir, read the entire content of the dir
-				if files, err = cli.ReadDir(p); err != nil {
+				// check if it is about wildcard listing
+				var pat string
+				p, pat = path.Split(p)
+				if strings.ContainsAny(pat, `*?[`) {
+					// wildcard listing, read the entire content of the parent dir
+					if entries, err := cli.ReadDir(p); err != nil {
+						return err
+					} else {
+						// filter out entries with name matches the glob
+						for _, f := range entries {
+							if m, _ := path.Match(pat, f.Name()); m {
+								files = append(files, f)
+							}
+						}
+					}
+				} else {
 					return err
 				}
 			}
 
+			// listing
 			if longformat {
 				for _, f := range files {
 					fmt.Printf("%11s %12d %s %s\n", f.Mode(), f.Size(), f.ModTime().Format(time.UnixDate), path.Join(p, f.Name()))
