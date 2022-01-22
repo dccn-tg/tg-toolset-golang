@@ -117,10 +117,18 @@ func (s *cobraShell) completer(d prompt.Document) []prompt.Suggest {
 	suggestionPathPrefix := ""
 	switch {
 	case isLocalDir(args[len(args)-1]):
-		suggestionPathPrefix = fmt.Sprintf("%s%c", filepath.Dir(args[len(args)-1]), os.PathSeparator)
+		pdir := filepath.Dir(args[len(args)-1])
+		if pdir == string(os.PathSeparator) {
+			pdir = ""
+		}
+		suggestionPathPrefix = fmt.Sprintf("%s%c", pdir, os.PathSeparator)
 		args[len(args)-1] = suggestionPathPrefix
 	case isUnixDir(args[len(args)-1]):
-		suggestionPathPrefix = fmt.Sprintf("%s%c", path.Dir(args[len(args)-1]), '/')
+		pdir := path.Dir(args[len(args)-1])
+		if pdir == "/" {
+			pdir = ""
+		}
+		suggestionPathPrefix = fmt.Sprintf("%s%c", pdir, '/')
 		args[len(args)-1] = suggestionPathPrefix
 	case !isFlag(args[len(args)-1]):
 		args[len(args)-1] = ""
