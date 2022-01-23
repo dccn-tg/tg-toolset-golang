@@ -5,9 +5,11 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"encoding/hex"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/shell"
 	"github.com/c-bata/go-prompt"
 	"github.com/spf13/cobra"
@@ -93,8 +95,8 @@ func init() {
 // This function fatals out if there is an error.
 func loadConfig() config.Configuration {
 	conf, err := config.LoadConfig(configFile)
-	if err != nil && !shellMode {
-		log.Fatalf("%s", err)
+	if err != nil {
+		log.Errorf("%s", err)
 	}
 	return conf
 }
@@ -154,16 +156,8 @@ func New() *cobra.Command {
 			repoCfg := loadConfig().Repository
 
 			repoUser := repoCfg.Username
-			repoPass := repoCfg.Password
+			repoPass, _ := decryptPass(repoUser, repoCfg.Password)
 			baseURL := repoCfg.BaseURL
-
-			if !shellMode && (repoUser == "" || repoPass == "") {
-				return fmt.Errorf("username or password is missing")
-			}
-
-			if !shellMode && (baseURL == "") {
-				return fmt.Errorf("repo baseURL is missing")
-			}
 
 			if cli == nil || (baseURL != "" && baseURL != davBaseURL) {
 				// initiate a new webdav client with new baseURL
@@ -180,12 +174,30 @@ func New() *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(&silent, "silent", "s", false, "set to slient mode (i.e. do not show progress)")
 
 	if shellMode {
-		cmd.AddCommand(loginCmd, cdCmd, pwdCmd, lcdCmd, lpwdCmd, llsCmd())
+		cmd.AddCommand(cdCmd, pwdCmd, lcdCmd, lpwdCmd, llsCmd())
 	}
 
-	cmd.AddCommand(lsCmd(), putCmd(), getCmd(), rmCmd(), mvCmd(), cpCmd(), mkdirCmd)
+	cmd.AddCommand(lsCmd(), putCmd(), getCmd(), rmCmd(), mvCmd(), cpCmd(), mkdirCmd, loginCmd)
 
 	return cmd
+}
+
+// decryptPass decrypts the hex string back to the plaintext password
+func decryptPass(username, shex string) (string, error) {
+	p, _ := filepath.Abs(configFile)
+	k := ustr.MD5Encode(fmt.Sprintf("%s.%s", p, username))
+
+	bpass, err := hex.DecodeString(shex)
+	if err != nil {
+		return "", err
+	}
+
+	pass, err := ustr.Decrypt(bpass, []byte(k))
+	if err != nil {
+		return "", err
+	}
+
+	return string(pass), nil
 }
 
 // Execute is the main entry point of the cluster command.
