@@ -54,6 +54,7 @@ const (
 var recursive bool
 var overwrite bool
 var longformat bool
+var errfile string
 
 // command to list a file or the content of a directory in the repository.
 func lsCmd() *cobra.Command {
@@ -290,6 +291,7 @@ By default, the upload process will skip existing files already in the repositor
 	}
 
 	cmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
+	cmd.Flags().StringVarP(&errfile, "error", "e", "", "save upload errors to the specified `file`")
 
 	return cmd
 }
@@ -436,6 +438,7 @@ By default, the download process will skip existing files already in the reposit
 	}
 
 	cmd.Flags().BoolVarP(&overwrite, "overwrite", "f", false, "overwrite the destination file")
+	cmd.Flags().StringVarP(&errfile, "error", "e", "", "save download errors to the specified `file`")
 
 	return cmd
 }
@@ -789,6 +792,17 @@ func getCleanRepoPath(p string) string {
 // channel `ichan`.
 func runOp(ctx context.Context, op Op, ichan chan opInput, nworkers int, pbar *pb.ProgressBar) (cntOk, cntErr int) {
 
+	// error log writer
+	errWriter := os.Stderr
+	if errfile != "" {
+		f, err := os.OpenFile(errfile, os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			log.Errorf("cannot open file %s for error log: ", errfile, err)
+		}
+		defer f.Close()
+		errWriter = f
+	}
+
 	// initalize concurrent workers
 	var wg sync.WaitGroup
 	for i := 0; i < nworkers; i++ {
@@ -827,7 +841,7 @@ func runOp(ctx context.Context, op Op, ichan chan opInput, nworkers int, pbar *p
 						err = fmt.Errorf("unknown operation: %d", op)
 					}
 					if err != nil {
-						log.Errorf("%s", err)
+						fmt.Fprintf(errWriter, "%s error:%s\n", inputs.src.path, err.Error())
 						cntErr += 1
 					} else {
 						cntOk += 1
