@@ -7,11 +7,13 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"encoding/hex"
 	"syscall"
 	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	dav "github.com/studio-b12/gowebdav"
@@ -267,13 +269,22 @@ func promptLogin() error {
 
 // saveCredential saves the username/password to the file `configFile` with file mode 600.
 func saveCredential(baseURL, username, password string) error {
+
+	// encrypt password before saving to the file
+	p, _ := filepath.Abs(configFile)
+	k := ustr.MD5Encode(fmt.Sprintf("%s.%s", p, username))
+	epass, err := ustr.Encrypt([]byte(password), []byte(k))
+	if err != nil {
+		return err
+	}
+
 	conf, err := yaml.Marshal(&struct {
 		Repository config.RepositoryConfiguration `yaml:"repository"`
 	}{
 		config.RepositoryConfiguration{
 			BaseURL:  baseURL,
 			Username: username,
-			Password: password,
+			Password: hex.EncodeToString(epass),
 		},
 	})
 

@@ -4,22 +4,16 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"io"
 	"strings"
 	"time"
 
 	mrand "math/rand"
-
-	log "github.com/sirupsen/logrus"
+	
 )
-
-var logger *log.Entry
-
-func init() {
-	// set logging
-	logger = log.WithFields(log.Fields{"source": "utility.strings"})
-}
 
 // StringWrap wraps text at the specified column lineWidth on word breaks
 func StringWrap(text string, lineWidth int) string {
@@ -131,6 +125,13 @@ func Decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	return gcm.Open(nil, nonce, ciphertext, nil)
+}
+
+// MD5Encode encodes the input string `s` into a MD5 hash.
+func MD5Encode(s string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(s))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyz" +
