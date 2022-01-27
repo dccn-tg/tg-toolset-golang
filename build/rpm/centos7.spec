@@ -31,11 +31,8 @@ GOPATH=%{gopath} make
 %install
 mkdir -p %{buildroot}/%{_bindir}
 mkdir -p %{buildroot}/%{_sbindir}
-#mkdir -p %{buildroot}/%{_sysconfdir}/bash_completion.d
 ## install files for client tools
 install -m 755 %{gopath}/bin/pdbutil %{buildroot}/%{_sbindir}/pdbutil
-install -m 755 %{gopath}/bin/repoadm %{buildroot}/%{_sbindir}/repoadm
-install -m 755 %{gopath}/bin/repocli %{buildroot}/%{_bindir}/repocli
 install -m 755 %{gopath}/bin/lab_bookings %{buildroot}/%{_sbindir}/lab_bookings
 install -m 755 %{gopath}/bin/pacs_getstudies %{buildroot}/%{_sbindir}/pacs_getstudies
 install -m 755 %{gopath}/bin/pacs_streamdata %{buildroot}/%{_sbindir}/pacs_streamdata
@@ -46,8 +43,6 @@ install -m 755 %{gopath}/bin/prj_chown  %{buildroot}/%{_bindir}/prj_chown
 
 %files
 %{_sbindir}/pdbutil
-%{_sbindir}/repoadm
-%{_bindir}/repocli
 %{_sbindir}/lab_bookings
 %{_sbindir}/pacs_getstudies
 %{_sbindir}/pacs_streamdata
@@ -55,7 +50,6 @@ install -m 755 %{gopath}/bin/prj_chown  %{buildroot}/%{_bindir}/prj_chown
 %{_bindir}/prj_getacl
 %{_bindir}/prj_delacl
 %{_bindir}/prj_chown
-#%{_sysconfdir}/bash_completion.d/hpcutil
 
 %post
 echo "setting linux capabilities for ACL utilities ..."
@@ -71,6 +65,8 @@ rm -f %{_topdir}/SOURCES/%{version}.tar.gz
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Thu Jan 27 2022 Hong Lee <h.lee@donders.ru.nl>
+- remove 'repoadm' and 'repcli'
 * Wed Dec 02 2020 Hong Lee <h.lee@donders.ru.nl>
 - introduced 'prj_chown' cli
 * Tue Jul 21 2020 Hong Lee <h.lee@donders.ru.nl> - 0.2

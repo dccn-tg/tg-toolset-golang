@@ -28,15 +28,6 @@ build_project:
 build:
 	GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go install github.com/Donders-Institute/tg-toolset-golang/...
 
-build_repocli:
-	GOPATH=$(GOPATH) GOOS=linux GOARCH=amd64 GO111MODULE=$(GO111MODULE) go build -o $(GOPATH)/bin/repocli repository/cmd/repocli/main.go
-
-build_repocli_macosx:
-	GOPATH=$(GOPATH) GOOS=darwin GOARCH=amd64 GO111MODULE=$(GO111MODULE) go build -o $(GOPATH)/bin/repocli.darwin repository/cmd/repocli/main.go
-
-build_repocli_windows:
-	GOPATH=$(GOPATH) GOOS=windows GOARCH=amd64 GO111MODULE=$(GO111MODULE) go build -o $(GOPATH)/bin/repocli.exe repository/cmd/repocli/main.go
-
 test_mailer:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/pkg/mailer/...
 
@@ -54,9 +45,6 @@ test_filer:
 	#       appears in a new object queried from the HTTP call to the filer APIs.
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -count 1 -v github.com/Donders-Institute/tg-toolset-golang/project/pkg/filer/...
 
-test_repo_db:
-	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/project/internal/cmd/repoutil/...
-
 test:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/Donders-Institute/tg-toolset-golang/...
 
@@ -67,5 +55,5 @@ github-release:
 	scripts/gh-release.sh $(VERSION) false
 
 clean:
-	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb* $(GOPATH)/bin/repo*
+	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb*
 	@rm -rf $(GOPATH)/pkg/$(GOOS)*

@@ -16,9 +16,7 @@ Currently, the whole package is divided into three major parts, each provides a 
   * [prj_delacl](project/cmd/prj_delacl): a CLI for deleting ACLs from a project storage to remove data-access roles.
   * [prj_mine](project/cmd/prj_mine): a CLI for retrieving the current user's data-access roles in all projects.
   * [pdbutil](project/cmd/pdbutil): a project database utility for performing actions such as provisioning storage resource or changing storage quota of project.
-- [repository](repository) contains tools and libraries for repository data management.
-  * [repoadm](repository/cmd/repoadm): administrator's CLI for managing the Donders Repository collections, using the iROD's iCommands.
-  * [repocli](repository/cmd/repocli): cross-platform user CLI for managing data in the Donders Repository, using the WebDAV interface.
+- [repository](repository) contains libraries for repository data management. See [dr-tools](https://github.com/Donders-Institute/dr-tools) for repository tools.
 - [metrics](metrics) contains tools and libraries for collecting metrics.
   * [hpc-metrics-appusage-collector](metrics/cmd/hpc-metrics-appusage-collector): a daemon collects count on `module load` on HPC into Prometheus metrics. See [README](metrics/cmd/hpc-metrics-appusage-collector/README.md) for more detail.
  
