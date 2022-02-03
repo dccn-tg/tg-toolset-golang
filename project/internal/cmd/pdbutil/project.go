@@ -753,32 +753,17 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		}
 	}
 
-	// For PDBv1, get ACL from the project and update the active members into the database.
+	// For PDBv1, get ACL from the filer gateway and update database accordingly.
 	if v1, ok := ipdb.(pdb.V1); ok {
 
-		runner := acl.Runner{
-			RootPath:   ppath,
-			FollowLink: false,
-		}
+		pdata, err := fgw.GetProject(pid)
 
-		// get roles associated with the project directory, do not iterate over files/sub-directories.
-		rolePathMap, err := runner.GetRoles(false)
 		if err != nil {
 			return fmt.Errorf("[%s] fail getting acl: %s", pid, err)
 		}
 
 		// construct data structure for updating PDB v1 database.
-		members := []pdb.Member{}
-		for rolePath := range rolePathMap {
-			for r, uids := range rolePath.RoleMap {
-				for _, u := range uids {
-					members = append(members, pdb.Member{
-						Role:   r.String(),
-						UserID: u,
-					})
-				}
-			}
-		}
+		members := pdata.Members
 
 		// update PDB v1 database with the up-to-date active members.
 		if err := v1.UpdateProjectMembers(pid, members); err != nil {
