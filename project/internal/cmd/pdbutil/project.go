@@ -602,8 +602,6 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 	// check if the action concerns creation of a new project.
 	// TODO: the project directory prefix should depends on storSystem
 	ppath := filepath.Join("/project", pid)
-	_, err := os.Stat(ppath)
-	newProject := os.IsNotExist(err)
 
 	// extract member roles from the `act`
 	managers := []string{}
@@ -621,6 +619,17 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		case "none":
 			removal = append(removal, m.UserID)
 		}
+	}
+
+	// check if it is about an existing project
+	fgw, err := filergateway.NewClient(conf)
+	if err != nil {
+		return err
+	}
+
+	newProject := true
+	if _, err = fgw.GetProject(pid); err == nil {
+		newProject = false
 	}
 
 	if useNetappCLI && storSystem == "netapp" {
@@ -698,32 +707,36 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		}
 
 	} else {
-		// use filer-gateway client to perform pending actions.
-		fgw, err := filergateway.NewClient(conf)
-		if err != nil {
-			return err
+		// create/update project storage via filer-gateway
+
+		if newProject {
+			// synchronously create new project
+			if _, err := fgw.SyncCreateProject(pid, act, time.Second); err != nil {
+				return fmt.Errorf("[%s] failure updating project: %s", pid, err)
+			}
+
+			t1 := time.Now()
+			// check until the project directory aappears
+			for {
+				if _, err := os.Stat(ppath); !os.IsNotExist(err) {
+					break
+				}
+				// timeout after 5 minutes
+				if time.Since(t1) > 5*time.Minute {
+					log.Errorf("[%s] timeout waiting for %s to appear", pid, ppath)
+					break
+				}
+				// wait for 100 millisecond for the next check.
+				time.Sleep(100 * time.Millisecond)
+			}
+
+		} else {
+			// synchronously update existing project
+			if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
+				return fmt.Errorf("[%s] failure updating project: %s", pid, err)
+			}
 		}
 
-		// perform pending actions via the filer gateway; write out
-		// error if failed and continue for the next project.
-		if _, err := fgw.SyncUpdateProject(pid, act, time.Second); err != nil {
-			return fmt.Errorf("[%s] failure updating project: %s", pid, err)
-		}
-
-		t1 := time.Now()
-		// check until the project directory aappears
-		for {
-			if _, err := os.Stat(ppath); !os.IsNotExist(err) {
-				break
-			}
-			// timeout after 5 minutes
-			if time.Since(t1) > 5*time.Minute {
-				log.Errorf("[%s] timeout waiting for %s to appear", pid, ppath)
-				break
-			}
-			// wait for 100 millisecond for the next check.
-			time.Sleep(100 * time.Millisecond)
-		}
 	}
 
 	// make sure the directory of the created project is owned by `project:project_g`

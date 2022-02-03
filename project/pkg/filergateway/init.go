@@ -225,31 +225,54 @@ func (f *Client) CreateProject(data *pdb.DataProjectProvision) (*ServiceTask, er
 	}
 }
 
+// SyncCreateProject performs project creation on the filer and wait until the asynchronous task to be
+// finished.
+func (f *Client) SyncCreateProject(projectID string, data *pdb.DataProjectUpdate, timeGapPoll time.Duration) (*ServiceTask, error) {
+
+	d := &pdb.DataProjectProvision{
+		ProjectID: projectID,
+		Members:   data.Members,
+		Storage:   data.Storage,
+	}
+
+	task, err := f.CreateProject(d)
+	if err != nil {
+		return task, err
+	}
+
+	for {
+		// sleep for given `timeGapPoll` and make the next poll on task status
+		time.Sleep(timeGapPoll)
+		task, err = f.GetTaskStatus(task.TaskID, "project")
+
+		// break the loop if task status polling is failed
+		if err != nil {
+			break
+		}
+
+		// break the loop if task has reached its final state
+		if task.isCompleted() {
+			break
+		}
+	}
+
+	// analyze task result and return error if the task is not succeeded.
+	if task.TaskStatus.Status != "succeeded" {
+		return task, fmt.Errorf("task %s not succeeded", task.TaskID)
+	}
+
+	// return the final version of task and err
+	return task, err
+}
+
 // SyncUpdateProject performs project update on the filer and wait until the asynchronous task to be
 // finished.
 func (f *Client) SyncUpdateProject(projectID string, data *pdb.DataProjectUpdate, timeGapPoll time.Duration) (*ServiceTask, error) {
 
-	var task *ServiceTask
-	var err error
-
-	// check if project is presented
-	if _, err = f.GetProject(projectID); err != nil {
-		// project is failed to be get, assuming it doesn't exist.
-		d := &pdb.DataProjectProvision{
-			ProjectID: projectID,
-			Members:   data.Members,
-			Storage:   data.Storage,
-		}
-		task, err = f.CreateProject(d)
-		if err != nil {
-			return task, err
-		}
-	} else {
-		// project exists, call the update on the project.
-		task, err = f.UpdateProject(projectID, data)
-		if err != nil {
-			return task, err
-		}
+	// project exists, call the update on the project.
+	task, err := f.UpdateProject(projectID, data)
+	if err != nil {
+		return task, err
 	}
 
 	for {
