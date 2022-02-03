@@ -117,7 +117,7 @@ func (f *Client) GetProject(projectID string) (*pdb.DataProjectInfo, error) {
 	return &info, nil
 }
 
-// UpdateProject updates or creates filer storage with information given by the `data`.
+// UpdateProject updates filer storage with information given by the `data`.
 func (f *Client) UpdateProject(projectID string, data *pdb.DataProjectUpdate) (*ServiceTask, error) {
 
 	// perform request
@@ -171,13 +171,85 @@ func (f *Client) UpdateProject(projectID string, data *pdb.DataProjectUpdate) (*
 	}
 }
 
+// CreateProject creates filer storage with information given by the `data`.
+func (f *Client) CreateProject(data *pdb.DataProjectProvision) (*ServiceTask, error) {
+
+	// perform request
+	dpatch, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	// new http client with timeout of 5 seconds
+	c := newHTTPSClient(time.Second*5, false)
+
+	// create request
+	req, err := http.NewRequest("POST", strings.Join([]string{f.apiURL, "projects"}, "/"), bytes.NewBuffer(dpatch))
+	if err != nil {
+		return nil, err
+	}
+
+	// set request headers: content-type, X-API-KEY
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("X-API-KEY", f.apiKey)
+
+	// set basic auth
+	req.SetBasicAuth(f.apiUser, f.apiPass)
+
+	// perform request to te filer-gateway
+	res, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// handle returned status code
+	httpBodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	switch res.StatusCode {
+	case 200:
+		var task ServiceTask
+		if err := json.Unmarshal(httpBodyBytes, &task); err != nil {
+			return nil, err
+		}
+		return &task, nil
+	case 400, 500:
+		var serr ServiceError
+		if err := json.Unmarshal(httpBodyBytes, &serr); err != nil {
+			return nil, err
+		}
+		return nil, &serr
+	default:
+		return nil, fmt.Errorf("%s", httpBodyBytes)
+	}
+}
+
 // SyncUpdateProject performs project update on the filer and wait until the asynchronous task to be
 // finished.
 func (f *Client) SyncUpdateProject(projectID string, data *pdb.DataProjectUpdate, timeGapPoll time.Duration) (*ServiceTask, error) {
 
-	task, err := f.UpdateProject(projectID, data)
-	if err != nil {
-		return task, err
+	var task *ServiceTask
+	var err error
+
+	// check if project is presented
+	if _, err = f.GetProject(projectID); err != nil {
+		// project is failed to be get, assuming it doesn't exist.
+		d := &pdb.DataProjectProvision{
+			ProjectID: projectID,
+			Members:   data.Members,
+			Storage:   data.Storage,
+		}
+		task, err = f.CreateProject(d)
+		if err != nil {
+			return task, err
+		}
+	} else {
+		// project exists, call the update on the project.
+		task, err = f.UpdateProject(projectID, data)
+		if err != nil {
+			return task, err
+		}
 	}
 
 	for {
