@@ -765,6 +765,8 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		// construct data structure for updating PDB v1 database.
 		members := pdata.Members
 
+		log.Debugf("[%s] retrieved acl from filergateway: %+v", pid, members)
+
 		// update PDB v1 database with the up-to-date active members.
 		if err := v1.UpdateProjectMembers(pid, members); err != nil {
 			return fmt.Errorf("[%s] fail updating acl in PDB: %s", pid, err)
