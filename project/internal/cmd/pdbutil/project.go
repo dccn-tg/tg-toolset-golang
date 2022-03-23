@@ -756,6 +756,10 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 	// For PDBv1, get ACL from the filer gateway and update database accordingly.
 	if v1, ok := ipdb.(pdb.V1); ok {
 
+		// wait for 5 seconds to give the filer-gateway time to refresh the cache
+		// upon project update.
+		time.Sleep(5 * time.Second)
+
 		pdata, err := fgw.GetProject(pid)
 
 		if err != nil {
