@@ -25,7 +25,7 @@ func init() {
 	testConf, err = config.LoadConfig(os.Getenv("TG_TOOLSET_CONFIG"))
 
 	if err != nil {
-		log.Fatalf("cannot log config file: %s\n", err)
+		log.Fatalf("cannot load config file: %s\n", err)
 	}
 
 	testPDB, err = New(testConf.PDB)
