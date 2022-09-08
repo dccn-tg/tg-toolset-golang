@@ -9,6 +9,7 @@ type PDBConfiguration struct {
 
 // CoreAPIConfiguration defines the configuration parameters for the core api of the project database v2.
 type CoreAPIConfiguration struct {
+	AuthClientID     string `mapstructure:"auth_client_id"`
 	AuthClientSecret string `mapstructure:"auth_client_secret"`
 	AuthURL          string `mapstructure:"auth_url"`
 	CoreAPIURL       string `mapstructure:"core_api_url"`

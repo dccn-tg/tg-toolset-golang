@@ -26,6 +26,19 @@ var (
 	}
 )
 
+// toProjectStatus converts the project status string in the GraphQL data
+// to `ProjectStatus` enum.
+func toProjectStatus(status graphql.String) ProjectStatus {
+	switch status {
+	case "Active":
+		return ProjectStatusActive
+	case "Inactive":
+		return ProjectStatusInactive
+	default:
+		return ProjectStatusUnknown
+	}
+}
+
 // V2 implements interfaces of the new project database implemented with GraphQL-based core-api.
 type V2 struct {
 	config config.CoreAPIConfiguration
@@ -77,7 +90,41 @@ func (v2 V2) GetProjects(activeOnly bool) ([]*Project, error) {
 
 // GetProject retrieves attributes of a project.
 func (v2 V2) GetProject(projectID string) (*Project, error) {
-	return nil, fmt.Errorf("not implemented")
+
+	// GraphQL query construction
+	var qry struct {
+		Project struct {
+			Number graphql.String
+			Title  graphql.String
+			Owner  struct {
+				Username graphql.String
+			}
+			Status graphql.String
+		} `graphql:"project(number: $id)"`
+	}
+
+	vars := map[string]interface{}{
+		"id": graphql.ID(projectID),
+	}
+
+	if err := query(
+		v2.config.AuthClientID,
+		v2.config.AuthClientSecret,
+		v2.config.AuthURL,
+		v2.config.CoreAPIURL,
+		&qry, vars); err != nil {
+		log.Errorf("fail to query project: %s", err)
+		return nil, err
+	}
+
+	log.Infof("%+v\n", qry)
+
+	return &Project{
+		ID:     string(qry.Project.Number),
+		Name:   string(qry.Project.Title),
+		Owner:  string(qry.Project.Owner.Username),
+		Status: toProjectStatus(qry.Project.Status),
+	}, nil
 }
 
 // GetUser gets the user identified by the given uid in the project database.
@@ -125,7 +172,12 @@ func getProjectStorageResource(conf config.CoreAPIConfiguration, projectID strin
 		"id": graphql.ID(projectID),
 	}
 
-	if err := query(conf.AuthClientSecret, conf.AuthURL, conf.CoreAPIURL, &qry, vars); err != nil {
+	if err := query(
+		conf.AuthClientID,
+		conf.AuthClientSecret,
+		conf.AuthURL,
+		conf.CoreAPIURL,
+		&qry, vars); err != nil {
 		log.Errorf("fail to query project quota: %s", err)
 		return nil, err
 	}
@@ -158,7 +210,12 @@ func getProjectPendingRoles(conf config.CoreAPIConfiguration) (map[string][]Memb
 		} `graphql:"pendingProjectMemberChanges"`
 	}
 
-	if err := query(conf.AuthClientSecret, conf.AuthURL, conf.CoreAPIURL, &qry, nil); err != nil {
+	if err := query(
+		conf.AuthClientID,
+		conf.AuthClientSecret,
+		conf.AuthURL,
+		conf.CoreAPIURL,
+		&qry, nil); err != nil {
 		log.Errorf("fail to query project pending roles: %s", err)
 		return pendingRoles, err
 	}
@@ -215,7 +272,12 @@ func delProjectPendingRoles(conf config.CoreAPIConfiguration, pendingRoles map[s
 		"changes": changes,
 	}
 
-	if err := mutate(conf.AuthClientSecret, conf.AuthURL, conf.CoreAPIURL, &mut, vars); err != nil {
+	if err := mutate(
+		conf.AuthClientID,
+		conf.AuthClientSecret,
+		conf.AuthURL,
+		conf.CoreAPIURL,
+		&mut, vars); err != nil {
 		return err
 	}
 

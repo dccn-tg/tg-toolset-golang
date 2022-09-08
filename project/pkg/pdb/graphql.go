@@ -32,9 +32,9 @@ type token struct {
 }
 
 // query is a generic function for performing a GraphQL query.
-func query(authClientSecret, authURL, apiURL string, qry interface{}, vars map[string]interface{}) error {
+func query(authClientID, authClientSecret, authURL, apiURL string, qry interface{}, vars map[string]interface{}) error {
 	// Perform query
-	client, err := newClient(authClientSecret, authURL, apiURL)
+	client, err := newClient(authClientID, authClientSecret, authURL, apiURL)
 	if err != nil {
 		return err
 	}
@@ -50,9 +50,9 @@ func query(authClientSecret, authURL, apiURL string, qry interface{}, vars map[s
 }
 
 // mutate is a generic function for performing a GraphQL mutation.
-func mutate(authClientSecret, authURL, apiURL string, mutation interface{}, vars map[string]interface{}) error {
+func mutate(authClientID, authClientSecret, authURL, apiURL string, mutation interface{}, vars map[string]interface{}) error {
 	// Perform mutation
-	client, err := newClient(authClientSecret, authURL, apiURL)
+	client, err := newClient(authClientID, authClientSecret, authURL, apiURL)
 	if err != nil {
 		return err
 	}
@@ -67,10 +67,10 @@ func mutate(authClientSecret, authURL, apiURL string, mutation interface{}, vars
 }
 
 // newClient returns a GraphQL client with proper and valid authentication.
-func newClient(authClientSecret, authURL, apiURL string) (*graphql.Client, error) {
+func newClient(authClientID, authClientSecret, authURL, apiURL string) (*graphql.Client, error) {
 
 	// retrieve API token
-	token, err := getAuthToken(authClientSecret, authURL)
+	token, err := getAuthToken(authClientID, authClientSecret, authURL)
 	if err != nil {
 		return nil, err
 	}
@@ -89,10 +89,7 @@ func newClient(authClientSecret, authURL, apiURL string) (*graphql.Client, error
 // If the global `apiToken` is still valid, it is returned rightaway. Otherwise,
 // this function renews the `apiToken` using the given `clientSecret` before
 // returning the `apiToken`.
-//
-// The `clientID` and `clientScope` used for renewing the `apiToken` are hardcoded
-// in this function.
-func getAuthToken(clientSecret, authURL string) (*token, error) {
+func getAuthToken(clientID, clientSecret, authURL string) (*token, error) {
 
 	// lock the apiToken for eventual manipulation of it.
 	apiToken.mux.Lock()
@@ -105,9 +102,6 @@ func getAuthToken(clientSecret, authURL string) (*token, error) {
 		return &apiToken, nil
 	}
 
-	clientID := "project-database-admin-script"
-	clientScope := "project-database-core-api"
-
 	// make a HTTP POST with FORM data to retrieve authentication token.
 	href := strings.Join([]string{authURL, "connect/token"}, "/")
 
@@ -115,7 +109,7 @@ func getAuthToken(clientSecret, authURL string) (*token, error) {
 	v.Set("client_id", clientID)
 	v.Set("client_secret", clientSecret)
 	v.Set("grant_type", "client_credentials")
-	v.Set("scope", clientScope)
+	v.Set("scope", "urn:dccn:pdb:core-api:query urn:dccn:pdb:core-api:mutate")
 
 	c := newHTTPSClient(5*time.Second, false)
 	res, err := c.PostForm(href, v)
