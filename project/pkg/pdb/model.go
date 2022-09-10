@@ -196,19 +196,19 @@ const (
 // LabBooking defines the data structure of a booking event in the lab calendar.
 type LabBooking struct {
 	// Project is the id of the project to which the experiment belongs.
-	Project string
+	Project string `json:"project_id"`
 	// Subject is the subject id of the participant.
-	Subject string
+	Subject string `json:"subject"`
 	// Session is the session id of the participant.
-	Session string
+	Session string `json:"session"`
 	// Modality is the experiment modality name.
-	Modality string
+	Modality string `json:"lab"`
 	// Operator is the user operating the experiment.
-	Operator User
+	Operator User `json:"operator"`
 	// ProjectTitle is the title of the project.
-	ProjectTitle string
+	ProjectTitle string `json:"project_title"`
 	// StartTime is the time the experiment starts.
-	StartTime time.Time
+	StartTime time.Time `json:"start_time"`
 }
 
 // OpsIgnored is a specific error referring ignored operation.

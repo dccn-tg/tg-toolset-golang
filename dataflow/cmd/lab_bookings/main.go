@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -17,6 +18,7 @@ var (
 	optsConfig  *string
 	optsLabMod  pdb.Lab
 	optsVerbose *bool
+	optsJson    *bool
 )
 
 func init() {
@@ -24,6 +26,7 @@ func init() {
 	optsConfig = flag.String("c", "config.yml", "set the `path` of the configuration file")
 	flag.Var(&optsLabMod, "l", "set the `modality` for the bookings")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
+	optsJson = flag.Bool("j", false, "output in json format")
 
 	flag.Usage = usage
 
@@ -70,17 +73,28 @@ func main() {
 		log.Errorf("cannot retrieve labbookings, reason: %+v", err)
 		os.Exit(100)
 	}
-	for _, lb := range bookings {
-		var name string
-		if lb.Operator.Middlename != "" {
-			name = fmt.Sprintf("%s %s %s", lb.Operator.Firstname, lb.Operator.Middlename, lb.Operator.Lastname)
+
+	if *optsJson {
+		if out, err := json.Marshal(bookings); err != nil {
+			log.Fatalf("cannot format output in JSON: %s", err)
 		} else {
-			name = fmt.Sprintf("%s %s", lb.Operator.Firstname, lb.Operator.Lastname)
+			fmt.Println(string(out))
 		}
-		fmt.Printf("%02d:%02d:%02d|%s|%9s-%1s|%10s|%s\n",
-			lb.StartTime.Hour(), lb.StartTime.Minute(), lb.StartTime.Second(),
-			lb.Project, lb.Subject,
-			lb.Session, lb.Modality, name)
+	} else {
+		for _, lb := range bookings {
+			var name string
+			if lb.Operator.Middlename != "" {
+				name = fmt.Sprintf("%s %s %s", lb.Operator.Firstname, lb.Operator.Middlename, lb.Operator.Lastname)
+			} else {
+				name = fmt.Sprintf("%s %s", lb.Operator.Firstname, lb.Operator.Lastname)
+			}
+
+			fmt.Printf("%02d:%02d:%02d|%s|%9s-%1s|%10s|%s\n",
+				lb.StartTime.Hour(), lb.StartTime.Minute(), lb.StartTime.Second(),
+				lb.Project, lb.Subject,
+				lb.Session, lb.Modality, name)
+		}
 	}
+
 	os.Exit(0)
 }
