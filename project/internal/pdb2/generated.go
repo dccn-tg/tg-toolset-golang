@@ -4,8 +4,22 @@ package pdb2
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
+)
+
+type BookingEventStatus string
+
+const (
+	BookingEventStatusTentative         BookingEventStatus = "Tentative"
+	BookingEventStatusConfirmed         BookingEventStatus = "Confirmed"
+	BookingEventStatusRejected          BookingEventStatus = "Rejected"
+	BookingEventStatusCancelrequested   BookingEventStatus = "CancelRequested"
+	BookingEventStatusCanceledintime    BookingEventStatus = "CanceledInTime"
+	BookingEventStatusCancelednotintime BookingEventStatus = "CanceledNotInTime"
 )
 
 type ProjectStatus string
@@ -13,6 +27,25 @@ type ProjectStatus string
 const (
 	ProjectStatusActive   ProjectStatus = "Active"
 	ProjectStatusInactive ProjectStatus = "Inactive"
+)
+
+type ResourceID struct {
+	Type ResourceType `json:"type"`
+	Id   string       `json:"id"`
+}
+
+// GetType returns ResourceID.Type, and is useful for accessing the field via an interface.
+func (v *ResourceID) GetType() ResourceType { return v.Type }
+
+// GetId returns ResourceID.Id, and is useful for accessing the field via an interface.
+func (v *ResourceID) GetId() string { return v.Id }
+
+type ResourceType string
+
+const (
+	ResourceTypeLab  ResourceType = "Lab"
+	ResourceTypeRoom ResourceType = "Room"
+	ResourceTypeItem ResourceType = "Item"
 )
 
 type UserFunction string
@@ -39,6 +72,22 @@ const (
 	UserStatusCheckedoutextended UserStatus = "CheckedOutExtended"
 )
 
+// __getBookingEventsInput is used internally by genqlient
+type __getBookingEventsInput struct {
+	Start     time.Time    `json:"start"`
+	End       time.Time    `json:"end"`
+	Resources []ResourceID `json:"resources"`
+}
+
+// GetStart returns __getBookingEventsInput.Start, and is useful for accessing the field via an interface.
+func (v *__getBookingEventsInput) GetStart() time.Time { return v.Start }
+
+// GetEnd returns __getBookingEventsInput.End, and is useful for accessing the field via an interface.
+func (v *__getBookingEventsInput) GetEnd() time.Time { return v.End }
+
+// GetResources returns __getBookingEventsInput.Resources, and is useful for accessing the field via an interface.
+func (v *__getBookingEventsInput) GetResources() []ResourceID { return v.Resources }
+
 // __getProjectInput is used internally by genqlient
 type __getProjectInput struct {
 	Number string `json:"number"`
@@ -63,6 +112,384 @@ type __getUserInput struct {
 // GetUsername returns __getUserInput.Username, and is useful for accessing the field via an interface.
 func (v *__getUserInput) GetUsername() string { return v.Username }
 
+// getBookingEventsBookingEventsBookingEvent includes the requested fields of the GraphQL type BookingEvent.
+type getBookingEventsBookingEventsBookingEvent struct {
+	Start    time.Time                                         `json:"start"`
+	End      time.Time                                         `json:"end"`
+	Status   BookingEventStatus                                `json:"status"`
+	Subject  string                                            `json:"subject"`
+	Session  string                                            `json:"session"`
+	Booking  getBookingEventsBookingEventsBookingEventBooking  `json:"booking"`
+	Resource getBookingEventsBookingEventsBookingEventResource `json:"-"`
+}
+
+// GetStart returns getBookingEventsBookingEventsBookingEvent.Start, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEvent) GetStart() time.Time { return v.Start }
+
+// GetEnd returns getBookingEventsBookingEventsBookingEvent.End, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEvent) GetEnd() time.Time { return v.End }
+
+// GetStatus returns getBookingEventsBookingEventsBookingEvent.Status, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEvent) GetStatus() BookingEventStatus { return v.Status }
+
+// GetSubject returns getBookingEventsBookingEventsBookingEvent.Subject, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEvent) GetSubject() string { return v.Subject }
+
+// GetSession returns getBookingEventsBookingEventsBookingEvent.Session, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEvent) GetSession() string { return v.Session }
+
+// GetBooking returns getBookingEventsBookingEventsBookingEvent.Booking, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEvent) GetBooking() getBookingEventsBookingEventsBookingEventBooking {
+	return v.Booking
+}
+
+// GetResource returns getBookingEventsBookingEventsBookingEvent.Resource, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEvent) GetResource() getBookingEventsBookingEventsBookingEventResource {
+	return v.Resource
+}
+
+func (v *getBookingEventsBookingEventsBookingEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*getBookingEventsBookingEventsBookingEvent
+		Resource json.RawMessage `json:"resource"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.getBookingEventsBookingEventsBookingEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Resource
+		src := firstPass.Resource
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalgetBookingEventsBookingEventsBookingEventResource(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"Unable to unmarshal getBookingEventsBookingEventsBookingEvent.Resource: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalgetBookingEventsBookingEventsBookingEvent struct {
+	Start time.Time `json:"start"`
+
+	End time.Time `json:"end"`
+
+	Status BookingEventStatus `json:"status"`
+
+	Subject string `json:"subject"`
+
+	Session string `json:"session"`
+
+	Booking getBookingEventsBookingEventsBookingEventBooking `json:"booking"`
+
+	Resource json.RawMessage `json:"resource"`
+}
+
+func (v *getBookingEventsBookingEventsBookingEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *getBookingEventsBookingEventsBookingEvent) __premarshalJSON() (*__premarshalgetBookingEventsBookingEventsBookingEvent, error) {
+	var retval __premarshalgetBookingEventsBookingEventsBookingEvent
+
+	retval.Start = v.Start
+	retval.End = v.End
+	retval.Status = v.Status
+	retval.Subject = v.Subject
+	retval.Session = v.Session
+	retval.Booking = v.Booking
+	{
+
+		dst := &retval.Resource
+		src := v.Resource
+		var err error
+		*dst, err = __marshalgetBookingEventsBookingEventsBookingEventResource(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"Unable to marshal getBookingEventsBookingEventsBookingEvent.Resource: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// getBookingEventsBookingEventsBookingEventBooking includes the requested fields of the GraphQL type Booking.
+type getBookingEventsBookingEventsBookingEventBooking struct {
+	Project getBookingEventsBookingEventsBookingEventBookingProject   `json:"project"`
+	Owner   getBookingEventsBookingEventsBookingEventBookingOwnerUser `json:"owner"`
+}
+
+// GetProject returns getBookingEventsBookingEventsBookingEventBooking.Project, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBooking) GetProject() getBookingEventsBookingEventsBookingEventBookingProject {
+	return v.Project
+}
+
+// GetOwner returns getBookingEventsBookingEventsBookingEventBooking.Owner, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBooking) GetOwner() getBookingEventsBookingEventsBookingEventBookingOwnerUser {
+	return v.Owner
+}
+
+// getBookingEventsBookingEventsBookingEventBookingOwnerUser includes the requested fields of the GraphQL type User.
+type getBookingEventsBookingEventsBookingEventBookingOwnerUser struct {
+	Username   string       `json:"username"`
+	FirstName  string       `json:"firstName"`
+	MiddleName string       `json:"middleName"`
+	LastName   string       `json:"lastName"`
+	Email      string       `json:"email"`
+	Status     UserStatus   `json:"status"`
+	Function   UserFunction `json:"function"`
+}
+
+// GetUsername returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.Username, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetUsername() string {
+	return v.Username
+}
+
+// GetFirstName returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.FirstName, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetFirstName() string {
+	return v.FirstName
+}
+
+// GetMiddleName returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.MiddleName, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetMiddleName() string {
+	return v.MiddleName
+}
+
+// GetLastName returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.LastName, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetLastName() string {
+	return v.LastName
+}
+
+// GetEmail returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.Email, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetEmail() string { return v.Email }
+
+// GetStatus returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.Status, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetStatus() UserStatus {
+	return v.Status
+}
+
+// GetFunction returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.Function, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetFunction() UserFunction {
+	return v.Function
+}
+
+// getBookingEventsBookingEventsBookingEventBookingProject includes the requested fields of the GraphQL type Project.
+type getBookingEventsBookingEventsBookingEventBookingProject struct {
+	Number string `json:"number"`
+	Title  string `json:"title"`
+}
+
+// GetNumber returns getBookingEventsBookingEventsBookingEventBookingProject.Number, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProject) GetNumber() string { return v.Number }
+
+// GetTitle returns getBookingEventsBookingEventsBookingEventBookingProject.Title, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProject) GetTitle() string { return v.Title }
+
+// getBookingEventsBookingEventsBookingEventResource includes the requested fields of the GraphQL interface Resource.
+//
+// getBookingEventsBookingEventsBookingEventResource is implemented by the following types:
+// getBookingEventsBookingEventsBookingEventResourceLab
+// getBookingEventsBookingEventsBookingEventResourceRoom
+type getBookingEventsBookingEventsBookingEventResource interface {
+	implementsGraphQLInterfacegetBookingEventsBookingEventsBookingEventResource()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+}
+
+func (v *getBookingEventsBookingEventsBookingEventResourceLab) implementsGraphQLInterfacegetBookingEventsBookingEventsBookingEventResource() {
+}
+func (v *getBookingEventsBookingEventsBookingEventResourceRoom) implementsGraphQLInterfacegetBookingEventsBookingEventsBookingEventResource() {
+}
+
+func __unmarshalgetBookingEventsBookingEventsBookingEventResource(b []byte, v *getBookingEventsBookingEventsBookingEventResource) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Lab":
+		*v = new(getBookingEventsBookingEventsBookingEventResourceLab)
+		return json.Unmarshal(b, *v)
+	case "Room":
+		*v = new(getBookingEventsBookingEventsBookingEventResourceRoom)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Resource.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for getBookingEventsBookingEventsBookingEventResource: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalgetBookingEventsBookingEventsBookingEventResource(v *getBookingEventsBookingEventsBookingEventResource) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *getBookingEventsBookingEventsBookingEventResourceLab:
+		typename = "Lab"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*getBookingEventsBookingEventsBookingEventResourceLab
+		}{typename, v}
+		return json.Marshal(result)
+	case *getBookingEventsBookingEventsBookingEventResourceRoom:
+		typename = "Room"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*getBookingEventsBookingEventsBookingEventResourceRoom
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for getBookingEventsBookingEventsBookingEventResource: "%T"`, v)
+	}
+}
+
+// getBookingEventsBookingEventsBookingEventResourceLab includes the requested fields of the GraphQL type Lab.
+type getBookingEventsBookingEventsBookingEventResourceLab struct {
+	Typename string                                                       `json:"__typename"`
+	Id       string                                                       `json:"id"`
+	Name     string                                                       `json:"name"`
+	Modality getBookingEventsBookingEventsBookingEventResourceLabModality `json:"modality"`
+}
+
+// GetTypename returns getBookingEventsBookingEventsBookingEventResourceLab.Typename, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns getBookingEventsBookingEventsBookingEventResourceLab.Id, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetId() string { return v.Id }
+
+// GetName returns getBookingEventsBookingEventsBookingEventResourceLab.Name, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetName() string { return v.Name }
+
+// GetModality returns getBookingEventsBookingEventsBookingEventResourceLab.Modality, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetModality() getBookingEventsBookingEventsBookingEventResourceLabModality {
+	return v.Modality
+}
+
+// getBookingEventsBookingEventsBookingEventResourceLabModality includes the requested fields of the GraphQL type Modality.
+type getBookingEventsBookingEventsBookingEventResourceLabModality struct {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	ShortName string `json:"shortName"`
+}
+
+// GetId returns getBookingEventsBookingEventsBookingEventResourceLabModality.Id, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLabModality) GetId() string { return v.Id }
+
+// GetName returns getBookingEventsBookingEventsBookingEventResourceLabModality.Name, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLabModality) GetName() string {
+	return v.Name
+}
+
+// GetShortName returns getBookingEventsBookingEventsBookingEventResourceLabModality.ShortName, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLabModality) GetShortName() string {
+	return v.ShortName
+}
+
+// getBookingEventsBookingEventsBookingEventResourceRoom includes the requested fields of the GraphQL type Room.
+type getBookingEventsBookingEventsBookingEventResourceRoom struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Number   string `json:"number"`
+}
+
+// GetTypename returns getBookingEventsBookingEventsBookingEventResourceRoom.Typename, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceRoom) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns getBookingEventsBookingEventsBookingEventResourceRoom.Id, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceRoom) GetId() string { return v.Id }
+
+// GetNumber returns getBookingEventsBookingEventsBookingEventResourceRoom.Number, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceRoom) GetNumber() string { return v.Number }
+
+// getBookingEventsResponse is returned by getBookingEvents on success.
+type getBookingEventsResponse struct {
+	BookingEvents []getBookingEventsBookingEventsBookingEvent `json:"bookingEvents"`
+}
+
+// GetBookingEvents returns getBookingEventsResponse.BookingEvents, and is useful for accessing the field via an interface.
+func (v *getBookingEventsResponse) GetBookingEvents() []getBookingEventsBookingEventsBookingEvent {
+	return v.BookingEvents
+}
+
+// getLabsLabsLab includes the requested fields of the GraphQL type Lab.
+type getLabsLabsLab struct {
+	Id       string                 `json:"id"`
+	Name     string                 `json:"name"`
+	Bookable bool                   `json:"bookable"`
+	Modality getLabsLabsLabModality `json:"modality"`
+}
+
+// GetId returns getLabsLabsLab.Id, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLab) GetId() string { return v.Id }
+
+// GetName returns getLabsLabsLab.Name, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLab) GetName() string { return v.Name }
+
+// GetBookable returns getLabsLabsLab.Bookable, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLab) GetBookable() bool { return v.Bookable }
+
+// GetModality returns getLabsLabsLab.Modality, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLab) GetModality() getLabsLabsLabModality { return v.Modality }
+
+// getLabsLabsLabModality includes the requested fields of the GraphQL type Modality.
+type getLabsLabsLabModality struct {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	ShortName string `json:"shortName"`
+}
+
+// GetId returns getLabsLabsLabModality.Id, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLabModality) GetId() string { return v.Id }
+
+// GetName returns getLabsLabsLabModality.Name, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLabModality) GetName() string { return v.Name }
+
+// GetShortName returns getLabsLabsLabModality.ShortName, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLabModality) GetShortName() string { return v.ShortName }
+
+// getLabsResponse is returned by getLabs on success.
+type getLabsResponse struct {
+	Labs []getLabsLabsLab `json:"labs"`
+}
+
+// GetLabs returns getLabsResponse.Labs, and is useful for accessing the field via an interface.
+func (v *getLabsResponse) GetLabs() []getLabsLabsLab { return v.Labs }
+
 // getProjectProject includes the requested fields of the GraphQL type Project.
 type getProjectProject struct {
 	Number string                     `json:"number"`
@@ -85,11 +512,19 @@ func (v *getProjectProject) GetStatus() ProjectStatus { return v.Status }
 
 // getProjectProjectOwnerUser includes the requested fields of the GraphQL type User.
 type getProjectProjectOwnerUser struct {
-	Username string `json:"username"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Email       string `json:"email"`
 }
 
 // GetUsername returns getProjectProjectOwnerUser.Username, and is useful for accessing the field via an interface.
 func (v *getProjectProjectOwnerUser) GetUsername() string { return v.Username }
+
+// GetDisplayName returns getProjectProjectOwnerUser.DisplayName, and is useful for accessing the field via an interface.
+func (v *getProjectProjectOwnerUser) GetDisplayName() string { return v.DisplayName }
+
+// GetEmail returns getProjectProjectOwnerUser.Email, and is useful for accessing the field via an interface.
+func (v *getProjectProjectOwnerUser) GetEmail() string { return v.Email }
 
 // getProjectQuotaProject includes the requested fields of the GraphQL type Project.
 type getProjectQuotaProject struct {
@@ -131,6 +566,50 @@ type getProjectResponse struct {
 // GetProject returns getProjectResponse.Project, and is useful for accessing the field via an interface.
 func (v *getProjectResponse) GetProject() getProjectProject { return v.Project }
 
+// getProjectsProjectsProject includes the requested fields of the GraphQL type Project.
+type getProjectsProjectsProject struct {
+	Number string                              `json:"number"`
+	Title  string                              `json:"title"`
+	Owner  getProjectsProjectsProjectOwnerUser `json:"owner"`
+	Status ProjectStatus                       `json:"status"`
+}
+
+// GetNumber returns getProjectsProjectsProject.Number, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProject) GetNumber() string { return v.Number }
+
+// GetTitle returns getProjectsProjectsProject.Title, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProject) GetTitle() string { return v.Title }
+
+// GetOwner returns getProjectsProjectsProject.Owner, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProject) GetOwner() getProjectsProjectsProjectOwnerUser { return v.Owner }
+
+// GetStatus returns getProjectsProjectsProject.Status, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProject) GetStatus() ProjectStatus { return v.Status }
+
+// getProjectsProjectsProjectOwnerUser includes the requested fields of the GraphQL type User.
+type getProjectsProjectsProjectOwnerUser struct {
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Email       string `json:"email"`
+}
+
+// GetUsername returns getProjectsProjectsProjectOwnerUser.Username, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProjectOwnerUser) GetUsername() string { return v.Username }
+
+// GetDisplayName returns getProjectsProjectsProjectOwnerUser.DisplayName, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProjectOwnerUser) GetDisplayName() string { return v.DisplayName }
+
+// GetEmail returns getProjectsProjectsProjectOwnerUser.Email, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProjectOwnerUser) GetEmail() string { return v.Email }
+
+// getProjectsResponse is returned by getProjects on success.
+type getProjectsResponse struct {
+	Projects []getProjectsProjectsProject `json:"projects"`
+}
+
+// GetProjects returns getProjectsResponse.Projects, and is useful for accessing the field via an interface.
+func (v *getProjectsResponse) GetProjects() []getProjectsProjectsProject { return v.Projects }
+
 // getUserResponse is returned by getUser on success.
 type getUserResponse struct {
 	User getUserUser `json:"user"`
@@ -171,6 +650,152 @@ func (v *getUserUser) GetStatus() UserStatus { return v.Status }
 // GetFunction returns getUserUser.Function, and is useful for accessing the field via an interface.
 func (v *getUserUser) GetFunction() UserFunction { return v.Function }
 
+// getUsersResponse is returned by getUsers on success.
+type getUsersResponse struct {
+	Users []getUsersUsersUser `json:"users"`
+}
+
+// GetUsers returns getUsersResponse.Users, and is useful for accessing the field via an interface.
+func (v *getUsersResponse) GetUsers() []getUsersUsersUser { return v.Users }
+
+// getUsersUsersUser includes the requested fields of the GraphQL type User.
+type getUsersUsersUser struct {
+	Username   string       `json:"username"`
+	FirstName  string       `json:"firstName"`
+	MiddleName string       `json:"middleName"`
+	LastName   string       `json:"lastName"`
+	Email      string       `json:"email"`
+	Status     UserStatus   `json:"status"`
+	Function   UserFunction `json:"function"`
+}
+
+// GetUsername returns getUsersUsersUser.Username, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUser) GetUsername() string { return v.Username }
+
+// GetFirstName returns getUsersUsersUser.FirstName, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUser) GetFirstName() string { return v.FirstName }
+
+// GetMiddleName returns getUsersUsersUser.MiddleName, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUser) GetMiddleName() string { return v.MiddleName }
+
+// GetLastName returns getUsersUsersUser.LastName, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUser) GetLastName() string { return v.LastName }
+
+// GetEmail returns getUsersUsersUser.Email, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUser) GetEmail() string { return v.Email }
+
+// GetStatus returns getUsersUsersUser.Status, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUser) GetStatus() UserStatus { return v.Status }
+
+// GetFunction returns getUsersUsersUser.Function, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUser) GetFunction() UserFunction { return v.Function }
+
+func getBookingEvents(
+	ctx context.Context,
+	client graphql.Client,
+	start time.Time,
+	end time.Time,
+	resources []ResourceID,
+) (*getBookingEventsResponse, error) {
+	req := &graphql.Request{
+		OpName: "getBookingEvents",
+		Query: `
+query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ResourceID!]) {
+	bookingEvents(start: $start, end: $end, resources: $resources) {
+		start
+		end
+		status
+		subject
+		session
+		booking {
+			project {
+				number
+				title
+			}
+			owner {
+				username
+				firstName
+				middleName
+				lastName
+				email
+				status
+				function
+			}
+		}
+		resource {
+			__typename
+			... on Lab {
+				id
+				name
+				modality {
+					id
+					name
+					shortName
+				}
+			}
+			... on Room {
+				id
+				number
+			}
+		}
+	}
+}
+`,
+		Variables: &__getBookingEventsInput{
+			Start:     start,
+			End:       end,
+			Resources: resources,
+		},
+	}
+	var err error
+
+	var data getBookingEventsResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func getLabs(
+	ctx context.Context,
+	client graphql.Client,
+) (*getLabsResponse, error) {
+	req := &graphql.Request{
+		OpName: "getLabs",
+		Query: `
+query getLabs {
+	labs {
+		id
+		name
+		bookable
+		modality {
+			id
+			name
+			shortName
+		}
+	}
+}
+`,
+	}
+	var err error
+
+	var data getLabsResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
 func getProject(
 	ctx context.Context,
 	client graphql.Client,
@@ -185,6 +810,8 @@ query getProject ($number: ID!) {
 		title
 		owner {
 			username
+			displayName
+			email
 		}
 		status
 	}
@@ -244,6 +871,41 @@ query getProjectQuota ($number: ID!) {
 	return &data, err
 }
 
+func getProjects(
+	ctx context.Context,
+	client graphql.Client,
+) (*getProjectsResponse, error) {
+	req := &graphql.Request{
+		OpName: "getProjects",
+		Query: `
+query getProjects {
+	projects {
+		number
+		title
+		owner {
+			username
+			displayName
+			email
+		}
+		status
+	}
+}
+`,
+	}
+	var err error
+
+	var data getProjectsResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
 func getUser(
 	ctx context.Context,
 	client graphql.Client,
@@ -271,6 +933,40 @@ query getUser ($username: ID!) {
 	var err error
 
 	var data getUserResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func getUsers(
+	ctx context.Context,
+	client graphql.Client,
+) (*getUsersResponse, error) {
+	req := &graphql.Request{
+		OpName: "getUsers",
+		Query: `
+query getUsers {
+	users {
+		username
+		firstName
+		middleName
+		lastName
+		email
+		status
+		function
+	}
+}
+`,
+	}
+	var err error
+
+	var data getUsersResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

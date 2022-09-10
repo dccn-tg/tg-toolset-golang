@@ -2,9 +2,12 @@ package pdb
 
 import (
 	"fmt"
+	"regexp"
+	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 
+	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	api "github.com/Donders-Institute/tg-toolset-golang/project/internal/pdb2"
 )
 
@@ -65,6 +68,20 @@ func userFunctionEnum(status api.UserFunction) UserFunction {
 	}
 }
 
+// map the corresponding modality id to a given `Lab`
+func modality(lab Lab) *regexp.Regexp {
+	switch lab {
+	case MEG:
+		return regexp.MustCompile("^meg.*")
+	case EEG:
+		return regexp.MustCompile("^eeg$")
+	case MRI:
+		return regexp.MustCompile("^mr[0-9.]t$")
+	default:
+		return regexp.MustCompile(".*")
+	}
+}
+
 // V2 implements interfaces of the new project database implemented with GraphQL-based core-api.
 type V2 struct {
 	config config.CoreAPIConfiguration
@@ -86,7 +103,26 @@ func (v2 V2) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 
 // GetProjects retrieves list of project identifiers from the project database.
 func (v2 V2) GetProjects(activeOnly bool) ([]*Project, error) {
-	return nil, fmt.Errorf("not implemented")
+	resp, err := api.GetProjects(v2.config)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var projects []*Project
+	for _, p := range resp.Projects {
+		if activeOnly && projectStatusEnum(p.Status) != ProjectStatusActive {
+			continue
+		}
+		projects = append(projects, &Project{
+			ID:     p.Number,
+			Name:   p.Title,
+			Owner:  p.Owner.Username,
+			Status: projectStatusEnum(p.Status),
+		})
+	}
+
+	return projects, nil
 }
 
 // GetProject retrieves attributes of a project.
@@ -130,13 +166,88 @@ func (v2 V2) GetUser(uid string) (*User, error) {
 // GetUserByEmail gets the user identified by the given email address.
 func (v2 V2) GetUserByEmail(email string) (*User, error) {
 
-	return nil, fmt.Errorf("not implemented")
+	resp, err := api.GetUsers(v2.config)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, u := range resp.Users {
+		if u.Email == email {
+			return &User{
+				ID:         u.Username,
+				Firstname:  u.FirstName,
+				Middlename: u.MiddleName,
+				Lastname:   u.LastName,
+				Email:      u.Email,
+				Status:     userStatusEnum(u.Status),
+				Function:   userFunctionEnum(u.Function),
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("user not found, email: %s", email)
 }
 
 // GetLabBookings retrieves calendar bookings concerning the given `Lab` on a given `date` string.
 // The `date` string is in the format of `2020-04-22`.
+//
+// Note that `Lab` has a rough definition in PDB1.  For PDB2, we need to map `Lab` more explicitly
+// to resources via `Lab` -> modality -> resources.
 func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
-	bookings := make([]*LabBooking, 0)
+
+	start, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return nil, err
+	}
+
+	// retrieve resources of given modalities corresponding to the `lab` type
+	resources, err := api.GetLabs(
+		v2.config,
+		modality(lab),
+	)
+
+	log.Debugf("resources: %+v\n", resources)
+
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := api.GetBookingEvents(
+		v2.config,
+		resources,
+		start,
+		start.Add(24*time.Hour),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var bookings []*LabBooking
+	for _, b := range resp.BookingEvents {
+
+		if rsrc, err := api.LabResource(b.Resource); err == nil {
+			bookings = append(bookings, &LabBooking{
+				Project:      b.Booking.Project.Number,
+				ProjectTitle: b.Booking.Project.Title,
+				Operator: User{
+					ID:         b.Booking.Owner.Username,
+					Firstname:  b.Booking.Owner.FirstName,
+					Middlename: b.Booking.Owner.MiddleName,
+					Lastname:   b.Booking.Owner.LastName,
+					Email:      b.Booking.Owner.Email,
+					Status:     userStatusEnum(b.Booking.Owner.Status),
+					Function:   userFunctionEnum(b.Booking.Owner.Function),
+				},
+				Modality:  rsrc.Id, // used resource ID as the Modality for PDB1 compatibility
+				Subject:   b.Subject,
+				Session:   b.Session,
+				StartTime: b.Start.Local(),
+			})
+		}
+
+	}
 
 	return bookings, nil
 }

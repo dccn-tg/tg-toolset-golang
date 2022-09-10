@@ -1,9 +1,24 @@
+query getProjects {
+	projects {
+		number,
+		title,
+		owner {
+			username
+			displayName
+			email
+		},
+		status
+	}
+}
+
 query getProject($number: ID!) {
     project(number: $number) {
-        number,
+    number,
 	title,
 	owner {
 	    username
+		displayName
+		email
 	},
 	status
     }
@@ -19,6 +34,18 @@ query getProjectQuota($number: ID!) {
 	}
 }
 
+query getUsers {
+	users {
+		username,
+		firstName,
+		middleName,
+		lastName,
+		email,
+		status,
+		function,
+	}
+}
+
 query getUser($username: ID!) {
 	user(username: $username) {
 		username,
@@ -28,5 +55,58 @@ query getUser($username: ID!) {
 		email,
 		status,
 		function,
+	}
+}
+
+query getLabs {
+	labs {
+		id,
+		name,
+		bookable,
+		modality {
+			id,
+			name,
+			shortName
+		}
+	}
+}
+
+query getBookingEvents($start: DateTime, $end: DateTime, $resources: [ResourceID!]) {
+	bookingEvents(start: $start, end: $end, resources: $resources) {
+		start,
+		end,
+		status,
+		subject,
+		session,
+		booking {
+			project {
+				number
+				title
+			}
+			owner {
+				username
+				firstName
+				middleName
+				lastName
+				email
+				status
+				function
+			}
+		}
+		resource {
+			... on Lab {
+				id
+				name
+				modality {
+						id
+						name
+						shortName
+				}
+			}
+			... on Room {
+				id
+				number
+			}
+		}
 	}
 }

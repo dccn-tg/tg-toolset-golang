@@ -3,6 +3,7 @@ package pdb
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
@@ -35,6 +36,17 @@ func init() {
 	}
 }
 
+func TestGetProjects(t *testing.T) {
+	prjs, err := testPDB.GetProjects(true)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	for _, p := range prjs {
+		t.Logf("%+v", p)
+	}
+}
+
 func TestGetProject(t *testing.T) {
 	p, err := testPDB.GetProject("3010000.01")
 	if err != nil {
@@ -45,6 +57,14 @@ func TestGetProject(t *testing.T) {
 
 func TestGetUser(t *testing.T) {
 	u, err := testPDB.GetUser("username")
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	t.Logf("%+v", u)
+}
+
+func TestGetUserByEmail(t *testing.T) {
+	u, err := testPDB.GetUserByEmail("email")
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
@@ -67,6 +87,18 @@ func TestGetExperimentersForSharedAnatomicalMR(t *testing.T) {
 	t.Logf("%d experimenters: \n", len(users))
 	for _, u := range users {
 		t.Logf("%+v\n", u)
+	}
+}
+
+func TestGetLabBookings(t *testing.T) {
+
+	bookings, err := testPDB.GetLabBookings(MRI, time.Now().Format(time.RFC3339[:10]))
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	t.Logf("%d bookings: \n", len(bookings))
+	for _, b := range bookings {
+		t.Logf("%+v\n", b)
 	}
 }
 
