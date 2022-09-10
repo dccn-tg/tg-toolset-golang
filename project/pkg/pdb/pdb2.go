@@ -189,7 +189,7 @@ func (v2 V2) GetUserByEmail(email string) (*User, error) {
 	return nil, fmt.Errorf("user not found, email: %s", email)
 }
 
-// GetLabBookings retrieves calendar bookings concerning the given `Lab` on a given `date` string.
+// GetLabBookings retrieves TENTATIVE and CONFIRMED calendar bookings concerning the given `Lab` on a given `date` string.
 // The `date` string is in the format of `2020-04-22`.
 //
 // Note that `Lab` has a rough definition in PDB1.  For PDB2, we need to map `Lab` more explicitly
@@ -226,6 +226,10 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 
 	var bookings []*LabBooking
 	for _, b := range resp.BookingEvents {
+
+		if b.Status != api.BookingEventStatusConfirmed && b.Status != api.BookingEventStatusTentative {
+			continue
+		}
 
 		if rsrc, err := api.LabResource(b.Resource); err == nil {
 			bookings = append(bookings, &LabBooking{
