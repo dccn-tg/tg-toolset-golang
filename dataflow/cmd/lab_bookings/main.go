@@ -77,7 +77,7 @@ func main() {
 		} else {
 			name = fmt.Sprintf("%s %s", lb.Operator.Firstname, lb.Operator.Lastname)
 		}
-		fmt.Printf("%02d:%02d:%02d|%s|%9s-%s|%9s|%s\n",
+		fmt.Printf("%02d:%02d:%02d|%s|%9s-%1s|%10s|%s\n",
 			lb.StartTime.Hour(), lb.StartTime.Minute(), lb.StartTime.Second(),
 			lb.Project, lb.Subject,
 			lb.Session, lb.Modality, name)
