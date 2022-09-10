@@ -1,4 +1,4 @@
-package pdb
+package pdb2
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"time"
 
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	"github.com/hasura/go-graphql-client"
 	"golang.org/x/oauth2"
 )
 
@@ -31,43 +30,8 @@ type token struct {
 	mux         sync.Mutex
 }
 
-// query is a generic function for performing a GraphQL query.
-func query(authClientID, authClientSecret, authURL, apiURL string, qry interface{}, vars map[string]interface{}) error {
-	// Perform query
-	client, err := newClient(authClientID, authClientSecret, authURL, apiURL)
-	if err != nil {
-		return err
-	}
-	err = client.Query(context.Background(), qry, vars)
-	if err != nil {
-		return err
-	}
-
-	// Loop over qry and feed pendingRoles
-	log.Debugf("qry result: %+v", qry)
-
-	return nil
-}
-
-// mutate is a generic function for performing a GraphQL mutation.
-func mutate(authClientID, authClientSecret, authURL, apiURL string, mutation interface{}, vars map[string]interface{}) error {
-	// Perform mutation
-	client, err := newClient(authClientID, authClientSecret, authURL, apiURL)
-	if err != nil {
-		return err
-	}
-	err = client.Mutate(context.Background(), mutation, vars)
-	if err != nil {
-		return err
-	}
-
-	// Loop over qry and feed pendingRoles
-	log.Debugf("mutation result: %+v", mutation)
-	return nil
-}
-
-// newClient returns a GraphQL client with proper and valid authentication.
-func newClient(authClientID, authClientSecret, authURL, apiURL string) (*graphql.Client, error) {
+// oauth2HttpClient returns a HTTP client with a valid OAuth2 access token.
+func oauth2HttpClient(authClientID, authClientSecret, authURL string) (*http.Client, error) {
 
 	// retrieve API token
 	token, err := getAuthToken(authClientID, authClientSecret, authURL)
@@ -79,9 +43,8 @@ func newClient(authClientID, authClientSecret, authURL, apiURL string) (*graphql
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token.AccessToken},
 	)
-	httpClient := oauth2.NewClient(context.Background(), src)
 
-	return graphql.NewClient(apiURL, httpClient), nil
+	return oauth2.NewClient(context.Background(), src), nil
 }
 
 // getAuthToken returns a valid OAuth authentication token.

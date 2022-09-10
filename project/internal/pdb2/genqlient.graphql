@@ -1,0 +1,10 @@
+query getProject($number: ID!) {
+    project(number: $number) {
+        number,
+	title,
+	owner {
+	    username
+	},
+	status
+    }
+}

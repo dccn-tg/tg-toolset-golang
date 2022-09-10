@@ -1,0 +1,681 @@
+directive @cacheControl(
+  maxAge: Int
+  scope: CacheControlScope
+) on FIELD_DEFINITION | OBJECT | INTERFACE
+# A user's account information.
+type Account {
+  # The user who this account belongs to.
+  user: User!
+  active: Boolean!
+  # The date and time on which this account will expire.
+  expiresOn: DateTime
+  passwordExpiresOn: AccountPasswordExpiration!
+  primaryGroup: Group
+  # The user's home directory storage information if it exists.
+  homeStorage: Storage
+}
+
+type AccountPasswordExpiration {
+  expired: Boolean!
+  expiresOn: DateTime
+}
+
+type Booking {
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  title: String
+  rrule: String
+  owner: User!
+  project: Project
+  experiment: Experiment
+  events: [BookingEvent!]!
+}
+
+type BookingEvent {
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  booking: Booking!
+  resource: Resource!
+  start: DateTime!
+  end: DateTime!
+  status: BookingEventStatus!
+  statusUpdatedAt: DateTime!
+  subject: String
+  session: String
+  remark: String
+}
+
+enum BookingEventStatus {
+  Tentative
+  Confirmed
+  Rejected
+  CancelRequested
+  CanceledInTime
+  CanceledNotInTime
+}
+
+type Building {
+  id: ID!
+  name: String!
+  address: String!
+  rooms(floor: Int): [Room!]!
+  room(number: String!): Room
+  organizationalUnits: [OrganizationalUnit!]!
+}
+
+enum CacheControlScope {
+  PUBLIC
+  PRIVATE
+}
+
+# Information used to create an account.
+input CreateAccountInput {
+  primaryGroup: ID!
+  expiresOn: DateTime
+  homeQuotaGiB: Int
+}
+
+type CreateAccountOutput {
+  account: Account!
+  password: String!
+  storageTaskId: ID
+}
+
+input CreateBookingInput {
+  createdAt: DateTime
+  updatedAt: DateTime
+  title: String
+  owner: ID!
+  rrule: String
+  project: ID
+  experiment: ID
+  events: [CreateBookingInput_Event!]!
+}
+
+input CreateBookingInput_Event {
+  createdAt: DateTime
+  updatedAt: DateTime
+  start: DateTime!
+  end: DateTime!
+  resource: ResourceID!
+  status: BookingEventStatus
+  statusUpdatedAt: DateTime
+  subject: String
+  session: String
+  remark: String
+}
+
+# Information used to create a building.
+input CreateBuildingInput {
+  name: String!
+  address: String!
+}
+
+input CreateExperimentInput {
+  project: ID!
+  modality: ID!
+  numSubjects: Int!
+  numSessions: Int!
+  sessionDurationMinutes: Int!
+  withStructuralMri: Boolean
+  quotaRuleVersion: Int
+}
+
+input CreateFundingSourceInput {
+  name: String!
+}
+
+# Information used to create a group.
+input CreateGroupInput {
+  name: String!
+  status: GroupStatus
+}
+
+input CreateLabInput {
+  name: String!
+  room: ID!
+  modality: ID!
+  bookable: Boolean
+}
+
+input CreateOrganizationalUnitInput {
+  name: String!
+  description: String!
+}
+
+# Information used to create or update a user.
+input CreateOrUpdateUserInput {
+  firstName: String
+  middleName: String
+  lastName: String
+  overrideName: String
+  status: UserStatus
+  function: UserFunction
+  email: String
+  emailExt: String
+  phone: String
+  phoneExt: String
+  room: ID
+  groups: [ID!]
+  organizationalUnits: [ID!]
+}
+
+# Information used to create a project.
+input CreateProjectInput {
+  fundingSource: ID!
+  title: String!
+  status: ProjectStatus
+  owner: ID!
+  start: Date!
+  end: Date!
+  overrulingQuotaGiB: Int
+  members: [CreateProjectInput_Member!]
+  experiments: [CreateProjectInput_Experiment!]
+  experimenters: [ID!]
+  ethicalApprovals: [CreateProjectInput_EthicalApproval!]
+}
+
+input CreateProjectInput_EthicalApproval {
+  name: ID!
+  status: EthicalApprovalStatus
+}
+
+input CreateProjectInput_Experiment {
+  modality: ID!
+  numSubjects: Int!
+  numSessions: Int!
+  sessionDurationMinutes: Int!
+  withStructuralMri: Boolean
+  quotaRuleVersion: Int
+}
+
+input CreateProjectInput_Member {
+  username: ID!
+  role: ProjectMemberRole!
+}
+
+# Information used to create a project proposal.
+input CreateProjectProposalInput {
+  meetingDate: Date!
+}
+
+# Information used to create a room.
+input CreateRoomInput {
+  building: ID!
+  number: String!
+  name: String
+  floor: Int
+  phone: String
+  bookable: Boolean
+}
+
+scalar Date
+
+scalar DateTime
+
+type EthicalApproval {
+  name: String!
+  status: EthicalApprovalStatus!
+  project: Project!
+}
+
+enum EthicalApprovalStatus {
+  Approved
+  Pending
+}
+
+type Experiment {
+  id: ID!
+  project: Project!
+  numSubjects: Int!
+  numSessions: Int!
+  sessionDurationMinutes: Int!
+  modality: Modality!
+  sessionQuotaMiB: Int!
+  withStructuralMri: Boolean!
+  bookings: [Booking!]!
+}
+
+enum FilerTaskStatus {
+  Waiting
+  Processing
+  Failed
+  Succeeded
+  Canceled
+}
+
+type FilerTaskStatusOutput {
+  type: FilerTaskType!
+  id: ID!
+  status: FilerTaskStatus!
+  result: String
+  error: String
+}
+
+enum FilerTaskType {
+  User
+  Project
+}
+
+type FundingSource {
+  number: ID!
+  name: String!
+  projects: [Project!]!
+}
+
+# A logical group.
+type Group {
+  # The unique identifier of this group.
+  id: ID!
+  # The name of the group.
+  name: String!
+  # The group's status.
+  status: GroupStatus!
+  # The user's that belong to this group.
+  members: [GroupMember!]!
+  # The head of the group.
+  head: User
+  # The organizational units this group belongs to.
+  organizationalUnits: [OrganizationalUnit!]!
+}
+
+# A user's group membership.
+type GroupMember {
+  # The associated group.
+  group: Group!
+  # The associated user.
+  member: User!
+  # Whether this group is the user's primary group.
+  primary: Boolean!
+  # The user's role in this group.
+  role: GroupMemberRole!
+}
+
+# The role of a user in a group.
+enum GroupMemberRole {
+  # The head of a group.
+  Head
+  # Miscellaneous group member.
+  Member
+}
+
+# The status of a group.
+enum GroupStatus {
+  # The group is active.
+  Active
+  # The group is not active.
+  Inactive
+}
+
+type Lab {
+  id: ID!
+  name: String!
+  room: Room!
+  modality: Modality!
+  organizationalUnits: [OrganizationalUnit!]!
+  bookable: Boolean!
+}
+
+type Modality {
+  id: ID!
+  name: String!
+  shortName: String!
+  sessionQuotaMiB: Int!
+  legacy: Boolean!
+}
+
+type Mutation {
+  enableFilerProjectSynchronizer(enable: Boolean!): Boolean!
+  triggerFilerProjectSynchronizer: Boolean!
+  _purge: [String!]!
+  createAccount(username: ID!, data: CreateAccountInput!): CreateAccountOutput!
+  updateAccount(username: ID!, data: UpdateAccountInput!): UpdateAccountOutput!
+  createBooking(data: CreateBookingInput!): Booking!
+  deleteBooking(id: ID!): Booking!
+  updateBookingEvent(id: ID!, data: UpdateBookingEventInput!): BookingEvent!
+  deleteBookingEvent(id: ID!): BookingEvent!
+  createBuilding(id: ID!, data: CreateBuildingInput!): Building!
+  addEthicalApprovalToProject(
+    name: ID!
+    project: ID!
+    status: EthicalApprovalStatus
+  ): EthicalApproval! @deprecated(reason: "Use `createEthicalApproval`.")
+  createEthicalApproval(
+    name: ID!
+    project: ID!
+    status: EthicalApprovalStatus
+  ): EthicalApproval!
+  updateEthicalApprovalStatus(
+    name: ID!
+    project: ID!
+    status: EthicalApprovalStatus!
+  ): EthicalApproval!
+  deleteEthicalApproval(name: ID!, project: ID!): EthicalApproval!
+  createExperiment(data: CreateExperimentInput!): Experiment!
+  updateExperiment(id: ID!, data: UpdateExperimentInput!): Experiment!
+  deleteExperiment(id: ID!): Experiment!
+  createFundingSource(
+    number: ID!
+    data: CreateFundingSourceInput!
+  ): FundingSource!
+  updateFundingSource(
+    number: ID!
+    data: UpdateFundingSourceInput!
+  ): FundingSource!
+  deleteFundingSource(number: ID!): FundingSource!
+  createGroup(id: ID!, data: CreateGroupInput!): Group!
+  addOrUpdateGroupMember(
+    group: ID!
+    member: ID!
+    role: GroupMemberRole
+  ): GroupMember!
+  createLab(id: ID!, data: CreateLabInput!): Lab!
+  createOrganizationalUnit(
+    id: ID!
+    data: CreateOrganizationalUnitInput!
+  ): OrganizationalUnit!
+  addGroupToOrganizationalUnit(id: ID!, ou: ID!): Boolean!
+  addLabToOrganizationalUnit(id: ID!, ou: ID!): Boolean!
+  addUserToOrganizationalUnit(username: ID!, ou: ID!): Boolean!
+  createProject(number: ID, data: CreateProjectInput!): Project!
+  updateProject(number: ID!, data: UpdateProjectInput!): Project!
+  addExperimenterToProject(project: ID!, username: ID!): Boolean!
+  removeExperimentFromproject(username: ID!): Boolean!
+  addOrUpdateProjectMember(
+    project: ID!
+    username: ID!
+    role: ProjectMemberRole!
+  ): ProjectMember!
+  removeProjectMember(project: ID!, username: ID!): ProjectMember
+  createProjectProposal(
+    number: ID!
+    data: CreateProjectProposalInput!
+  ): ProjectProposal!
+  createRoom(id: ID!, data: CreateRoomInput!): Room!
+  createUser(username: ID!, data: CreateOrUpdateUserInput): User!
+  updateUser(username: ID!, data: CreateOrUpdateUserInput!): User!
+}
+
+# An organizational unit (OU), e.g. an organization or department.
+type OrganizationalUnit {
+  # The unique identifier for this OU.
+  id: ID!
+  # The display name for this OU.
+  name: String!
+  # Short text describing this OU.
+  description: String!
+  # Buildings that belong to this OU.
+  buildings: [Building!]!
+  labs: [Lab!]!
+  # Groups that belong to this OU.
+  groups: [Group!]!
+  # Rooms that belong to this OU.
+  rooms: [Room!]!
+  # Users that belong to this OU.
+  users: [User!]!
+}
+
+enum PendingProjectMemberUpdate {
+  ChangeToManager
+  ChangeToContributor
+  ChangeToViewer
+  Remove
+}
+
+# A research project.
+type Project {
+  # The unique project number of this project.
+  number: ID!
+  # Creation time of this record.
+  createdAt: DateTime!
+  # Time this record was last updated.
+  updatedAt: DateTime!
+  fundingSource: FundingSource!
+  # The title of the project.
+  title: String!
+  # The project's current status.
+  status: ProjectStatus!
+  # The user who owns the project.
+  owner: User!
+  # The date on which the project starts.
+  start: Date!
+  # The date on which the project ends.
+  end: Date!
+  # Information about the project's storage usage if available.
+  storage: Storage
+  overrulingQuotaGiB: Int
+  overrulingQuotaUpdatedAt: DateTime
+  # The list of project members.
+  members: [ProjectMember!]!
+  # The associated project proposal if it exists.
+  proposal: ProjectProposal
+  experiments: [Experiment!]!
+  experimenters: [User!]!
+  ethicalApprovals: [EthicalApproval!]!
+  bookings: [Booking!]!
+}
+
+# A member of project.
+type ProjectMember {
+  # The associated project.
+  project: Project!
+  # The associated user.
+  member: User!
+  # The member's role in the project.
+  role: ProjectMemberRole
+  pendingUpdate: PendingProjectMemberUpdate
+}
+
+# The role and access rights of a project member.
+enum ProjectMemberRole {
+  # A manager has full access to the project and its storage including the right to add and remove other members.
+  Manager
+  # A contributor has read and write access to the project's storage.
+  Contributor
+  # A viewer has read-only access to the project's storage.
+  Viewer
+  # A project member with the traverse role only has access to specific subfolder(s) of the project.
+  Traverse
+}
+
+# A project proposal.
+type ProjectProposal {
+  # The associated project.
+  project: Project!
+  # The date of the project proposal meeting.
+  meetingDate: Date
+}
+
+# The status of a project.
+enum ProjectStatus {
+  # The project is active.
+  Active
+  # The project is inactive.
+  Inactive
+}
+
+type Query {
+  bookingEvents(
+    start: DateTime
+    end: DateTime
+    resources: [ResourceID!]
+    owner: ID
+    project: ID
+  ): [BookingEvent!]!
+  # Retrieve a building given its unique id or name.
+  building(id: ID, name: String): Building
+  buildings: [Building!]!
+  experiment(id: ID!): Experiment
+  fundingSource(number: ID!): FundingSource
+  fundingSources: [FundingSource!]!
+  # The list of all groups.
+  groups(status: GroupStatus): [Group!]!
+  # Retrieve a group given its unique identifier or name.
+  group(id: ID, name: String): Group
+  labs: [Lab!]!
+  lab(id: ID!): Lab
+  modalities: [Modality!]!
+  organizationalUnits: [OrganizationalUnit!]!
+  # The list of all projects.
+  projects: [Project!]!
+  # Retrieve a project given its unique number.
+  project(number: ID!): Project
+  projectsOwnedBy(username: ID!): [Project!]!
+  projectsExperimenterOf(username: ID!): [Project!]!
+  bookableResources: [Resource!]!
+  filerTaskStatus(type: FilerTaskType!, id: ID!): FilerTaskStatusOutput
+  # The list of all users.
+  users: [User!]!
+  # Retrieve a user given their unique username.
+  user(username: ID!): User
+}
+
+union Resource = Lab | Room
+input ResourceID {
+  type: ResourceType!
+  id: ID!
+}
+
+enum ResourceType {
+  Lab
+  Room
+  Item
+}
+
+type Room {
+  id: ID!
+  number: String!
+  name: String
+  phone: String
+  floor: Int
+  bookable: Boolean!
+  users: [User!]!
+  building: Building!
+  organizationalUnits: [OrganizationalUnit!]!
+}
+
+type Storage {
+  # The total amount of storage available.
+  quotaGiB: Int!
+  # The amount of storage space in use.
+  usageMiB: Int!
+}
+
+input UpdateAccountInput {
+  active: Boolean
+  expiresOn: DateTime
+  resetPassword: Boolean
+  homeQuotaGiB: Int
+}
+
+type UpdateAccountOutput {
+  account: Account!
+  password: String
+  storageTaskId: ID
+}
+
+input UpdateBookingEventInput {
+  start: DateTime
+  end: DateTime
+  resource: ResourceID
+  status: BookingEventStatus
+  subject: String
+  session: String
+  remark: String
+}
+
+input UpdateExperimentInput {
+  project: ID
+  modality: ID
+  numSubjects: Int
+  numSessions: Int
+  sessionDurationMinutes: Int
+  withStructuralMri: Boolean
+  quotaRuleVersion: Int
+}
+
+input UpdateFundingSourceInput {
+  name: String
+}
+
+# Information used to update a project.
+input UpdateProjectInput {
+  title: String
+  status: ProjectStatus
+  owner: ID
+  start: Date
+  end: Date
+  overrulingQuotaGiB: Int
+  experimenters: [ID!]
+}
+
+# The `Upload` scalar type represents a file upload.
+scalar Upload
+
+# A user in the Project Database. This user does not have to be associated with an account.
+type User {
+  # The unique name of the user. Corresponds to the account name in Active Directory if present.
+  username: ID!
+  # Creation time of this record.
+  createdAt: DateTime!
+  # Time this record was last updated.
+  updatedAt: DateTime!
+  # The user's first name.
+  firstName: String
+  # The user's middle name.
+  middleName: String
+  # The user's last name.
+  lastName: String
+  # A custom name that overrides the user's full name for displaying.
+  overrideName: String
+  # The computed user's display name. The value of this field is:
+  # - the value of the `overrideName` field if present
+  # - a combination of the `firstName`, `middleName` and `lastName` fields if present
+  # - the value of the `username` field in all other cases
+  displayName: String!
+  # The user's primary role within the institute.
+  function: UserFunction!
+  # The user's private business e-mail address.
+  email: String
+  # The user's public e-mail address.
+  emailExt: String
+  # The user's internal phone number.
+  phone: String
+  # The user's external phone number.
+  phoneExt: String
+  # The room this user resides in.
+  room: Room
+  # The administrative status associated with this user.
+  status: UserStatus!
+  # The Active Directory account information if an account is present.
+  account: Account
+  # The groups this user belongs to.
+  groups: [GroupMember!]!
+  # The projects this user is a member of.
+  projects: [ProjectMember!]!
+  # The organizational units this user belongs to.
+  organizationalUnits: [OrganizationalUnit!]!
+}
+
+enum UserFunction {
+  Trainee
+  PhdStudent
+  PostdoctoralResearcher
+  PrincipalInvestigator
+  ResearchStaff
+  ResearchAssistant
+  OtherResearcher
+  StaffScientist
+  SupportingStaff
+  Unknown
+}
+
+enum UserStatus {
+  Tentative
+  CheckedIn
+  CheckedOut
+  CheckedOutExtended
+}
+

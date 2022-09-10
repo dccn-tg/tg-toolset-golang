@@ -3,11 +3,13 @@ package pdb
 import (
 	"fmt"
 
-	"github.com/shurcooL/graphql"
+	"github.com/hasura/go-graphql-client"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
+
+	api "github.com/Donders-Institute/tg-toolset-golang/project/internal/pdb2"
 )
 
 var (
@@ -26,9 +28,9 @@ var (
 	}
 )
 
-// toProjectStatus converts the project status string in the GraphQL data
+// projectStatusEnum converts the project status string returned from the core-api
 // to `ProjectStatus` enum.
-func toProjectStatus(status graphql.String) ProjectStatus {
+func projectStatusEnum(status api.ProjectStatus) ProjectStatus {
 	switch status {
 	case "Active":
 		return ProjectStatusActive
@@ -91,39 +93,17 @@ func (v2 V2) GetProjects(activeOnly bool) ([]*Project, error) {
 // GetProject retrieves attributes of a project.
 func (v2 V2) GetProject(projectID string) (*Project, error) {
 
-	// GraphQL query construction
-	var qry struct {
-		Project struct {
-			Number graphql.String
-			Title  graphql.String
-			Owner  struct {
-				Username graphql.String
-			}
-			Status graphql.String
-		} `graphql:"project(number: $id)"`
-	}
+	resp, err := api.GetProject(v2.config, projectID)
 
-	vars := map[string]interface{}{
-		"id": graphql.ID(projectID),
-	}
-
-	if err := query(
-		v2.config.AuthClientID,
-		v2.config.AuthClientSecret,
-		v2.config.AuthURL,
-		v2.config.CoreAPIURL,
-		&qry, vars); err != nil {
-		log.Errorf("fail to query project: %s", err)
+	if err != nil {
 		return nil, err
 	}
 
-	log.Infof("%+v\n", qry)
-
 	return &Project{
-		ID:     string(qry.Project.Number),
-		Name:   string(qry.Project.Title),
-		Owner:  string(qry.Project.Owner.Username),
-		Status: toProjectStatus(qry.Project.Status),
+		ID:     resp.Project.Number,
+		Name:   resp.Project.Title,
+		Owner:  resp.Project.Owner.Username,
+		Status: projectStatusEnum(resp.Project.Status),
 	}, nil
 }
 
@@ -164,7 +144,7 @@ func getProjectStorageResource(conf config.CoreAPIConfiguration, projectID strin
 	// GraphQL query construction
 	var qry struct {
 		Project struct {
-			QuotaGb graphql.Int
+			QuotaGb int
 		} `graphql:"project(number: $id)"`
 	}
 
@@ -201,12 +181,12 @@ func getProjectPendingRoles(conf config.CoreAPIConfiguration) (map[string][]Memb
 	var qry struct {
 		PendingProjectMemberChanges []struct {
 			Project struct {
-				Number graphql.String
+				Number string
 			}
 			Member struct {
-				Username graphql.String
+				Username string
 			}
-			Action graphql.String
+			Action string
 		} `graphql:"pendingProjectMemberChanges"`
 	}
 
@@ -222,7 +202,7 @@ func getProjectPendingRoles(conf config.CoreAPIConfiguration) (map[string][]Memb
 
 	for _, rc := range qry.PendingProjectMemberChanges {
 
-		pid := string(rc.Project.Number)
+		pid := rc.Project.Number
 
 		if _, ok := pendingRoles[pid]; !ok {
 			pendingRoles[pid] = make([]Member, 0)
@@ -240,7 +220,7 @@ func getProjectPendingRoles(conf config.CoreAPIConfiguration) (map[string][]Memb
 // delProjectPendingRoles removes project pending role changes from the project database..
 func delProjectPendingRoles(conf config.CoreAPIConfiguration, pendingRoles map[string][]Member) error {
 	var mut struct {
-		TotalRemoved graphql.Int `graphql:"removePendingProjectMemberChanges(changes: $changes)"`
+		TotalRemoved int `graphql:"removePendingProjectMemberChanges(changes: $changes)"`
 	}
 
 	// RemovePendingProjectMemberChangeInput is a JSON (Un)marshable data object that aligns to
