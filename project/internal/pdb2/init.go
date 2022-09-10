@@ -26,3 +26,5 @@ func GetProject(config config.CoreAPIConfiguration, number string) (*getProjectR
 		number,
 	)
 }
+
+//go:generate go run github.com/Khan/genqlient genqlient.yaml

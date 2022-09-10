@@ -16,6 +16,9 @@ VERSION ?= "master"
 
 all: build
 
+graphql_gen:
+	GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go generate github.com/Donders-Institute/tg-toolset-golang/project/internal/pdb2
+
 build_metrics:
 	GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go install github.com/Donders-Institute/tg-toolset-golang/metrics/...
 
