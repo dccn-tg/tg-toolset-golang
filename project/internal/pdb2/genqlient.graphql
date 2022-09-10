@@ -8,3 +8,25 @@ query getProject($number: ID!) {
 	status
     }
 }
+
+query getProjectQuota($number: ID!) {
+	project(number: $number) {
+		overrulingQuotaGiB
+		storage {
+			quotaGiB
+			usageMiB
+		}
+	}
+}
+
+query getUser($username: ID!) {
+	user(username: $username) {
+		username,
+		firstName,
+		middleName,
+		lastName,
+		email,
+		status,
+		function,
+	}
+}

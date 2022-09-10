@@ -27,4 +27,24 @@ func GetProject(config config.CoreAPIConfiguration, number string) (*getProjectR
 	)
 }
 
+// GetUser queries PDB2 to get the metadata of a user referred by `username`, using GraphQL.
+func GetUser(config config.CoreAPIConfiguration, username string) (*getUserResponse, error) {
+
+	c1, err := oauth2HttpClient(
+		config.AuthClientID,
+		config.AuthClientSecret,
+		config.AuthURL,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return getUser(
+		context.Background(),
+		graphql.NewClient(config.CoreAPIURL, c1),
+		username,
+	)
+}
+
 //go:generate go run github.com/Khan/genqlient genqlient.yaml

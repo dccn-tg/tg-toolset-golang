@@ -104,12 +104,20 @@ const (
 	UserFunctionResearchSupport
 	// UserFunctionOtherSupport for other support staffs.
 	UserFunctionOtherSupport
+	// UserFunctionSupportingStaff for supporting staffs.
+	UserFunctionSupportingStaff
 	// UserFunctionResearchStaff for research staffs.
 	UserFunctionResearchStaff
+	// UserFunctionResearchAssistant for research assistant.
+	UserFunctionResearchAssistant
+	// UserFunctionStaffScientist for ataff scientist.
+	UserFunctionStaffScientist
 	// UserFunctionOtherResearcher for general researchers.
 	UserFunctionOtherResearcher
 	// UserFunctionSeniorResearcher for senior researchers.
 	UserFunctionSeniorResearcher
+	// UserFunctionUnknown for unknown/unexpected user function.
+	UserFunctionUnknown
 )
 
 // UserStatus defines PDB user status.

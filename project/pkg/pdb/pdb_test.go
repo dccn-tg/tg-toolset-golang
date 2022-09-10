@@ -43,6 +43,14 @@ func TestGetProject(t *testing.T) {
 	t.Logf("%+v", p)
 }
 
+func TestGetUser(t *testing.T) {
+	u, err := testPDB.GetUser("username")
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	t.Logf("%+v", u)
+}
+
 func TestGetProjectPendingActions(t *testing.T) {
 	acts, err := testPDB.GetProjectPendingActions()
 	if err != nil {

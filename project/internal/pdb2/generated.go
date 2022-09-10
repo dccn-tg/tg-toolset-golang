@@ -15,6 +15,30 @@ const (
 	ProjectStatusInactive ProjectStatus = "Inactive"
 )
 
+type UserFunction string
+
+const (
+	UserFunctionTrainee                UserFunction = "Trainee"
+	UserFunctionPhdstudent             UserFunction = "PhdStudent"
+	UserFunctionPostdoctoralresearcher UserFunction = "PostdoctoralResearcher"
+	UserFunctionPrincipalinvestigator  UserFunction = "PrincipalInvestigator"
+	UserFunctionResearchstaff          UserFunction = "ResearchStaff"
+	UserFunctionResearchassistant      UserFunction = "ResearchAssistant"
+	UserFunctionOtherresearcher        UserFunction = "OtherResearcher"
+	UserFunctionStaffscientist         UserFunction = "StaffScientist"
+	UserFunctionSupportingstaff        UserFunction = "SupportingStaff"
+	UserFunctionUnknown                UserFunction = "Unknown"
+)
+
+type UserStatus string
+
+const (
+	UserStatusTentative          UserStatus = "Tentative"
+	UserStatusCheckedin          UserStatus = "CheckedIn"
+	UserStatusCheckedout         UserStatus = "CheckedOut"
+	UserStatusCheckedoutextended UserStatus = "CheckedOutExtended"
+)
+
 // __getProjectInput is used internally by genqlient
 type __getProjectInput struct {
 	Number string `json:"number"`
@@ -22,6 +46,22 @@ type __getProjectInput struct {
 
 // GetNumber returns __getProjectInput.Number, and is useful for accessing the field via an interface.
 func (v *__getProjectInput) GetNumber() string { return v.Number }
+
+// __getProjectQuotaInput is used internally by genqlient
+type __getProjectQuotaInput struct {
+	Number string `json:"number"`
+}
+
+// GetNumber returns __getProjectQuotaInput.Number, and is useful for accessing the field via an interface.
+func (v *__getProjectQuotaInput) GetNumber() string { return v.Number }
+
+// __getUserInput is used internally by genqlient
+type __getUserInput struct {
+	Username string `json:"username"`
+}
+
+// GetUsername returns __getUserInput.Username, and is useful for accessing the field via an interface.
+func (v *__getUserInput) GetUsername() string { return v.Username }
 
 // getProjectProject includes the requested fields of the GraphQL type Project.
 type getProjectProject struct {
@@ -51,6 +91,38 @@ type getProjectProjectOwnerUser struct {
 // GetUsername returns getProjectProjectOwnerUser.Username, and is useful for accessing the field via an interface.
 func (v *getProjectProjectOwnerUser) GetUsername() string { return v.Username }
 
+// getProjectQuotaProject includes the requested fields of the GraphQL type Project.
+type getProjectQuotaProject struct {
+	OverrulingQuotaGiB int                           `json:"overrulingQuotaGiB"`
+	Storage            getProjectQuotaProjectStorage `json:"storage"`
+}
+
+// GetOverrulingQuotaGiB returns getProjectQuotaProject.OverrulingQuotaGiB, and is useful for accessing the field via an interface.
+func (v *getProjectQuotaProject) GetOverrulingQuotaGiB() int { return v.OverrulingQuotaGiB }
+
+// GetStorage returns getProjectQuotaProject.Storage, and is useful for accessing the field via an interface.
+func (v *getProjectQuotaProject) GetStorage() getProjectQuotaProjectStorage { return v.Storage }
+
+// getProjectQuotaProjectStorage includes the requested fields of the GraphQL type Storage.
+type getProjectQuotaProjectStorage struct {
+	QuotaGiB int `json:"quotaGiB"`
+	UsageMiB int `json:"usageMiB"`
+}
+
+// GetQuotaGiB returns getProjectQuotaProjectStorage.QuotaGiB, and is useful for accessing the field via an interface.
+func (v *getProjectQuotaProjectStorage) GetQuotaGiB() int { return v.QuotaGiB }
+
+// GetUsageMiB returns getProjectQuotaProjectStorage.UsageMiB, and is useful for accessing the field via an interface.
+func (v *getProjectQuotaProjectStorage) GetUsageMiB() int { return v.UsageMiB }
+
+// getProjectQuotaResponse is returned by getProjectQuota on success.
+type getProjectQuotaResponse struct {
+	Project getProjectQuotaProject `json:"project"`
+}
+
+// GetProject returns getProjectQuotaResponse.Project, and is useful for accessing the field via an interface.
+func (v *getProjectQuotaResponse) GetProject() getProjectQuotaProject { return v.Project }
+
 // getProjectResponse is returned by getProject on success.
 type getProjectResponse struct {
 	Project getProjectProject `json:"project"`
@@ -58,6 +130,46 @@ type getProjectResponse struct {
 
 // GetProject returns getProjectResponse.Project, and is useful for accessing the field via an interface.
 func (v *getProjectResponse) GetProject() getProjectProject { return v.Project }
+
+// getUserResponse is returned by getUser on success.
+type getUserResponse struct {
+	User getUserUser `json:"user"`
+}
+
+// GetUser returns getUserResponse.User, and is useful for accessing the field via an interface.
+func (v *getUserResponse) GetUser() getUserUser { return v.User }
+
+// getUserUser includes the requested fields of the GraphQL type User.
+type getUserUser struct {
+	Username   string       `json:"username"`
+	FirstName  string       `json:"firstName"`
+	MiddleName string       `json:"middleName"`
+	LastName   string       `json:"lastName"`
+	Email      string       `json:"email"`
+	Status     UserStatus   `json:"status"`
+	Function   UserFunction `json:"function"`
+}
+
+// GetUsername returns getUserUser.Username, and is useful for accessing the field via an interface.
+func (v *getUserUser) GetUsername() string { return v.Username }
+
+// GetFirstName returns getUserUser.FirstName, and is useful for accessing the field via an interface.
+func (v *getUserUser) GetFirstName() string { return v.FirstName }
+
+// GetMiddleName returns getUserUser.MiddleName, and is useful for accessing the field via an interface.
+func (v *getUserUser) GetMiddleName() string { return v.MiddleName }
+
+// GetLastName returns getUserUser.LastName, and is useful for accessing the field via an interface.
+func (v *getUserUser) GetLastName() string { return v.LastName }
+
+// GetEmail returns getUserUser.Email, and is useful for accessing the field via an interface.
+func (v *getUserUser) GetEmail() string { return v.Email }
+
+// GetStatus returns getUserUser.Status, and is useful for accessing the field via an interface.
+func (v *getUserUser) GetStatus() UserStatus { return v.Status }
+
+// GetFunction returns getUserUser.Function, and is useful for accessing the field via an interface.
+func (v *getUserUser) GetFunction() UserFunction { return v.Function }
 
 func getProject(
 	ctx context.Context,
@@ -85,6 +197,80 @@ query getProject ($number: ID!) {
 	var err error
 
 	var data getProjectResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func getProjectQuota(
+	ctx context.Context,
+	client graphql.Client,
+	number string,
+) (*getProjectQuotaResponse, error) {
+	req := &graphql.Request{
+		OpName: "getProjectQuota",
+		Query: `
+query getProjectQuota ($number: ID!) {
+	project(number: $number) {
+		overrulingQuotaGiB
+		storage {
+			quotaGiB
+			usageMiB
+		}
+	}
+}
+`,
+		Variables: &__getProjectQuotaInput{
+			Number: number,
+		},
+	}
+	var err error
+
+	var data getProjectQuotaResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func getUser(
+	ctx context.Context,
+	client graphql.Client,
+	username string,
+) (*getUserResponse, error) {
+	req := &graphql.Request{
+		OpName: "getUser",
+		Query: `
+query getUser ($username: ID!) {
+	user(username: $username) {
+		username
+		firstName
+		middleName
+		lastName
+		email
+		status
+		function
+	}
+}
+`,
+		Variables: &__getUserInput{
+			Username: username,
+		},
+	}
+	var err error
+
+	var data getUserResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
