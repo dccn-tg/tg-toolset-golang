@@ -356,7 +356,7 @@ func (v1 V1) GetUserByEmail(email string) (*User, error) {
 	return selectUser(db, "email = ?", email)
 }
 
-// GetLabBookings retrieves calendar bookings concerning the given `Lab` on a given `date` string.
+// GetLabBookings retrieves TENTATIVE and CONFIRMED calendar bookings concerning the given `Lab` on a given `date` string.
 // The `date` string is in the format of `2020-04-22`.
 func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 	bookings := make([]*LabBooking, 0)
