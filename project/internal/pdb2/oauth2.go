@@ -72,7 +72,7 @@ func getAuthToken(clientID, clientSecret, authURL string) (*token, error) {
 	v.Set("client_id", clientID)
 	v.Set("client_secret", clientSecret)
 	v.Set("grant_type", "client_credentials")
-	v.Set("scope", "urn:dccn:pdb:core-api:query urn:dccn:pdb:core-api:mutate")
+	v.Set("scope", "urn:dccn:pdb:core-api:query")
 
 	c := newHTTPSClient(5*time.Second, false)
 	res, err := c.PostForm(href, v)
