@@ -129,9 +129,6 @@ Use the argument to specify one or multiple available scanners: %s
 
 			// internal format of session id
 			var _sessId string
-			if booking.Session == "" { // force _sessId to "1" if not set
-				_sessId = "1"
-			}
 			if _id, err := strconv.Atoi(booking.Session); err != nil {
 				_sessId = booking.Session
 			} else {

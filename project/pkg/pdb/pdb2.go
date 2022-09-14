@@ -232,6 +232,18 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 		}
 
 		if rsrc, err := api.LabResource(b.Resource); err == nil {
+
+			// fill empty subject and session ids for PDB1 compatibility
+			_subId := b.Subject
+			if _subId == "" {
+				_subId = "Undefined"
+			}
+
+			_sesId := b.Session
+			if _sesId == "" {
+				_sesId = "1"
+			}
+
 			bookings = append(bookings, &LabBooking{
 				Project:      b.Booking.Project.Number,
 				ProjectTitle: b.Booking.Project.Title,
@@ -245,8 +257,8 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 					Function:   userFunctionEnum(b.Booking.Owner.Function),
 				},
 				Modality:  rsrc.Id, // used resource ID as the Modality for PDB1 compatibility
-				Subject:   b.Subject,
-				Session:   b.Session,
+				Subject:   _subId,
+				Session:   _sesId,
 				StartTime: b.Start.Local(),
 			})
 		}
