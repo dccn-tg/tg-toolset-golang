@@ -112,8 +112,9 @@ Use the argument to specify one or multiple available scanners: %s
 
 		// internal function to check if a booking is valid for creating worklist
 		validBooking := func(booking *ipdb.LabBooking) bool {
+			_scanner := strings.ToLower(booking.Modality)
 			for _, s := range args {
-				if s == booking.Modality {
+				if _scanner == s {
 					return true
 				}
 			}
@@ -128,6 +129,9 @@ Use the argument to specify one or multiple available scanners: %s
 
 			// internal format of session id
 			var _sessId string
+			if booking.Session == "" { // force _sessId to "1" if not set
+				_sessId = "1"
+			}
 			if _id, err := strconv.Atoi(booking.Session); err != nil {
 				_sessId = booking.Session
 			} else {
