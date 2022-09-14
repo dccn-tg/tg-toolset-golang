@@ -3,6 +3,7 @@ package pdb
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
@@ -256,7 +257,7 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 					Status:     userStatusEnum(b.Booking.Owner.Status),
 					Function:   userFunctionEnum(b.Booking.Owner.Function),
 				},
-				Modality:  rsrc.Id, // used resource ID as the Modality for PDB1 compatibility
+				Modality:  strings.ToUpper(rsrc.Id), // used resource ID as the Modality for PDB1 compatibility
 				Subject:   _subId,
 				Session:   _sesId,
 				StartTime: b.Start.Local(),
