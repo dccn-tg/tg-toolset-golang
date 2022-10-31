@@ -28,3 +28,29 @@ func TestIsValidPrinciple(t *testing.T) {
 		t.Errorf("principle not valid: %s", ace.Principle)
 	}
 }
+
+func TestAceToContributor(t *testing.T) {
+	aceStr := "A:fd:kelvdun@dccn.nl:rwadxtTnNcy"
+	ace, _ := parseAce(aceStr)
+
+	// do it multiple times to make sure there is no ambiguity
+	for i := 1; i <= 10; i++ {
+		r := ace.ToRole()
+		if r != Contributor {
+			t.Errorf("iteration %d: Expected role %s but got %s", i, Contributor, r)
+		}
+	}
+}
+
+func TestAceToWriter(t *testing.T) {
+	aceStr := "A:fd:kelvdun@dccn.nl:rwaxnNtTcy"
+	ace, _ := parseAce(aceStr)
+
+	// do it multiple times to make sure there is no ambiguity
+	for i := 1; i <= 10; i++ {
+		r := ace.ToRole()
+		if r != Writer {
+			t.Errorf("iteration %d: Expected role %s but got %s", i, Writer, r)
+		}
+	}
+}

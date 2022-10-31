@@ -114,6 +114,13 @@ func (ace ACE) ToRole() Role {
 	var role Role
 	lm := 99
 	for r, m := range aceMask {
+
+		// Extend the ace mask of the `Writer` with extra `+` to avoid
+		// ambiguity in resolving file's ACE into `Contributor` and `Writer`
+		if r == Writer {
+			m = fmt.Sprintf("%s+", m)
+		}
+
 		if _lm := len(ustr.StringXOR(ace.Mask, m)); _lm < lm {
 			lm = _lm
 			role = r
