@@ -92,7 +92,7 @@ func (ace *ACE) IsValidPrinciple() bool {
 		return true
 	}
 
-	if strings.Index(ace.Flag, "g") >= 0 {
+	if strings.Contains(ace.Flag, "g") {
 		// look up group
 		_, err := user.LookupGroup(uname)
 		return err == nil
@@ -168,13 +168,13 @@ func setACL(path string, aces []ACE, recursive bool, followLink bool) error {
 
 		// ignore System principles
 		if ace.IsSysPermission() {
-			acess = append(acess, fmt.Sprintf("%s", ace))
+			acess = append(acess, ace.String())
 			continue
 		}
 
 		// ignore invalid principles
 		if ace.IsValidPrinciple() {
-			naces = append(naces, fmt.Sprintf("%s", ace))
+			naces = append(naces, ace.String())
 		} else {
 			log.Warnf("invalid user or group: %s %s", ace.Principle, path)
 		}
@@ -202,7 +202,7 @@ func setACL(path string, aces []ACE, recursive bool, followLink bool) error {
 
 // getPrincipleName transforms the ACE's Principle into the valid system user or group name.
 func getPrincipleName(ace ACE) string {
-	if strings.Index(ace.Flag, "g") >= 0 {
+	if strings.Contains(ace.Flag, "g") {
 		return "g:" + strings.TrimSuffix(ace.Principle, "@"+userDomain)
 	}
 	return strings.TrimSuffix(ace.Principle, "@"+userDomain)

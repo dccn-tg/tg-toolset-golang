@@ -78,7 +78,7 @@ func (FreeNasRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
 		r := ace.ToRole()
 		// exclude the same user appearing twice: one for file and one for directory
 		uname := getPrincipleName(ace)
-		if strings.Index(strings.Join(roles[r], ","), uname) >= 0 {
+		if strings.Contains(strings.Join(roles[r], ","), uname) {
 			continue
 		}
 		roles[r] = append(roles[r], getPrincipleName(ace))
@@ -88,7 +88,6 @@ func (FreeNasRoler) GetRoles(pinfo ufp.FilePathMode) (RoleMap, error) {
 
 // DelRoles implements interface for removing users from the specified roles on a path
 // mounting a FreeNAS NFSv4 volume.
-//
 func (FreeNasRoler) DelRoles(pinfo ufp.FilePathMode, roles RoleMap,
 	recursive bool, followLink bool) (RoleMap, error) {
 

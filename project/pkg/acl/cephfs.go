@@ -199,7 +199,6 @@ func (r CephFsRoler) setManagers(path string, users []string) {
 		log.Errorf("cannot set manager list of %s: %s", path, err)
 	}
 
-	return
 }
 
 // delManagers removes list of `users` from the `user.project.managers` file
@@ -221,9 +220,7 @@ func (r CephFsRoler) delManagers(path string, users []string) {
 
 	// construct a new list of managers to be applied on this path
 	for _, u := range users {
-		if _, ok := m[u]; ok { // user to be deleted is found in the current manager list
-			delete(m, u)
-		}
+		delete(m, u)
 	}
 	nm := make([]string, 0, len(m))
 	for u := range m {
@@ -251,8 +248,6 @@ func (r CephFsRoler) delManagers(path string, users []string) {
 
 	// delete managers from the parent.
 	r.delManagers(path, users)
-
-	return
 }
 
 // PosixACE is the posix-style access-control entry

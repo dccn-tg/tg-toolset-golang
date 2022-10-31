@@ -113,7 +113,7 @@ func (r *Runner) SetRoles() (exitcode int, err error) {
 		}
 		ulist := "," + strings.Join(rolesNow[r], ",") + ","
 		for _, u := range users {
-			if strings.Index(ulist, ","+u+",") < 0 {
+			if !strings.Contains(ulist, ","+u+",") {
 				n++
 				break
 			}
