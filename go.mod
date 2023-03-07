@@ -16,8 +16,7 @@ require (
 	github.com/stretchr/testify v1.7.1 // indirect
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.17.0
-	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+	golang.org/x/crypto v0.1.0
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
