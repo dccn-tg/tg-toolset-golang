@@ -514,7 +514,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 	var uratio int
 
-	if info.Storage.QuotaGb == 0 {
+	if info.Storage.QuotaGb == 0 && info.Storage.UsageMb > 0 {
 		uratio = 100
 	} else {
 		uratio = 100 * info.Storage.UsageMb / (info.Storage.QuotaGb << 10)

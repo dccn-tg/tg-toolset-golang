@@ -29,10 +29,14 @@ func (m *Mailer) AlertProjectStorageOoq(recipient pdb.User, storageInfo pdb.Stor
 	name := fmt.Sprintf("%s %s", recipient.Firstname, recipient.Lastname)
 
 	var uratio int
-	if storageInfo.QuotaGb == 0 {
+	if storageInfo.QuotaGb == 0 && storageInfo.UsageMb > 0 {
 		uratio = 100
 	} else {
 		uratio = 100 * storageInfo.UsageMb / (storageInfo.QuotaGb << 10)
+	}
+
+	if uratio > 100 {
+		uratio = 100
 	}
 
 	subject := fmt.Sprintf("Warning, storage of your project %s is %d%% full", pid, uratio)
