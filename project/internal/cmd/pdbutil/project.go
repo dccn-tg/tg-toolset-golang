@@ -149,7 +149,8 @@ var projectCreateCmd = &cobra.Command{
 
 // temporary function to combine checks on multiple `cobra.PositionalArgs`.
 // NOTE: this will be replaced by an official cobra function `MatchAll` in the future.
-//       see https://github.com/spf13/cobra/issues/745
+//
+//	see https://github.com/spf13/cobra/issues/745
 func matchAll(checks ...cobra.PositionalArgs) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		for _, check := range checks {
@@ -511,7 +512,13 @@ var projectAlertOoqSend = &cobra.Command{
 // If the alert sending is ignored by design, the returned error is `OpsIgnored`.
 func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OoqLastAlert, error) {
 
-	uratio := 100 * info.Storage.UsageMb / (info.Storage.QuotaGb << 10)
+	var uratio int
+
+	if info.Storage.QuotaGb == 0 {
+		uratio = 100
+	} else {
+		uratio = 100 * info.Storage.UsageMb / (info.Storage.QuotaGb << 10)
+	}
 
 	// check if the usage is above the alert threshold.
 	duration := ooqAlertFrequency(uratio)
