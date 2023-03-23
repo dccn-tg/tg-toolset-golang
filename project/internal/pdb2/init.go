@@ -110,7 +110,7 @@ func GetUser(config config.CoreAPIConfiguration, username string) (*getUserRespo
 }
 
 // GetLabs queries PDB2 to get the IDs of certain lab modality.
-func GetLabs(config config.CoreAPIConfiguration, modality *regexp.Regexp) ([]string, error) {
+func GetLabs(config config.CoreAPIConfiguration, modality *regexp.Regexp, bookableOnly bool) ([]string, error) {
 
 	c1, err := oauth2HttpClient(
 		config.AuthClientID,
@@ -133,8 +133,15 @@ func GetLabs(config config.CoreAPIConfiguration, modality *regexp.Regexp) ([]str
 
 	labs := []string{}
 	for _, l := range resp.Labs {
-		if modality.Match([]byte(l.Modality.Id)) {
-			labs = append(labs, l.Id)
+
+		if bookableOnly && !l.Bookable {
+			continue
+		}
+
+		for _, m := range l.Modalities {
+			if modality.Match([]byte(m.Id)) {
+				labs = append(labs, l.Id)
+			}
 		}
 	}
 

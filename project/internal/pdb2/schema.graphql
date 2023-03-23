@@ -136,7 +136,7 @@ input CreateGroupInput {
 input CreateLabInput {
   name: String!
   room: ID!
-  modality: ID!
+  modalities: [ID!]
   bookable: Boolean
 }
 
@@ -157,6 +157,7 @@ input CreateOrUpdateUserInput {
   emailExt: String
   phone: String
   phoneExt: String
+  billingCategory: ID
   room: ID
   groups: [ID!]
   organizationalUnits: [ID!]
@@ -209,6 +210,11 @@ input CreateRoomInput {
   floor: Int
   phone: String
   bookable: Boolean
+}
+
+input CreateUserBillingCategoryInput {
+  name: String!
+  description: String
 }
 
 scalar Date
@@ -313,7 +319,7 @@ type Lab {
   id: ID!
   name: String!
   room: Room!
-  modality: Modality!
+  modalities: [Modality!]!
   organizationalUnits: [OrganizationalUnit!]!
   bookable: Boolean!
 }
@@ -322,8 +328,9 @@ type Modality {
   id: ID!
   name: String!
   shortName: String!
-  sessionQuotaMiB: Int!
+  sessionQuotaMiB(version: Int): Int!
   legacy: Boolean!
+  experiments: [Experiment!]!
 }
 
 type Mutation {
@@ -372,17 +379,22 @@ type Mutation {
     role: GroupMemberRole
   ): GroupMember!
   createLab(id: ID!, data: CreateLabInput!): Lab!
+  addModalityToLab(id: ID!, lab: ID!): Boolean!
   createOrganizationalUnit(
     id: ID!
     data: CreateOrganizationalUnitInput!
   ): OrganizationalUnit!
   addGroupToOrganizationalUnit(id: ID!, ou: ID!): Boolean!
   addLabToOrganizationalUnit(id: ID!, ou: ID!): Boolean!
-  addUserToOrganizationalUnit(username: ID!, ou: ID!): Boolean!
+  addOrUpdateOrganizationalUnitMember(
+    username: ID!
+    ou: ID!
+    primary: Boolean
+  ): OrganizationalUnitMember!
   createProject(number: ID, data: CreateProjectInput!): Project!
   updateProject(number: ID!, data: UpdateProjectInput!): Project!
   addExperimenterToProject(project: ID!, username: ID!): Boolean!
-  removeExperimentFromproject(username: ID!): Boolean!
+  removeExperimentFromProject(username: ID!): Boolean!
   addOrUpdateProjectMember(
     project: ID!
     username: ID!
@@ -396,6 +408,14 @@ type Mutation {
   createRoom(id: ID!, data: CreateRoomInput!): Room!
   createUser(username: ID!, data: CreateOrUpdateUserInput): User!
   updateUser(username: ID!, data: CreateOrUpdateUserInput!): User!
+  createUserBillingCategory(
+    data: CreateUserBillingCategoryInput!
+  ): UserBillingCategory!
+  updateUserBillingCategory(
+    id: ID!
+    data: UpdateUserBillingCategoryInput!
+  ): UserBillingCategory!
+  deleteUserBillingCategory(id: ID!): UserBillingCategory!
 }
 
 # An organizational unit (OU), e.g. an organization or department.
@@ -414,7 +434,13 @@ type OrganizationalUnit {
   # Rooms that belong to this OU.
   rooms: [Room!]!
   # Users that belong to this OU.
-  users: [User!]!
+  users: [OrganizationalUnitMember!]!
+}
+
+type OrganizationalUnitMember {
+  organizationalUnit: OrganizationalUnit!
+  user: User!
+  primary: Boolean!
 }
 
 enum PendingProjectMemberUpdate {
@@ -516,6 +542,7 @@ type Query {
   group(id: ID, name: String): Group
   labs: [Lab!]!
   lab(id: ID!): Lab
+  modality(id: ID!): Modality
   modalities: [Modality!]!
   organizationalUnits: [OrganizationalUnit!]!
   # The list of all projects.
@@ -527,9 +554,10 @@ type Query {
   bookableResources: [Resource!]!
   filerTaskStatus(type: FilerTaskType!, id: ID!): FilerTaskStatusOutput
   # The list of all users.
-  users: [User!]!
+  users(status: [UserStatus!]): [User!]!
   # Retrieve a user given their unique username.
   user(username: ID!): User
+  userBillingCategories: [UserBillingCategory!]!
 }
 
 union Resource = Lab | Room
@@ -611,6 +639,11 @@ input UpdateProjectInput {
   experimenters: [ID!]
 }
 
+input UpdateUserBillingCategoryInput {
+  name: String
+  description: String
+}
+
 # The `Upload` scalar type represents a file upload.
 scalar Upload
 
@@ -649,6 +682,7 @@ type User {
   room: Room
   # The administrative status associated with this user.
   status: UserStatus!
+  billingCategory: UserBillingCategory!
   # The Active Directory account information if an account is present.
   account: Account
   # The groups this user belongs to.
@@ -656,7 +690,14 @@ type User {
   # The projects this user is a member of.
   projects: [ProjectMember!]!
   # The organizational units this user belongs to.
-  organizationalUnits: [OrganizationalUnit!]!
+  organizationalUnits: [OrganizationalUnitMember!]!
+}
+
+type UserBillingCategory {
+  id: ID!
+  name: String!
+  description: String
+  users: [User!]!
 }
 
 enum UserFunction {

@@ -63,7 +63,7 @@ query getLabs {
 		id,
 		name,
 		bookable,
-		modality {
+		modalities {
 			id,
 			name,
 			shortName
@@ -97,7 +97,7 @@ query getBookingEvents($start: DateTime, $end: DateTime, $resources: [ResourceID
 			... on Lab {
 				id
 				name
-				modality {
+				modalities {
 						id
 						name
 						shortName

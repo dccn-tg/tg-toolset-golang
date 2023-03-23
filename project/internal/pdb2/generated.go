@@ -376,10 +376,10 @@ func __marshalgetBookingEventsBookingEventsBookingEventResource(v *getBookingEve
 
 // getBookingEventsBookingEventsBookingEventResourceLab includes the requested fields of the GraphQL type Lab.
 type getBookingEventsBookingEventsBookingEventResourceLab struct {
-	Typename string                                                       `json:"__typename"`
-	Id       string                                                       `json:"id"`
-	Name     string                                                       `json:"name"`
-	Modality getBookingEventsBookingEventsBookingEventResourceLabModality `json:"modality"`
+	Typename   string                                                                   `json:"__typename"`
+	Id         string                                                                   `json:"id"`
+	Name       string                                                                   `json:"name"`
+	Modalities []getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality `json:"modalities"`
 }
 
 // GetTypename returns getBookingEventsBookingEventsBookingEventResourceLab.Typename, and is useful for accessing the field via an interface.
@@ -393,28 +393,30 @@ func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetId() string { 
 // GetName returns getBookingEventsBookingEventsBookingEventResourceLab.Name, and is useful for accessing the field via an interface.
 func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetName() string { return v.Name }
 
-// GetModality returns getBookingEventsBookingEventsBookingEventResourceLab.Modality, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetModality() getBookingEventsBookingEventsBookingEventResourceLabModality {
-	return v.Modality
+// GetModalities returns getBookingEventsBookingEventsBookingEventResourceLab.Modalities, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetModalities() []getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality {
+	return v.Modalities
 }
 
-// getBookingEventsBookingEventsBookingEventResourceLabModality includes the requested fields of the GraphQL type Modality.
-type getBookingEventsBookingEventsBookingEventResourceLabModality struct {
+// getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality includes the requested fields of the GraphQL type Modality.
+type getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality struct {
 	Id        string `json:"id"`
 	Name      string `json:"name"`
 	ShortName string `json:"shortName"`
 }
 
-// GetId returns getBookingEventsBookingEventsBookingEventResourceLabModality.Id, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventResourceLabModality) GetId() string { return v.Id }
+// GetId returns getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality.Id, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality) GetId() string {
+	return v.Id
+}
 
-// GetName returns getBookingEventsBookingEventsBookingEventResourceLabModality.Name, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventResourceLabModality) GetName() string {
+// GetName returns getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality.Name, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality) GetName() string {
 	return v.Name
 }
 
-// GetShortName returns getBookingEventsBookingEventsBookingEventResourceLabModality.ShortName, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventResourceLabModality) GetShortName() string {
+// GetShortName returns getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality.ShortName, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality) GetShortName() string {
 	return v.ShortName
 }
 
@@ -448,10 +450,10 @@ func (v *getBookingEventsResponse) GetBookingEvents() []getBookingEventsBookingE
 
 // getLabsLabsLab includes the requested fields of the GraphQL type Lab.
 type getLabsLabsLab struct {
-	Id       string                 `json:"id"`
-	Name     string                 `json:"name"`
-	Bookable bool                   `json:"bookable"`
-	Modality getLabsLabsLabModality `json:"modality"`
+	Id         string                             `json:"id"`
+	Name       string                             `json:"name"`
+	Bookable   bool                               `json:"bookable"`
+	Modalities []getLabsLabsLabModalitiesModality `json:"modalities"`
 }
 
 // GetId returns getLabsLabsLab.Id, and is useful for accessing the field via an interface.
@@ -463,24 +465,24 @@ func (v *getLabsLabsLab) GetName() string { return v.Name }
 // GetBookable returns getLabsLabsLab.Bookable, and is useful for accessing the field via an interface.
 func (v *getLabsLabsLab) GetBookable() bool { return v.Bookable }
 
-// GetModality returns getLabsLabsLab.Modality, and is useful for accessing the field via an interface.
-func (v *getLabsLabsLab) GetModality() getLabsLabsLabModality { return v.Modality }
+// GetModalities returns getLabsLabsLab.Modalities, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLab) GetModalities() []getLabsLabsLabModalitiesModality { return v.Modalities }
 
-// getLabsLabsLabModality includes the requested fields of the GraphQL type Modality.
-type getLabsLabsLabModality struct {
+// getLabsLabsLabModalitiesModality includes the requested fields of the GraphQL type Modality.
+type getLabsLabsLabModalitiesModality struct {
 	Id        string `json:"id"`
 	Name      string `json:"name"`
 	ShortName string `json:"shortName"`
 }
 
-// GetId returns getLabsLabsLabModality.Id, and is useful for accessing the field via an interface.
-func (v *getLabsLabsLabModality) GetId() string { return v.Id }
+// GetId returns getLabsLabsLabModalitiesModality.Id, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLabModalitiesModality) GetId() string { return v.Id }
 
-// GetName returns getLabsLabsLabModality.Name, and is useful for accessing the field via an interface.
-func (v *getLabsLabsLabModality) GetName() string { return v.Name }
+// GetName returns getLabsLabsLabModalitiesModality.Name, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLabModalitiesModality) GetName() string { return v.Name }
 
-// GetShortName returns getLabsLabsLabModality.ShortName, and is useful for accessing the field via an interface.
-func (v *getLabsLabsLabModality) GetShortName() string { return v.ShortName }
+// GetShortName returns getLabsLabsLabModalitiesModality.ShortName, and is useful for accessing the field via an interface.
+func (v *getLabsLabsLabModalitiesModality) GetShortName() string { return v.ShortName }
 
 // getLabsResponse is returned by getLabs on success.
 type getLabsResponse struct {
@@ -727,7 +729,7 @@ query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ResourceI
 			... on Lab {
 				id
 				name
-				modality {
+				modalities {
 					id
 					name
 					shortName
@@ -773,7 +775,7 @@ query getLabs {
 		id
 		name
 		bookable
-		modality {
+		modalities {
 			id
 			name
 			shortName
