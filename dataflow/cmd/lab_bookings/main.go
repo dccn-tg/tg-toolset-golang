@@ -63,12 +63,12 @@ func main() {
 		log.Fatalf("cannot load configuration file: %s", err)
 	}
 
-	pdb, err := pdb.New(conf.PDB)
+	ipdb, err := pdb.New(conf.PDB)
 	if err != nil {
 		log.Fatalf("cannot connect to the project database: %s", err)
 	}
 
-	bookings, err := pdb.GetLabBookings(optsLabMod, *optsDate)
+	bookings, err := ipdb.GetLabBookings(optsLabMod, *optsDate)
 	if err != nil {
 		log.Errorf("cannot retrieve labbookings, reason: %+v", err)
 		os.Exit(100)
