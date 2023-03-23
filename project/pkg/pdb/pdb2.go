@@ -206,6 +206,7 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 	resources, err := api.GetLabs(
 		v2.config,
 		modality(lab),
+		true,
 	)
 
 	log.Debugf("resources: %+v\n", resources)
@@ -261,6 +262,8 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 				Subject:   _subId,
 				Session:   _sesId,
 				StartTime: b.Start.Local(),
+				EndTime:   b.End.Local(),
+				Status:    string(b.Status),
 			})
 		}
 

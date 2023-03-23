@@ -148,6 +148,8 @@ func (l *Lab) Set(v string) error {
 		*l = MEG
 	case "MRI":
 		*l = MRI
+	case "ALL":
+		*l = ALL
 	default:
 		return fmt.Errorf("unknown modality: %s", v)
 	}
@@ -165,6 +167,8 @@ func (l *Lab) String() string {
 		s = "MEG"
 	case MRI:
 		s = "MRI"
+	case ALL:
+		s = "ALL"
 	}
 	return s
 }
@@ -179,6 +183,8 @@ func (l *Lab) GetDescriptionRegex() (*regexp.Regexp, error) {
 		return regexp.MustCompile(".*(MEG).*"), nil
 	case MRI:
 		return regexp.MustCompile(".*(SKYRA|PRISMA(FIT){0,1}).*"), nil
+	case ALL:
+		return regexp.MustCompile(".*"), nil
 	default:
 		return nil, fmt.Errorf("unknown modality: %s", l.String())
 	}
@@ -191,6 +197,8 @@ const (
 	MEG
 	// MRI is a lab modality of the MRI labs.
 	MRI
+	// all lab modalities
+	ALL
 )
 
 // LabBooking defines the data structure of a booking event in the lab calendar.
@@ -207,8 +215,12 @@ type LabBooking struct {
 	Operator User `json:"operator"`
 	// ProjectTitle is the title of the project.
 	ProjectTitle string `json:"project_title"`
+	// Status is the status of the booking.
+	Status string `json:"status"`
 	// StartTime is the time the experiment starts.
 	StartTime time.Time `json:"start_time"`
+	// EndTime is the time the experiment ends.
+	EndTime time.Time `json:"end_time"`
 }
 
 // OpsIgnored is a specific error referring ignored operation.

@@ -369,7 +369,7 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 
 	query := `
 	SELECT
-		a.id,a.project_id,a.subj_ses,a.start_time,a.user_id,b.projectName,c.description
+		a.id,a.project_id,a.subj_ses,a.start_time,a.stop_time,a.status,a.user_id,b.projectName,c.description
 	FROM
 		calendar_items_new AS a,
 		projects AS b,
@@ -397,7 +397,7 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 	}
 
 	// regular expression for spliting subject and session identifiers
-	subjsesSpliter := regexp.MustCompile("\\s*(-)\\s*")
+	subjsesSpliter := regexp.MustCompile(`\s*(-)\s*`)
 
 	// loop over results of the query
 	for rows.Next() {
@@ -406,12 +406,14 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 			pid     string
 			subjSes string
 			stime   []uint8
+			etime   []uint8
+			status  string
 			uid     string
 			pname   string
 			labdesc string
 		)
 
-		err := rows.Scan(&id, &pid, &subjSes, &stime, &uid, &pname, &labdesc)
+		err := rows.Scan(&id, &pid, &subjSes, &stime, &etime, &status, &uid, &pname, &labdesc)
 		if err != nil {
 			return nil, err
 		}
@@ -431,10 +433,17 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 				sess = dss[1]
 			}
 
-			tstr := fmt.Sprintf("%sT%s", date, stime)
-			t, err := time.Parse(time.RFC3339[:19], tstr)
+			ststr := fmt.Sprintf("%sT%s", date, stime)
+			st, err := time.Parse(time.RFC3339[:19], ststr)
 			if err != nil {
-				log.Errorf("cannot parse time: %s", tstr)
+				log.Errorf("cannot parse start time: %s", ststr)
+				continue
+			}
+
+			etstr := fmt.Sprintf("%sT%s", date, etime)
+			et, err := time.Parse(time.RFC3339[:19], etstr)
+			if err != nil {
+				log.Errorf("cannot parse end time: %s", etstr)
 				continue
 			}
 
@@ -451,7 +460,9 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 				Modality:     m[1],
 				ProjectTitle: pname,
 				Operator:     *pdbUser,
-				StartTime:    t,
+				StartTime:    st,
+				EndTime:      et,
+				Status:       status,
 			})
 		}
 	}
