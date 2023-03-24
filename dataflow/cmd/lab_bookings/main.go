@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
@@ -81,6 +82,10 @@ func main() {
 			fmt.Println(string(out))
 		}
 	} else {
+		// sort bookings by start time
+		sort.Slice(bookings, func(i, j int) bool {
+			return bookings[i].StartTime.Before(bookings[j].StartTime)
+		})
 		for _, lb := range bookings {
 			var name string
 			if lb.Operator.Middlename != "" {
