@@ -190,17 +190,41 @@ func (v2 V2) GetUserByEmail(email string) (*User, error) {
 	return nil, fmt.Errorf("user not found, email: %s", email)
 }
 
-// GetLabBookings retrieves TENTATIVE and CONFIRMED calendar bookings concerning the given `Lab` on a given `date` string.
-// The `date` string is in the format of `2020-04-22`.
-//
-// Note that `Lab` has a rough definition in PDB1.  For PDB2, we need to map `Lab` more explicitly
-// to resources via `Lab` -> modality -> resources.
-func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
+// GetLabBookingsForWorklist retrieves TENTATIVE and CONFIRMED calendar bookings concerning
+// the given `Lab` on a given `date` string. The `date` string is in the format of `2020-04-22`.
+func (v2 V2) GetLabBookingsForWorklist(lab Lab, date string) ([]*LabBooking, error) {
+	loc, _ := time.LoadLocation("Local")
 
-	start, err := time.Parse("2006-01-02", date)
+	dtime, err := time.ParseInLocation("2006-01-02", date, loc)
 	if err != nil {
 		return nil, err
 	}
+
+	return v2.getLabBookingEvents(lab, dtime, dtime, true)
+}
+
+// GetLabBookingsForReport retrieves calendar bookings in all status concerning the given `Lab`
+// in a date range of `[from, to]`. The `from` and `to` date strings are in the format of `2020-04-22`.
+func (v2 V2) GetLabBookingsForReport(lab Lab, from, to string) ([]*LabBooking, error) {
+
+	loc, _ := time.LoadLocation("Local")
+
+	dfrom, err := time.ParseInLocation("2006-01-02", from, loc)
+	if err != nil {
+		return nil, err
+	}
+	dto, err := time.ParseInLocation("2006-01-02", to, loc)
+	if err != nil {
+		return nil, err
+	}
+
+	return v2.getLabBookingEvents(lab, dfrom, dto, false)
+}
+
+// getLabBookingEvents retrieves booking events from the core-api.
+func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) ([]*LabBooking, error) {
+
+	log.Debugf("time range: %s ~ %s", from.String(), to.String())
 
 	// retrieve resources of given modalities corresponding to the `lab` type
 	resources, err := api.GetLabs(
@@ -218,8 +242,8 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 	resp, err := api.GetBookingEvents(
 		v2.config,
 		resources,
-		start,
-		start.Add(24*time.Hour),
+		from,
+		to.Add(24*time.Hour),
 	)
 
 	if err != nil {
@@ -229,8 +253,10 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 	var bookings []*LabBooking
 	for _, b := range resp.BookingEvents {
 
-		if b.Status != api.BookingEventStatusConfirmed && b.Status != api.BookingEventStatusTentative {
-			continue
+		if forWorklist {
+			if b.Status != api.BookingEventStatusConfirmed && b.Status != api.BookingEventStatusTentative {
+				continue
+			}
 		}
 
 		if rsrc, err := api.LabResource(b.Resource); err == nil {
@@ -246,9 +272,19 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 				_sesId = "1"
 			}
 
+			// get the name of the primary group, default is an empty string
+			pg := ""
+			for i, g := range b.Booking.Project.Owner.Groups {
+				if i == 0 || g.Primary {
+					pg = g.Group.Name
+				}
+			}
+
 			bookings = append(bookings, &LabBooking{
-				Project:      b.Booking.Project.Number,
-				ProjectTitle: b.Booking.Project.Title,
+				Project:       b.Booking.Project.Number,
+				ProjectTitle:  b.Booking.Project.Title,
+				Group:         pg,
+				FundingSource: b.Booking.Project.FundingSource.Number,
 				Operator: User{
 					ID:         b.Booking.Owner.Username,
 					Firstname:  b.Booking.Owner.FirstName,
@@ -258,7 +294,8 @@ func (v2 V2) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 					Status:     userStatusEnum(b.Booking.Owner.Status),
 					Function:   userFunctionEnum(b.Booking.Owner.Function),
 				},
-				Modality:  strings.ToUpper(rsrc.Id), // used resource ID as the Modality for PDB1 compatibility
+				Lab:       strings.ToUpper(rsrc.Id), // used resource ID as the Lab for PDB1 compatibility
+				Modality:  b.Booking.Experiment.Modality.ShortName,
 				Subject:   _subId,
 				Session:   _sesId,
 				StartTime: b.Start.Local(),

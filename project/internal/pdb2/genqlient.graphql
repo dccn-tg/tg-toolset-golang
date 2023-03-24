@@ -79,9 +79,29 @@ query getBookingEvents($start: DateTime, $end: DateTime, $resources: [ResourceID
 		subject,
 		session,
 		booking {
+			experiment {
+				modality {
+					id
+					name
+					shortName
+				}
+			}
 			project {
 				number
 				title
+				fundingSource {
+					number
+				}
+				owner {
+					username
+					groups {
+						group {
+							id
+							name
+						}
+						primary
+					}
+				}
 			}
 			owner {
 				username
@@ -97,11 +117,6 @@ query getBookingEvents($start: DateTime, $end: DateTime, $resources: [ResourceID
 			... on Lab {
 				id
 				name
-				modalities {
-						id
-						name
-						shortName
-				}
 			}
 			... on Room {
 				id

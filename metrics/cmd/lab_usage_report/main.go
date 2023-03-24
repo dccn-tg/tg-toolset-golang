@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
@@ -36,9 +37,11 @@ var (
 
 func init() {
 
+	yesterday := time.Now().Add(-24 * time.Hour).Format(time.RFC3339[:10])
+
 	// CLI options
-	optsDateFrom = flag.String("f", time.Now().Format(time.RFC3339[:10]), "set the `from` of the date range")
-	optsDateTo = flag.String("t", time.Now().Format(time.RFC3339[:10]), "set the `to` of the date range")
+	optsDateFrom = flag.String("f", yesterday, "set the from `date` of the date range")
+	optsDateTo = flag.String("t", yesterday, "set the to `date` of the date range")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
 	optsConfig = flag.String("c", "config.yml", "set the `path` of the configuration file")
 	optsOpenTSDBPushURL = flag.String("l", "http://opentsdb:4242/api/put", "set OpenTSDB `endpoint` for pushing metrics")
@@ -88,7 +91,7 @@ func main() {
 		log.Fatalf("cannot connect to the project database: %s", err)
 	}
 
-	bookings, err := ipdb.GetLabBookings(pdb.ALL, *optsDateFrom)
+	bookings, err := ipdb.GetLabBookingsForReport(pdb.ALL, *optsDateFrom, *optsDateTo)
 	if err != nil {
 		log.Errorf("cannot retrieve labbookings, reason: %+v", err)
 		os.Exit(100)
@@ -99,11 +102,14 @@ func main() {
 		dpoints = append(dpoints, MetricOpenTSDB{
 			Metric:    "lab.usage",
 			Timestamp: booking.StartTime.Unix(),
-			Value:     math.Round(booking.EndTime.Sub(booking.StartTime).Hours()*10) / 10,
+			Value:     math.Round(booking.EndTime.Sub(booking.StartTime).Hours()*100) / 100,
 			Tags: map[string]string{
 				"status":  booking.Status,
 				"project": booking.Project,
-				"lab":     booking.Modality,
+				"lab":     labelize(booking.Lab),
+				"bill":    labelize(booking.Modality),
+				"group":   labelize(booking.Group),
+				"source":  booking.FundingSource,
 			},
 		})
 	}
@@ -116,4 +122,18 @@ func main() {
 
 	// TODO: derive `lab.free` metrics
 
+}
+
+func labelize(t string) string {
+
+	s := t
+
+	s = strings.ReplaceAll(s, `  `, ` `)
+	s = strings.ReplaceAll(s, ` `, `_`)
+	s = strings.ReplaceAll(s, `(`, `/`)
+	s = strings.ReplaceAll(s, `)`, `/`)
+	s = strings.ReplaceAll(s, `,`, `.`)
+	s = strings.ReplaceAll(s, `&`, `and`)
+
+	return s
 }

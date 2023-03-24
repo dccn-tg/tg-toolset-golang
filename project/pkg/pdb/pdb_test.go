@@ -92,7 +92,7 @@ func TestGetExperimentersForSharedAnatomicalMR(t *testing.T) {
 
 func TestGetLabBookings(t *testing.T) {
 
-	bookings, err := testPDB.GetLabBookings(MRI, time.Now().Format(time.RFC3339[:10]))
+	bookings, err := testPDB.GetLabBookingsForWorklist(MRI, time.Now().Format(time.RFC3339[:10]))
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}

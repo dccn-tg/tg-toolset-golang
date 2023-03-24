@@ -68,7 +68,7 @@ func main() {
 		log.Fatalf("cannot connect to the project database: %s", err)
 	}
 
-	bookings, err := ipdb.GetLabBookings(optsLabMod, *optsDate)
+	bookings, err := ipdb.GetLabBookingsForWorklist(optsLabMod, *optsDate)
 	if err != nil {
 		log.Errorf("cannot retrieve labbookings, reason: %+v", err)
 		os.Exit(100)
@@ -89,12 +89,29 @@ func main() {
 				name = fmt.Sprintf("%s %s", lb.Operator.Firstname, lb.Operator.Lastname)
 			}
 
+			// handle the situation that start date is not the date provided by `-d` option.
+			h := lb.StartTime.Hour()
+			m := lb.StartTime.Minute()
+			s := lb.StartTime.Second()
+			dtime, _ := time.Parse("2006-01-02", *optsDate)
+			if !dateEqual(lb.StartTime, dtime) {
+				h = 0
+				m = 0
+				s = 0
+			}
+
 			fmt.Printf("%02d:%02d:%02d|%s|%9s-%1s|%10s|%s\n",
-				lb.StartTime.Hour(), lb.StartTime.Minute(), lb.StartTime.Second(),
+				h, m, s,
 				lb.Project, lb.Subject,
-				lb.Session, lb.Modality, name)
+				lb.Session, lb.Lab, name)
 		}
 	}
 
 	os.Exit(0)
+}
+
+func dateEqual(date1, date2 time.Time) bool {
+	y1, m1, d1 := date1.Date()
+	y2, m2, d2 := date2.Date()
+	return y1 == y2 && m1 == m2 && d1 == d2
 }

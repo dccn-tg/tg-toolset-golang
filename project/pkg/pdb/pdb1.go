@@ -356,9 +356,9 @@ func (v1 V1) GetUserByEmail(email string) (*User, error) {
 	return selectUser(db, "email = ?", email)
 }
 
-// GetLabBookings retrieves TENTATIVE and CONFIRMED calendar bookings concerning the given `Lab` on a given `date` string.
+// GetLabBookingsForWorklist retrieves TENTATIVE and CONFIRMED calendar bookings concerning the given `Lab` on a given `date` string.
 // The `date` string is in the format of `2020-04-22`.
-func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
+func (v1 V1) GetLabBookingsForWorklist(lab Lab, date string) ([]*LabBooking, error) {
 	bookings := make([]*LabBooking, 0)
 
 	db, err := newClientMySQL(v1.config)
@@ -457,7 +457,7 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 				Project:      pid,
 				Subject:      subj,
 				Session:      sess,
-				Modality:     m[1],
+				Lab:          m[1],
 				ProjectTitle: pname,
 				Operator:     *pdbUser,
 				StartTime:    st,
@@ -471,6 +471,10 @@ func (v1 V1) GetLabBookings(lab Lab, date string) ([]*LabBooking, error) {
 		return nil, err
 	}
 	return bookings, nil
+}
+
+func (v1 V1) GetLabBookingsForReport(lab Lab, from, to string) ([]*LabBooking, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 // GetExperimentersForSharedAnatomicalMR retrieves a list of experimenters that are

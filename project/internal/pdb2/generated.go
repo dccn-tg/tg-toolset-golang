@@ -231,8 +231,14 @@ func (v *getBookingEventsBookingEventsBookingEvent) __premarshalJSON() (*__prema
 
 // getBookingEventsBookingEventsBookingEventBooking includes the requested fields of the GraphQL type Booking.
 type getBookingEventsBookingEventsBookingEventBooking struct {
-	Project getBookingEventsBookingEventsBookingEventBookingProject   `json:"project"`
-	Owner   getBookingEventsBookingEventsBookingEventBookingOwnerUser `json:"owner"`
+	Experiment getBookingEventsBookingEventsBookingEventBookingExperiment `json:"experiment"`
+	Project    getBookingEventsBookingEventsBookingEventBookingProject    `json:"project"`
+	Owner      getBookingEventsBookingEventsBookingEventBookingOwnerUser  `json:"owner"`
+}
+
+// GetExperiment returns getBookingEventsBookingEventsBookingEventBooking.Experiment, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBooking) GetExperiment() getBookingEventsBookingEventsBookingEventBookingExperiment {
+	return v.Experiment
 }
 
 // GetProject returns getBookingEventsBookingEventsBookingEventBooking.Project, and is useful for accessing the field via an interface.
@@ -243,6 +249,38 @@ func (v *getBookingEventsBookingEventsBookingEventBooking) GetProject() getBooki
 // GetOwner returns getBookingEventsBookingEventsBookingEventBooking.Owner, and is useful for accessing the field via an interface.
 func (v *getBookingEventsBookingEventsBookingEventBooking) GetOwner() getBookingEventsBookingEventsBookingEventBookingOwnerUser {
 	return v.Owner
+}
+
+// getBookingEventsBookingEventsBookingEventBookingExperiment includes the requested fields of the GraphQL type Experiment.
+type getBookingEventsBookingEventsBookingEventBookingExperiment struct {
+	Modality getBookingEventsBookingEventsBookingEventBookingExperimentModality `json:"modality"`
+}
+
+// GetModality returns getBookingEventsBookingEventsBookingEventBookingExperiment.Modality, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingExperiment) GetModality() getBookingEventsBookingEventsBookingEventBookingExperimentModality {
+	return v.Modality
+}
+
+// getBookingEventsBookingEventsBookingEventBookingExperimentModality includes the requested fields of the GraphQL type Modality.
+type getBookingEventsBookingEventsBookingEventBookingExperimentModality struct {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	ShortName string `json:"shortName"`
+}
+
+// GetId returns getBookingEventsBookingEventsBookingEventBookingExperimentModality.Id, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingExperimentModality) GetId() string {
+	return v.Id
+}
+
+// GetName returns getBookingEventsBookingEventsBookingEventBookingExperimentModality.Name, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingExperimentModality) GetName() string {
+	return v.Name
+}
+
+// GetShortName returns getBookingEventsBookingEventsBookingEventBookingExperimentModality.ShortName, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingExperimentModality) GetShortName() string {
+	return v.ShortName
 }
 
 // getBookingEventsBookingEventsBookingEventBookingOwnerUser includes the requested fields of the GraphQL type User.
@@ -291,8 +329,10 @@ func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetFunction(
 
 // getBookingEventsBookingEventsBookingEventBookingProject includes the requested fields of the GraphQL type Project.
 type getBookingEventsBookingEventsBookingEventBookingProject struct {
-	Number string `json:"number"`
-	Title  string `json:"title"`
+	Number        string                                                               `json:"number"`
+	Title         string                                                               `json:"title"`
+	FundingSource getBookingEventsBookingEventsBookingEventBookingProjectFundingSource `json:"fundingSource"`
+	Owner         getBookingEventsBookingEventsBookingEventBookingProjectOwnerUser     `json:"owner"`
 }
 
 // GetNumber returns getBookingEventsBookingEventsBookingEventBookingProject.Number, and is useful for accessing the field via an interface.
@@ -300,6 +340,74 @@ func (v *getBookingEventsBookingEventsBookingEventBookingProject) GetNumber() st
 
 // GetTitle returns getBookingEventsBookingEventsBookingEventBookingProject.Title, and is useful for accessing the field via an interface.
 func (v *getBookingEventsBookingEventsBookingEventBookingProject) GetTitle() string { return v.Title }
+
+// GetFundingSource returns getBookingEventsBookingEventsBookingEventBookingProject.FundingSource, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProject) GetFundingSource() getBookingEventsBookingEventsBookingEventBookingProjectFundingSource {
+	return v.FundingSource
+}
+
+// GetOwner returns getBookingEventsBookingEventsBookingEventBookingProject.Owner, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProject) GetOwner() getBookingEventsBookingEventsBookingEventBookingProjectOwnerUser {
+	return v.Owner
+}
+
+// getBookingEventsBookingEventsBookingEventBookingProjectFundingSource includes the requested fields of the GraphQL type FundingSource.
+type getBookingEventsBookingEventsBookingEventBookingProjectFundingSource struct {
+	Number string `json:"number"`
+}
+
+// GetNumber returns getBookingEventsBookingEventsBookingEventBookingProjectFundingSource.Number, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProjectFundingSource) GetNumber() string {
+	return v.Number
+}
+
+// getBookingEventsBookingEventsBookingEventBookingProjectOwnerUser includes the requested fields of the GraphQL type User.
+type getBookingEventsBookingEventsBookingEventBookingProjectOwnerUser struct {
+	Username string                                                                              `json:"username"`
+	Groups   []getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMember `json:"groups"`
+}
+
+// GetUsername returns getBookingEventsBookingEventsBookingEventBookingProjectOwnerUser.Username, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProjectOwnerUser) GetUsername() string {
+	return v.Username
+}
+
+// GetGroups returns getBookingEventsBookingEventsBookingEventBookingProjectOwnerUser.Groups, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProjectOwnerUser) GetGroups() []getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMember {
+	return v.Groups
+}
+
+// getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMember includes the requested fields of the GraphQL type GroupMember.
+type getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMember struct {
+	Group   getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMemberGroup `json:"group"`
+	Primary bool                                                                                   `json:"primary"`
+}
+
+// GetGroup returns getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMember.Group, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMember) GetGroup() getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMemberGroup {
+	return v.Group
+}
+
+// GetPrimary returns getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMember.Primary, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMember) GetPrimary() bool {
+	return v.Primary
+}
+
+// getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMemberGroup includes the requested fields of the GraphQL type Group.
+type getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMemberGroup struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMemberGroup.Id, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMemberGroup) GetId() string {
+	return v.Id
+}
+
+// GetName returns getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMemberGroup.Name, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingProjectOwnerUserGroupsGroupMemberGroup) GetName() string {
+	return v.Name
+}
 
 // getBookingEventsBookingEventsBookingEventResource includes the requested fields of the GraphQL interface Resource.
 //
@@ -376,10 +484,9 @@ func __marshalgetBookingEventsBookingEventsBookingEventResource(v *getBookingEve
 
 // getBookingEventsBookingEventsBookingEventResourceLab includes the requested fields of the GraphQL type Lab.
 type getBookingEventsBookingEventsBookingEventResourceLab struct {
-	Typename   string                                                                   `json:"__typename"`
-	Id         string                                                                   `json:"id"`
-	Name       string                                                                   `json:"name"`
-	Modalities []getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality `json:"modalities"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Name     string `json:"name"`
 }
 
 // GetTypename returns getBookingEventsBookingEventsBookingEventResourceLab.Typename, and is useful for accessing the field via an interface.
@@ -392,33 +499,6 @@ func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetId() string { 
 
 // GetName returns getBookingEventsBookingEventsBookingEventResourceLab.Name, and is useful for accessing the field via an interface.
 func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetName() string { return v.Name }
-
-// GetModalities returns getBookingEventsBookingEventsBookingEventResourceLab.Modalities, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventResourceLab) GetModalities() []getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality {
-	return v.Modalities
-}
-
-// getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality includes the requested fields of the GraphQL type Modality.
-type getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	ShortName string `json:"shortName"`
-}
-
-// GetId returns getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality.Id, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality) GetId() string {
-	return v.Id
-}
-
-// GetName returns getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality.Name, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality) GetName() string {
-	return v.Name
-}
-
-// GetShortName returns getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality.ShortName, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventResourceLabModalitiesModality) GetShortName() string {
-	return v.ShortName
-}
 
 // getBookingEventsBookingEventsBookingEventResourceRoom includes the requested fields of the GraphQL type Room.
 type getBookingEventsBookingEventsBookingEventResourceRoom struct {
@@ -710,9 +790,29 @@ query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ResourceI
 		subject
 		session
 		booking {
+			experiment {
+				modality {
+					id
+					name
+					shortName
+				}
+			}
 			project {
 				number
 				title
+				fundingSource {
+					number
+				}
+				owner {
+					username
+					groups {
+						group {
+							id
+							name
+						}
+						primary
+					}
+				}
 			}
 			owner {
 				username
@@ -729,11 +829,6 @@ query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ResourceI
 			... on Lab {
 				id
 				name
-				modalities {
-					id
-					name
-					shortName
-				}
 			}
 			... on Room {
 				id

@@ -205,12 +205,18 @@ const (
 type LabBooking struct {
 	// Project is the id of the project to which the experiment belongs.
 	Project string `json:"project_id"`
+	// FundingSource is the number of the project funding source.
+	FundingSource string `json:"fundingSource"`
+	// Group is the name of the primary group of the project owner.
+	Group string `json:"group"`
 	// Subject is the subject id of the participant.
 	Subject string `json:"subject"`
 	// Session is the session id of the participant.
 	Session string `json:"session"`
+	// Lab is the lab name
+	Lab string `json:"lab"`
 	// Modality is the experiment modality name.
-	Modality string `json:"lab"`
+	Modality string `json:"modality"`
 	// Operator is the user operating the experiment.
 	Operator User `json:"operator"`
 	// ProjectTitle is the title of the project.

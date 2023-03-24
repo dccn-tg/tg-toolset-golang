@@ -104,7 +104,7 @@ Use the argument to specify one or multiple available scanners: %s
 
 		pdb := loadPdb()
 
-		bookings, err := pdb.GetLabBookings(ipdb.MRI, date)
+		bookings, err := pdb.GetLabBookingsForWorklist(ipdb.MRI, date)
 		if err != nil {
 			log.Errorf("cannot retrieve labbookings, reason: %+v", err)
 			os.Exit(100)
@@ -112,7 +112,7 @@ Use the argument to specify one or multiple available scanners: %s
 
 		// internal function to check if a booking is valid for creating worklist
 		validBooking := func(booking *ipdb.LabBooking) bool {
-			_scanner := strings.ToLower(booking.Modality)
+			_scanner := strings.ToLower(booking.Lab)
 			for _, s := range args {
 				if _scanner == s {
 					return true
@@ -175,7 +175,7 @@ Use the argument to specify one or multiple available scanners: %s
 				SessionTitle: fmt.Sprintf("MR session %s", _sessId),
 				ProjectTitle: booking.ProjectTitle,
 				Physician:    fmt.Sprintf("%s %s", booking.Operator.Firstname, booking.Operator.Lastname),
-				ModalityAE:   strings.ToUpper(booking.Modality),
+				ModalityAE:   strings.ToUpper(booking.Lab),
 			}
 
 			wl, err := composeWorklist(_data)
