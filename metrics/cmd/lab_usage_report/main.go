@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +31,6 @@ var (
 	optsDateFrom        *string
 	optsDateTo          *string
 	optsVerbose         *bool
-	optsDryrun          *bool
 	optsConfig          *string
 	optsOpenTSDBPushURL *string
 )
@@ -47,7 +43,6 @@ func init() {
 	optsDateFrom = flag.String("f", yesterday, "set the from `date` of the date range")
 	optsDateTo = flag.String("t", yesterday, "set the to `date` of the date range")
 	optsVerbose = flag.Bool("v", false, "print debug messages")
-	optsDryrun = flag.Bool("d", false, "perform dryrun without push metrics to the OpenTSDB server")
 	optsConfig = flag.String("c", "config.yml", "set the `path` of the configuration file")
 	optsOpenTSDBPushURL = flag.String("l", "http://opentsdb:4242/api/put", "set OpenTSDB `endpoint` for pushing metrics")
 
@@ -71,7 +66,7 @@ func init() {
 }
 
 func usage() {
-	fmt.Printf("\npush lab usage metrics to OpenTSDB. By default it pushes the usage of yesterday.\n")
+	fmt.Printf("\npush lab usage metrics to OpenTSDB.\n")
 	fmt.Printf("\nUSAGE: %s [OPTIONS]\n", os.Args[0])
 	fmt.Printf("\nOPTIONS:\n")
 	flag.PrintDefaults()
@@ -119,19 +114,14 @@ func main() {
 		})
 	}
 
-	// TODO: derive `lab.free` metrics
-
-	if *optsDryrun {
-		for _, p := range dpoints {
-			if b, err := json.Marshal(p); err == nil {
-				log.Infof(string(b))
-			}
-		}
-	} else {
-		if err := pushMetric(dpoints); err != nil {
-			log.Errorf("fail to push lab usage metric: %s", err)
+	for _, p := range dpoints {
+		if b, err := json.Marshal(p); err == nil {
+			log.Infof(string(b))
 		}
 	}
+
+	// TODO: derive `lab.free` metrics
+
 }
 
 func labelize(t string) string {
@@ -146,28 +136,4 @@ func labelize(t string) string {
 	s = strings.ReplaceAll(s, `&`, `and`)
 
 	return s
-}
-
-func pushMetric(dpoints []MetricOpenTSDB) error {
-	reqBody, err := json.Marshal(dpoints)
-	if err != nil {
-		return err
-	}
-
-	log.Infof("%s", reqBody)
-
-	// POST data to OpenTSDB endpoint
-	resp, err := http.Post(*optsOpenTSDBPushURL, "application/json", bytes.NewBuffer(reqBody))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	log.Debugf(string(body))
-	return nil
 }
