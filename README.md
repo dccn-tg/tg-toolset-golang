@@ -19,6 +19,7 @@ Currently, the whole package is divided into three major parts, each provides a 
 - [repository](repository) contains libraries for repository data management. See [dr-tools](https://github.com/Donders-Institute/dr-tools) for repository tools.
 - [metrics](metrics) contains tools and libraries for collecting metrics.
   * [hpc-metrics-appusage-collector](metrics/cmd/hpc-metrics-appusage-collector): a daemon collects count on `module load` on HPC into Prometheus metrics. See [README](metrics/cmd/hpc-metrics-appusage-collector/README.md) for more detail.
+  * [lab_usage_report](metrics/cmd/lab_usage_report): a CLI to report lab usage to OpenTSDB database (and displayed on https://grafana.dccn.nl)
  
 Various CLIs take a YAML-based configuration file (via the `-c` option) for setting up connections to, e.g., project database, filers, etc.. An example YAML file is provided [here](configs/config.yml); and the codes that "objectize" the YAML file are located in the [pkg/config](pkg/config) directory.
 
