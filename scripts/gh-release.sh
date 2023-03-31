@@ -101,7 +101,7 @@ mydir=$( get_script_dir $0 )
 path_spec=${mydir}/../build/rpm/centos7.spec
 
 ## replace the release version in
-out=$( VERSION=${rnum} rpmbuild --undefine=_disable_source_fetch -bb ${path_spec} )
+out=$( VERSION=$(echo ${rnum} | sed 's/-//g') GITTAG=${tag} rpmbuild --undefine=_disable_source_fetch -bb ${path_spec} )
 if [ $? -ne 0 ]; then
     echo "rpm build failure"
     exit 1

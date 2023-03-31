@@ -1,6 +1,7 @@
 # build with the following command:
 # rpmbuild -bb
 %define debug_package %{nil}
+%define gittag %{getenv:GITTAG}
 
 Name:       tg-toolset-golang
 Version:    %{getenv:VERSION}
@@ -8,7 +9,7 @@ Release:    1%{?dist}
 Summary:    CLI tools for interacting various services managed by the TG.
 License:    FIXME
 URL: https://github.com/Donders-Institute/%{name}
-Source0: https://github.com/Donders-Institute/%{name}/archive/%{version}.tar.gz
+Source0: https://github.com/Donders-Institute/%{name}/archive/%{gittag}.tar.gz
 
 BuildArch: x86_64
 Requires: libcap acl nfs4-acl-tools
@@ -61,7 +62,7 @@ setcap cap_chown+eip %{_bindir}/prj_chown
 %clean
 chmod -R +w %{gopath}
 rm -rf %{gopath}
-rm -f %{_topdir}/SOURCES/%{version}.tar.gz
+rm -f %{_topdir}/SOURCES/%{gittag}.tar.gz
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
