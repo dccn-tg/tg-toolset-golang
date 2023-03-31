@@ -43,13 +43,16 @@ EOF
 }
 
 if [ $# -ne 2 ]; then
-    echo "$0 <release_tag> <is_prerelease>"
+    echo "$0 <release_number> <is_prerelease>"
     exit 1
 fi
 
-tag=$1
+rnum=$1
 pre=$2
 gh_token=""
+
+# follow the good naming convention for github tag
+tag="v$rnum"
 
 RPM_BUILD_ROOT=$HOME/rpmbuild
 
@@ -98,7 +101,7 @@ mydir=$( get_script_dir $0 )
 path_spec=${mydir}/../build/rpm/centos7.spec
 
 ## replace the release version in
-out=$( VERSION=${tag} rpmbuild --undefine=_disable_source_fetch -bb ${path_spec} )
+out=$( VERSION=${rnum} rpmbuild --undefine=_disable_source_fetch -bb ${path_spec} )
 if [ $? -ne 0 ]; then
     echo "rpm build failure"
     exit 1
