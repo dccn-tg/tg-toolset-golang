@@ -226,6 +226,9 @@ func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) 
 
 	log.Debugf("time range: %s ~ %s", from.String(), to.String())
 
+	// use `Europe/Amsterdam` as the local timezone
+	loc, _ := time.LoadLocation("Europe/Amsterdam")
+
 	// retrieve resources of given modalities corresponding to the `lab` type
 	resources, err := api.GetLabs(
 		v2.config,
@@ -298,8 +301,8 @@ func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) 
 				Modality:  b.Booking.Experiment.Modality.ShortName,
 				Subject:   _subId,
 				Session:   _sesId,
-				StartTime: b.Start.Local(),
-				EndTime:   b.End.Local(),
+				StartTime: b.Start.In(loc),
+				EndTime:   b.End.In(loc),
 				Status:    string(b.Status),
 			})
 		}
