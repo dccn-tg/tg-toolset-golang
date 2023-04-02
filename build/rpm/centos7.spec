@@ -34,6 +34,7 @@ mkdir -p %{buildroot}/%{_bindir}
 mkdir -p %{buildroot}/%{_sbindir}
 ## install files for client tools
 install -m 755 %{gopath}/bin/pdbutil %{buildroot}/%{_sbindir}/pdbutil
+install -m 755 %{gopath}/bin/lab_usage_report %{buildroot}/%{_sbindir}/lab_usage_report
 install -m 755 %{gopath}/bin/lab_bookings %{buildroot}/%{_sbindir}/lab_bookings
 install -m 755 %{gopath}/bin/pacs_getstudies %{buildroot}/%{_sbindir}/pacs_getstudies
 install -m 755 %{gopath}/bin/pacs_streamdata %{buildroot}/%{_sbindir}/pacs_streamdata
@@ -44,6 +45,7 @@ install -m 755 %{gopath}/bin/prj_chown  %{buildroot}/%{_bindir}/prj_chown
 
 %files
 %{_sbindir}/pdbutil
+%{_sbindir}/lab_usage_report
 %{_sbindir}/lab_bookings
 %{_sbindir}/pacs_getstudies
 %{_sbindir}/pacs_streamdata
