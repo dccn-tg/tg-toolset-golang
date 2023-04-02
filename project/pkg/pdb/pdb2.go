@@ -12,6 +12,8 @@ import (
 	api "github.com/Donders-Institute/tg-toolset-golang/project/internal/pdb2"
 )
 
+var location = "Europe/Amsterdam"
+
 // projectStatusEnum converts the project status string returned from the core-api
 // to `ProjectStatus` enum.
 func projectStatusEnum(status api.ProjectStatus) ProjectStatus {
@@ -193,7 +195,7 @@ func (v2 V2) GetUserByEmail(email string) (*User, error) {
 // GetLabBookingsForWorklist retrieves TENTATIVE and CONFIRMED calendar bookings concerning
 // the given `Lab` on a given `date` string. The `date` string is in the format of `2020-04-22`.
 func (v2 V2) GetLabBookingsForWorklist(lab Lab, date string) ([]*LabBooking, error) {
-	loc, _ := time.LoadLocation("Local")
+	loc, _ := time.LoadLocation(location)
 
 	dtime, err := time.ParseInLocation("2006-01-02", date, loc)
 	if err != nil {
@@ -207,7 +209,7 @@ func (v2 V2) GetLabBookingsForWorklist(lab Lab, date string) ([]*LabBooking, err
 // in a date range of `[from, to]`. The `from` and `to` date strings are in the format of `2020-04-22`.
 func (v2 V2) GetLabBookingsForReport(lab Lab, from, to string) ([]*LabBooking, error) {
 
-	loc, _ := time.LoadLocation("Local")
+	loc, _ := time.LoadLocation(location)
 
 	dfrom, err := time.ParseInLocation("2006-01-02", from, loc)
 	if err != nil {
@@ -226,8 +228,7 @@ func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) 
 
 	log.Debugf("time range: %s ~ %s", from.String(), to.String())
 
-	// use `Europe/Amsterdam` as the local timezone
-	loc, _ := time.LoadLocation("Europe/Amsterdam")
+	loc, _ := time.LoadLocation(location)
 
 	// retrieve resources of given modalities corresponding to the `lab` type
 	resources, err := api.GetLabs(
