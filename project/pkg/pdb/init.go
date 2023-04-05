@@ -8,6 +8,8 @@ import (
 	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
 )
 
+const Location = "Europe/Amsterdam"
+
 func init() {
 
 	cfg := log.Configuration{

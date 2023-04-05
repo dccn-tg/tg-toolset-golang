@@ -103,20 +103,81 @@ func main() {
 	}
 
 	dpoints := make([]MetricOpenTSDB, 0)
+
+	// timzone location
+	loc, _ := time.LoadLocation(pdb.Location)
+
 	for _, booking := range bookings {
-		dpoints = append(dpoints, MetricOpenTSDB{
-			Metric:    "lab.usage",
-			Timestamp: booking.StartTime.Unix(),
-			Value:     math.Round(booking.EndTime.Sub(booking.StartTime).Hours()*100) / 100,
-			Tags: map[string]string{
-				"status":  booking.Status,
-				"project": booking.Project,
-				"lab":     labelize(booking.Lab),
-				"bill":    labelize(booking.Modality),
-				"group":   labelize(booking.Group),
-				"source":  booking.FundingSource,
-			},
-		})
+
+		// skip bookings not associated with a modality, e.g. MRISUPPORT
+		if booking.Modality == "" {
+			continue
+		}
+
+		tag := map[string]string{
+			"status":  booking.Status,
+			"project": booking.Project,
+			"lab":     labelize(booking.Lab),
+			"bill":    labelize(booking.Modality),
+			"group":   labelize(booking.Group),
+			"source":  booking.FundingSource,
+		}
+
+		if !dateEqual(booking.StartTime, booking.EndTime) {
+			// overnights event should be split into multiple data points
+			i := 0
+
+			startDay := time.Date(
+				booking.StartTime.Year(),
+				booking.StartTime.Month(),
+				booking.StartTime.Day(),
+				0, 0, 0, 0,
+				loc,
+			)
+
+			for day := startDay; !day.After(booking.EndTime); day = day.AddDate(0, 0, 1) {
+
+				// starting date
+				y := day.Year()
+				m := day.Month()
+				d := day.Day()
+
+				var stime time.Time
+				var etime time.Time
+
+				switch {
+				case dateEqual(day, booking.StartTime):
+					// starting date
+					stime = booking.StartTime
+					etime = time.Date(y, m, d, 24, 0, 0, 0, loc)
+				case dateEqual(day, booking.EndTime):
+					// ending date
+					stime = time.Date(y, m, d, 0, 0, 0, 0, loc)
+					etime = booking.EndTime
+				default:
+					// full days
+					stime = time.Date(y, m, d, 0, 0, 0, 0, loc)
+					etime = time.Date(y, m, d, 24, 0, 0, 0, loc)
+				}
+
+				dpoints = append(dpoints, MetricOpenTSDB{
+					Metric:    "lab.usage",
+					Timestamp: stime.Unix(),
+					Value:     math.Round(etime.Sub(stime).Hours()*100) / 100,
+					Tags:      tag,
+				})
+
+				i += 1
+			}
+		} else {
+			// handle the situation that start date is not the date provided by `-d` option.
+			dpoints = append(dpoints, MetricOpenTSDB{
+				Metric:    "lab.usage",
+				Timestamp: booking.StartTime.Unix(),
+				Value:     math.Round(booking.EndTime.Sub(booking.StartTime).Hours()*100) / 100,
+				Tags:      tag,
+			})
+		}
 	}
 
 	// TODO: derive `lab.free` metrics
@@ -128,10 +189,27 @@ func main() {
 			}
 		}
 	} else {
-		if err := pushMetric(dpoints); err != nil {
-			log.Errorf("fail to push lab usage metric: %s", err)
+		// the chunksize is chosen to keep the POST data to OpenTSDB less than 4096 bytes,
+		// which is the default value of `tsd.http.request.max_chunk`.
+		chunckSize := 15
+		for i := 0; i < len(dpoints); i += chunckSize {
+			end := i + chunckSize
+			if end > len(dpoints) {
+				end = len(dpoints)
+			}
+			if err := pushMetric(dpoints[i:end]); err != nil {
+				log.Errorf("fail to push lab usage metric: %s", err)
+			} else {
+				log.Infof("pushed %d data points", len(dpoints[i:end]))
+			}
 		}
 	}
+}
+
+func dateEqual(date1, date2 time.Time) bool {
+	y1, m1, d1 := date1.Date()
+	y2, m2, d2 := date2.Date()
+	return y1 == y2 && m1 == m2 && d1 == d2
 }
 
 func labelize(t string) string {
@@ -149,12 +227,13 @@ func labelize(t string) string {
 }
 
 func pushMetric(dpoints []MetricOpenTSDB) error {
+
 	reqBody, err := json.Marshal(dpoints)
 	if err != nil {
 		return err
 	}
 
-	log.Infof("%s", reqBody)
+	log.Debugf("POST request: %s", reqBody)
 
 	// POST data to OpenTSDB endpoint
 	resp, err := http.Post(*optsOpenTSDBPushURL, "application/json", bytes.NewBuffer(reqBody))
@@ -168,6 +247,11 @@ func pushMetric(dpoints []MetricOpenTSDB) error {
 		return err
 	}
 
-	log.Debugf(string(body))
+	log.Debugf("POST response: code %d, %s", resp.StatusCode, string(body))
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("status code >= 400: %d", resp.StatusCode)
+	}
+
 	return nil
 }
