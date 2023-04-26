@@ -10,9 +10,7 @@ import (
 
 func TestNotifyProjectProvisioned(t *testing.T) {
 
-	var manager *pdb.User
-
-	manager = &pdb.User{
+	var manager = &pdb.User{
 		Firstname: "Hurng-Chun",
 		Lastname:  "Lee",
 		Email:     "h.lee@donders.ru.nl",
@@ -33,9 +31,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 
 func TestNotifyUTF8(t *testing.T) {
 
-	var manager *pdb.User
-
-	manager = &pdb.User{
+	var manager = &pdb.User{
 		Firstname: "René",
 		Lastname:  "de Bruin",
 		Email:     "r.debruin@donders.ru.nl",

@@ -31,16 +31,10 @@ var (
 		"freenas": "/project_freenas",
 		"cephfs":  "/project_cephfs",
 	}
-	alertDbPath           string
-	ooqAlertTestProjectID string
-	ooqAlertSkipPI        bool
+	alertDbPath        string
+	alertTestProjectID string
+	alertSkipPI        bool
 )
-
-// loadNetAppCLI initialize interface to the NetAppCLI.
-func loadNetAppCLI() filergateway.NetAppCLI {
-	conf := loadConfig()
-	return filergateway.NetAppCLI{Config: conf.NetAppCLI}
-}
 
 // ooqAlertFrequency determines the max ooq alert frequency
 // in terms of the duration between two subsequent alerts, based on
@@ -78,29 +72,35 @@ func init() {
 
 	projectActionExecCmd.Flags().IntVarP(&execNthreads, "nthreads", "n", 4,
 		"`number` of concurrent worker threads.")
-	projectActionCmd.AddCommand(projectActionListCmd, projectActionExecCmd)
 
-	projectCmd.PersistentFlags().StringVarP(&storSystem, "sys", "s", "netapp",
+	projectActionExecCmd.Flags().BoolVarP(&useNetappCLI, "netapp-cli", "", false,
+		"use NetApp ONTAP CLI to apply changes on the NetApp filer. Only applicable for the netapp storage system.")
+
+	projectActionExecCmd.Flags().StringVarP(&storSystem, "sys", "s", "netapp",
 		fmt.Sprintf("storage `system`.  Supported systems: %s", strings.Join(supportedStorSystems, ",")))
 
-	projectCmd.PersistentFlags().BoolVarP(&useNetappCLI, "netapp-cli", "", false,
-		"use NetApp ONTAP CLI to apply changes on the NetApp filer. Only applicable for the netapp storage system.")
+	projectCreateCmd.Flags().StringVarP(&storSystem, "sys", "s", "netapp",
+		fmt.Sprintf("storage `system`.  Supported systems: %s", strings.Join(supportedStorSystems, ",")))
 
 	projectUpdateCmd.Flags().BoolVarP(&activeProjectOnly, "active-only", "a", false,
 		"update only the active projects")
 
-	projectAlertOoqCmd.PersistentFlags().StringVarP(&alertDbPath, "dbpath", "", "alert.db",
+	projectAlertCmd.PersistentFlags().StringVarP(&alertDbPath, "dbpath", "", "alert.db",
 		"`path` of the internal alert history database")
 
-	projectAlertOoqSend.Flags().StringVarP(&ooqAlertTestProjectID, "test", "t", "",
+	projectAlertCmd.PersistentFlags().StringVarP(&alertTestProjectID, "test", "t", "",
 		"`id` of project for testing ooq alert")
 
-	projectAlertOoqSend.Flags().BoolVarP(&ooqAlertSkipPI, "skip-pi", "", false,
+	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", false,
 		"set to skip sending alert to PIs")
+
+	projectActionCmd.AddCommand(projectActionListCmd, projectActionExecCmd)
 
 	projectAlertOoqCmd.AddCommand(projectAlertOoqInfo, projectAlertOoqSend)
 
-	projectAlertCmd.AddCommand(projectAlertOoqCmd)
+	projectAlertOotCmd.AddCommand(projectAlertOotInfo, projectAlertOotSend)
+
+	projectAlertCmd.AddCommand(projectAlertOoqCmd, projectAlertOotCmd)
 
 	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd, projectAlertCmd)
 
@@ -111,12 +111,6 @@ var projectCmd = &cobra.Command{
 	Use:   "project",
 	Short: "Utility for managing project storage",
 	Long:  ``,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if _, ok := projectRoots[storSystem]; !ok {
-			log.Fatalf("unsupported storage system: %s", storSystem)
-		}
-		rootCmd.PersistentPreRun(cmd, args)
-	},
 }
 
 var projectCreateCmd = &cobra.Command{
@@ -124,6 +118,11 @@ var projectCreateCmd = &cobra.Command{
 	Short: "Creates or updates project storage with given quota",
 	Long:  ``,
 	Args:  cobra.ExactArgs(2),
+	PreRun: func(cmd *cobra.Command, args []string) {
+		if _, ok := projectRoots[storSystem]; !ok {
+			log.Fatalf("unsupported storage system: %s", storSystem)
+		}
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		iquota, err := strconv.Atoi(args[1])
 		if err != nil {
@@ -279,6 +278,12 @@ var projectActionExecCmd = &cobra.Command{
 	Use:   "exec",
 	Short: "Executes pending project storage actions",
 	Args:  cobra.NoArgs,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		if _, ok := projectRoots[storSystem]; !ok {
+			log.Fatalf("unsupported storage system: %s", storSystem)
+		}
+		rootCmd.PreRun(cmd, args)
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		// list pending pdb actions
@@ -328,6 +333,186 @@ var projectAlertCmd = &cobra.Command{
 	Use:   "alert",
 	Short: "Utility for sending project-related alerts",
 	Long:  ``,
+}
+
+var projectAlertOotCmd = &cobra.Command{
+	Use:   "oot",
+	Short: "Utility for expiring or overdue (i.e. out-of-time) project alerts",
+	Long:  ``,
+}
+
+// submcommand to show last alerts sent for projects (close to) running out of time.
+var projectAlertOotInfo = &cobra.Command{
+	Use:   "info",
+	Short: "Shows information of the last alerts sent concerning expiring or overdue projects",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		// check availability of the `alertDbPath`
+		if _, err := os.Stat(alertDbPath); os.IsNotExist(err) {
+			return fmt.Errorf("alert db not found: %s", alertDbPath)
+		}
+
+		// connect to internal database for last sent
+		store := store.KVStore{
+			Path: alertDbPath,
+		}
+		err := store.Connect()
+		if err != nil {
+			return err
+		}
+		defer store.Disconnect()
+
+		// initialize kvstore with bucket "ootLastAlerts"
+		dbBucket := "ootLastAlerts"
+		err = store.Init([]string{dbBucket})
+		if err != nil {
+			return err
+		}
+
+		// gets all last alerts
+		kvpairs, err := store.GetAll(dbBucket)
+		if err != nil {
+			return err
+		}
+
+		for _, kvpair := range kvpairs {
+			pid := string(kvpair.Key)
+
+			lastSent := pdb.OotLastAlert{}
+			err := json.Unmarshal(kvpair.Value, &lastSent)
+			if err != nil {
+				log.Errorf("[%s] cannot interpret oot alert data: %s", pid, err)
+				continue
+			}
+
+			fmt.Printf("%12s: %s\n", pid, lastSent.Timestamp)
+		}
+
+		return nil
+	},
+}
+
+// submcommand to notify manager/contributor/owner when project is (close to) running out of time.
+var projectAlertOotSend = &cobra.Command{
+	Use:   "send",
+	Short: "Sends alerts concerning expiring or overdue projects",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		ipdb := loadPdb()
+		conf := loadConfig()
+
+		projects, err := ipdb.GetProjects(true)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("retriving storage usage for %d projects", len(projects))
+
+		// initialize filergateway client
+		fgw, err := filergateway.NewClient(conf)
+		if err != nil {
+			return err
+		}
+
+		// connect to internal database for last sent
+		store := store.KVStore{
+			Path: alertDbPath,
+		}
+		err = store.Connect()
+		if err != nil {
+			return err
+		}
+		defer store.Disconnect()
+
+		// initialize kvstore with bucket "ootLastAlerts"
+		dbBucket := "ootLastAlerts"
+		err = store.Init([]string{dbBucket})
+		if err != nil {
+			return err
+		}
+
+		// perform pending actions with 4 concurrent workers,
+		// each works on a project.
+		var wg sync.WaitGroup
+		cprjs := make(chan *pdb.Project, execNthreads*2)
+		for w := 0; w < execNthreads; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				for prj := range cprjs {
+
+					// perform test on a specific project with id specified via
+					// `ootAlertTestProjectID`.
+					if alertTestProjectID != "" && prj.ID != alertTestProjectID {
+						log.Infof("[%s] ignored oot alert in test mode", prj.ID)
+						continue
+					}
+
+					// get members from filer gateway
+					info, err := fgw.GetProject(prj.ID)
+					if err != nil {
+						log.Errorf("[%s] cannot get project storage info: %s", prj.ID, err)
+						continue
+					}
+					log.Debugf("[%s] project storage info: %+v", prj.ID, info)
+
+					// get last alert information from the local db
+					data, err := store.Get(dbBucket, []byte(prj.ID))
+					if err != nil {
+						log.Debugf("[%s] cannot get last oot alert data: %s", prj.ID, err)
+					}
+
+					// default lastAlert with timestamp (0001-01-01 00:00:00 +0000 UTC), uratio 0.
+					lastAlert := pdb.OotLastAlert{}
+					if data != nil {
+						if err := json.Unmarshal(data, &lastAlert); err != nil {
+							log.Debugf("[%s] cannot interpret last oot alert data: %s", prj.ID, err)
+						}
+					}
+					log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
+
+					// check and send alert
+					switch lastAlert, err = ootAlert(ipdb, prj, info, lastAlert, conf.SMTP); err.(type) {
+					case nil:
+						log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
+						// alert sent, update store db with new last alert information
+						data, _ := json.Marshal(&lastAlert)
+						store.Set(dbBucket, []byte(prj.ID), data)
+					case *pdb.OpsIgnored:
+						// alert ignored
+						log.Debugf("[%s] %s", prj.ID, err)
+						log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
+						// alert ignored, still need to update the lastAlert to alert history db with
+						// the current project UsagePercent.
+						data, _ := json.Marshal(&lastAlert)
+						store.Set(dbBucket, []byte(prj.ID), data)
+					default:
+						// something wrong
+						log.Errorf("[%s] fail to send alert for project out-of-time: +%v", prj.ID, err)
+					}
+				}
+			}()
+		}
+
+		for _, project := range projects {
+
+			now := time.Now()
+			if now.AddDate(0, 0, 28).After(project.End) {
+				cprjs <- project
+			} else {
+				log.Debugf("[%s] skipped as the end time (%s) > 4 weeks from now", project.ID, project.End)
+			}
+		}
+		close(cprjs)
+
+		// wait for all workers to finish
+		wg.Wait()
+
+		return nil
+	},
 }
 
 var projectAlertOoqCmd = &cobra.Command{
@@ -441,7 +626,7 @@ var projectAlertOoqSend = &cobra.Command{
 
 					// perform test on a specific project with id specified via
 					// `ooqAlertTestProjectID`.
-					if ooqAlertTestProjectID != "" && prj.ID != ooqAlertTestProjectID {
+					if alertTestProjectID != "" && prj.ID != alertTestProjectID {
 						log.Infof("[%s] ignored ooq alert in test mode", prj.ID)
 						continue
 					}
@@ -502,6 +687,63 @@ var projectAlertOoqSend = &cobra.Command{
 
 		return nil
 	},
+}
+
+// ootAlert sents out alert email concerning project going to expire at maximum frequency of
+// once per week.
+//
+// If the alert email is sent, it returns the time at which the email were sent.
+//
+// If the alert sending is ignored, the returned error is `OpsIgnored`.
+func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OotLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OotLastAlert, error) {
+
+	now := time.Now()
+	next := lastAlert.Timestamp.AddDate(0, 0, 7)
+
+	if now.After(next) {
+		// send the email
+		// initializing mailer
+		mailer := mailer.New(smtpConfig)
+
+		// gather user ids of potential recipients
+		recipients := make(map[string]struct{})
+		recipients[prj.Owner] = struct{}{}
+
+		for _, m := range info.Members {
+			if m.Role == acl.Manager.String() || m.Role == acl.Contributor.String() {
+				recipients[m.UserID] = struct{}{}
+			}
+		}
+
+		// sending alerts to recipients
+		nsent := 0
+		for r := range recipients {
+			u, err := ipdb.GetUser(r)
+			if err != nil {
+				log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, r)
+				continue
+			}
+
+			if alertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
+				log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
+				continue
+			}
+
+			log.Debugf("[%s] alert %s", info.ProjectID, u.Email)
+
+			if err := mailer.AlertProjectStorageOot(*u, prj.End.Format("2006-01-02"), info.ProjectID, prj.Name); err != nil {
+				log.Errorf("[%s] fail to sent oot alert to %s: %s", info.ProjectID, u.Email, err)
+			}
+
+			nsent++
+		}
+
+		return pdb.OotLastAlert{
+			Timestamp: now,
+		}, nil
+	}
+	msg := fmt.Sprintf("%s not reaching next alert %s.", now, next)
+	return lastAlert, &pdb.OpsIgnored{Message: msg}
 }
 
 // ooqAlert checks whether alert concerning project storage out-of-quota
@@ -573,7 +815,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			continue
 		}
 
-		if ooqAlertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
+		if alertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
 			log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
 			continue
 		}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	graphql2 "github.com/Donders-Institute/tg-toolset-golang/pkg/graphql"
 	"github.com/Khan/genqlient/graphql"
 )
 
@@ -578,6 +579,8 @@ type getProjectProject struct {
 	Title  string                     `json:"title"`
 	Owner  getProjectProjectOwnerUser `json:"owner"`
 	Status ProjectStatus              `json:"status"`
+	Start  time.Time                  `json:"-"`
+	End    time.Time                  `json:"-"`
 }
 
 // GetNumber returns getProjectProject.Number, and is useful for accessing the field via an interface.
@@ -591,6 +594,115 @@ func (v *getProjectProject) GetOwner() getProjectProjectOwnerUser { return v.Own
 
 // GetStatus returns getProjectProject.Status, and is useful for accessing the field via an interface.
 func (v *getProjectProject) GetStatus() ProjectStatus { return v.Status }
+
+// GetStart returns getProjectProject.Start, and is useful for accessing the field via an interface.
+func (v *getProjectProject) GetStart() time.Time { return v.Start }
+
+// GetEnd returns getProjectProject.End, and is useful for accessing the field via an interface.
+func (v *getProjectProject) GetEnd() time.Time { return v.End }
+
+func (v *getProjectProject) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*getProjectProject
+		Start json.RawMessage `json:"start"`
+		End   json.RawMessage `json:"end"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.getProjectProject = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Start
+		src := firstPass.Start
+		if len(src) != 0 && string(src) != "null" {
+			err = graphql2.UnmarshalDate(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"Unable to unmarshal getProjectProject.Start: %w", err)
+			}
+		}
+	}
+
+	{
+		dst := &v.End
+		src := firstPass.End
+		if len(src) != 0 && string(src) != "null" {
+			err = graphql2.UnmarshalDate(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"Unable to unmarshal getProjectProject.End: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalgetProjectProject struct {
+	Number string `json:"number"`
+
+	Title string `json:"title"`
+
+	Owner getProjectProjectOwnerUser `json:"owner"`
+
+	Status ProjectStatus `json:"status"`
+
+	Start json.RawMessage `json:"start"`
+
+	End json.RawMessage `json:"end"`
+}
+
+func (v *getProjectProject) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *getProjectProject) __premarshalJSON() (*__premarshalgetProjectProject, error) {
+	var retval __premarshalgetProjectProject
+
+	retval.Number = v.Number
+	retval.Title = v.Title
+	retval.Owner = v.Owner
+	retval.Status = v.Status
+	{
+
+		dst := &retval.Start
+		src := v.Start
+		var err error
+		*dst, err = json.Marshal(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"Unable to marshal getProjectProject.Start: %w", err)
+		}
+	}
+	{
+
+		dst := &retval.End
+		src := v.End
+		var err error
+		*dst, err = json.Marshal(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"Unable to marshal getProjectProject.End: %w", err)
+		}
+	}
+	return &retval, nil
+}
 
 // getProjectProjectOwnerUser includes the requested fields of the GraphQL type User.
 type getProjectProjectOwnerUser struct {
@@ -654,6 +766,8 @@ type getProjectsProjectsProject struct {
 	Title  string                              `json:"title"`
 	Owner  getProjectsProjectsProjectOwnerUser `json:"owner"`
 	Status ProjectStatus                       `json:"status"`
+	Start  time.Time                           `json:"-"`
+	End    time.Time                           `json:"-"`
 }
 
 // GetNumber returns getProjectsProjectsProject.Number, and is useful for accessing the field via an interface.
@@ -667,6 +781,115 @@ func (v *getProjectsProjectsProject) GetOwner() getProjectsProjectsProjectOwnerU
 
 // GetStatus returns getProjectsProjectsProject.Status, and is useful for accessing the field via an interface.
 func (v *getProjectsProjectsProject) GetStatus() ProjectStatus { return v.Status }
+
+// GetStart returns getProjectsProjectsProject.Start, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProject) GetStart() time.Time { return v.Start }
+
+// GetEnd returns getProjectsProjectsProject.End, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProject) GetEnd() time.Time { return v.End }
+
+func (v *getProjectsProjectsProject) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*getProjectsProjectsProject
+		Start json.RawMessage `json:"start"`
+		End   json.RawMessage `json:"end"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.getProjectsProjectsProject = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Start
+		src := firstPass.Start
+		if len(src) != 0 && string(src) != "null" {
+			err = graphql2.UnmarshalDate(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"Unable to unmarshal getProjectsProjectsProject.Start: %w", err)
+			}
+		}
+	}
+
+	{
+		dst := &v.End
+		src := firstPass.End
+		if len(src) != 0 && string(src) != "null" {
+			err = graphql2.UnmarshalDate(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"Unable to unmarshal getProjectsProjectsProject.End: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalgetProjectsProjectsProject struct {
+	Number string `json:"number"`
+
+	Title string `json:"title"`
+
+	Owner getProjectsProjectsProjectOwnerUser `json:"owner"`
+
+	Status ProjectStatus `json:"status"`
+
+	Start json.RawMessage `json:"start"`
+
+	End json.RawMessage `json:"end"`
+}
+
+func (v *getProjectsProjectsProject) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *getProjectsProjectsProject) __premarshalJSON() (*__premarshalgetProjectsProjectsProject, error) {
+	var retval __premarshalgetProjectsProjectsProject
+
+	retval.Number = v.Number
+	retval.Title = v.Title
+	retval.Owner = v.Owner
+	retval.Status = v.Status
+	{
+
+		dst := &retval.Start
+		src := v.Start
+		var err error
+		*dst, err = json.Marshal(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"Unable to marshal getProjectsProjectsProject.Start: %w", err)
+		}
+	}
+	{
+
+		dst := &retval.End
+		src := v.End
+		var err error
+		*dst, err = json.Marshal(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"Unable to marshal getProjectsProjectsProject.End: %w", err)
+		}
+	}
+	return &retval, nil
+}
 
 // getProjectsProjectsProjectOwnerUser includes the requested fields of the GraphQL type User.
 type getProjectsProjectsProjectOwnerUser struct {
@@ -911,6 +1134,8 @@ query getProject ($number: ID!) {
 			email
 		}
 		status
+		start
+		end
 	}
 }
 `,
@@ -985,6 +1210,8 @@ query getProjects {
 			email
 		}
 		status
+		start
+		end
 	}
 }
 `,

@@ -60,6 +60,8 @@ type Project struct {
 	Name   string        `json:"projectName"`
 	Owner  string        `json:"owner"`
 	Status ProjectStatus `json:"status"`
+	Start  time.Time     `json:"start"`
+	End    time.Time     `json:"end"`
 }
 
 // ProjectStatus defines PDB project status.
@@ -247,4 +249,10 @@ type OoqLastAlert struct {
 	UsagePercent int
 	// UsagePercentLastCheck is the storage usage ratio at the last check.
 	UsagePercentLastCheck int
+}
+
+// OotLastAlert is the internal data structure.
+type OotLastAlert struct {
+	// Timestamp is the moment the alert was sent.
+	Timestamp time.Time
 }

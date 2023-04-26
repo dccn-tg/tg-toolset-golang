@@ -7,20 +7,24 @@ query getProjects {
 			displayName
 			email
 		},
-		status
+		status,
+		start,
+		end
 	}
 }
 
 query getProject($number: ID!) {
     project(number: $number) {
-    number,
-	title,
-	owner {
-	    username
-		displayName
-		email
-	},
-	status
+		number,
+		title,
+		owner {
+			username
+			displayName
+			email
+		},
+		status,
+		start,
+		end
     }
 }
 

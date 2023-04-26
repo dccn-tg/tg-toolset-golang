@@ -5,5 +5,8 @@ operations:
 - genqlient.graphql
 generated: generated.go
 bindings:
+  Date:
+    type: time.Time
+    unmarshaler: github.com/Donders-Institute/tg-toolset-golang/pkg/graphql.UnmarshalDate
   DateTime:
     type: time.Time

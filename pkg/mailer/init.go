@@ -22,6 +22,53 @@ type Mailer struct {
 	config config.SMTPConfiguration
 }
 
+// AlertProjectStorageOot sends out alert email concerning project (about to) running out-of-time (i.e. about to expire)
+func (m *Mailer) AlertProjectStorageOot(recipient pdb.User, penddate, pid, pname string) error {
+	from := "sabita.raktoe@donders.ru.nl"
+	name := fmt.Sprintf("%s %s", recipient.Firstname, recipient.Lastname)
+
+	subject := fmt.Sprintf("Warning, project %s is approaching it's enddate in 4 weeks !", pid)
+
+	// message
+	tempStr := `Dear {{.Name}},
+
+Please be aware that project '{{.ProjectName}}' ({{.ProjectID}}) where you are a manager/contributor will expire on {{.ProjectEndDate}}. This has consequences regarding the assigned quota to this project.
+
+If this project has finished please take care the data is securely archived, remove the remaining data in the project directory and send an email to the helpdesk@donders.ru.nl that everything is properly archived and that the project can be deleted from central storage.
+
+More information on project expiration and quota :
+
+  - ProjectExpirationProcedure (see https://intranet.donders.ru.nl/uploads/media/20190624-ProjectExpirationProcedure-Rev3.pdf)
+  - Quota on central storage (see https://intranet.donders.ru.nl/index.php?id=quota)
+
+In case of any questions, please send an e-mail to the Project Database Administration (Sabita Raktoe).
+
+With kind regards,
+
+The project administration
+Room number 0.021
+Phone (+3124 36) 10750
+	
+Sabita Raktoe
+Management Assistant DCCN
+`
+	// data for message template
+	tempData := struct {
+		Name           string
+		ProjectID      string
+		ProjectName    string
+		ProjectEndDate string
+	}{name, pid, pname, penddate}
+
+	body, err := composeMessageTempstr(tempStr, tempData)
+
+	if err != nil {
+		return err
+	}
+
+	return sendMail(m.config, from, recipient.Email, subject, body)
+}
+
 // AlertProjectStorageOoq sends out alert email concerning project (about to) running out-of-quota.
 func (m *Mailer) AlertProjectStorageOoq(recipient pdb.User, storageInfo pdb.StorageInfo, pid, pname string) error {
 
@@ -61,7 +108,7 @@ Please consider to clean up the project directory (i.e. /project/{{.ProjectID}} 
 
 If more quota is needed, please see the procedure described in the "Exceptional quota requests" section of the following intranet page: https://intranet.donders.ru.nl/index.php?id=quota
 
-If you have further questions, don’t hesitate to contact the TG helpdesk (helpdesk@fcdonders.ru.nl).
+If you have further questions, don't hesitate to contact the TG helpdesk (helpdesk@fcdonders.ru.nl).
 
 Best regards, the DCCN Technical Group
 `

@@ -120,6 +120,8 @@ func (v2 V2) GetProjects(activeOnly bool) ([]*Project, error) {
 			Name:   p.Title,
 			Owner:  p.Owner.Username,
 			Status: projectStatusEnum(p.Status),
+			Start:  p.Start,
+			End:    p.End,
 		})
 	}
 
@@ -140,6 +142,8 @@ func (v2 V2) GetProject(projectID string) (*Project, error) {
 		Name:   resp.Project.Title,
 		Owner:  resp.Project.Owner.Username,
 		Status: projectStatusEnum(resp.Project.Status),
+		Start:  resp.Project.Start,
+		End:    resp.Project.End,
 	}, nil
 }
 
