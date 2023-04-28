@@ -87,6 +87,15 @@ type User struct {
 	Function   UserFunction `json:"function"`
 }
 
+// DisplayName constructs the user's display name using `Firstname`, `Middlename` and `Lastname`.
+func (u User) DisplayName() string {
+	if u.Middlename != "" {
+		return fmt.Sprintf("%s %s %s", u.Firstname, u.Middlename, u.Lastname)
+	} else {
+		return fmt.Sprintf("%s %s", u.Firstname, u.Lastname)
+	}
+}
+
 // UserFunction defines PDB user function.
 // TODO: refine the fine-grained user functions.
 type UserFunction int

@@ -21,19 +21,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const dateLayout string = "2006-01-02"
+
 var (
-	execNthreads      int
-	storSystem        string
-	useNetappCLI      bool
-	activeProjectOnly bool
-	projectRoots      map[string]string = map[string]string{
+	now               time.Time = time.Now()
+	execNthreads      int       = 4
+	activeProjectOnly bool      = false
+	useNetappCLI      bool      = false
+
+	storSystem   string            = "netapp"
+	projectRoots map[string]string = map[string]string{
 		"netapp":  "/project",
 		"freenas": "/project_freenas",
 		"cephfs":  "/project_cephfs",
 	}
-	alertDbPath        string
+	alertDbPath        string = "alert.db"
 	alertTestProjectID string
-	alertSkipPI        bool
+	alertSkipPI        bool   = false
+	alertMode          string = "p4w"
+
+	// ootAlertDate calculates the project expiry alerting dates for:
+	// - "p4w": 4 weeks in advance
+	// - "p23": 2 weeks in advance
+	// - "now": on the expiration date
+	// - "g1m": 1 month grace time
+	// - "g2m": 2 month gracen time
+	ootAlertDate map[string]string = map[string]string{
+		"p4w": now.AddDate(0, 0, 28).Format(dateLayout),
+		"p2w": now.AddDate(0, 0, 14).Format(dateLayout),
+		"now": now.Format(dateLayout),
+		"g1m": now.AddDate(0, -1, 0).Format(dateLayout),
+		"g2m": now.AddDate(0, -2, 0).Format(dateLayout),
+	}
 )
 
 // ooqAlertFrequency determines the max ooq alert frequency
@@ -70,29 +89,40 @@ func init() {
 		i++
 	}
 
-	projectActionExecCmd.Flags().IntVarP(&execNthreads, "nthreads", "n", 4,
+	// get supported storage systems from the `ootAlertDate`.
+	supportedAlertModes := make([]string, len(ootAlertDate))
+	i = 0
+	for mode := range ootAlertDate {
+		supportedAlertModes[i] = mode
+		i++
+	}
+
+	projectActionExecCmd.Flags().IntVarP(&execNthreads, "nthreads", "n", execNthreads,
 		"`number` of concurrent worker threads.")
 
-	projectActionExecCmd.Flags().BoolVarP(&useNetappCLI, "netapp-cli", "", false,
+	projectActionExecCmd.Flags().BoolVarP(&useNetappCLI, "netapp-cli", "", useNetappCLI,
 		"use NetApp ONTAP CLI to apply changes on the NetApp filer. Only applicable for the netapp storage system.")
 
-	projectActionExecCmd.Flags().StringVarP(&storSystem, "sys", "s", "netapp",
+	projectActionExecCmd.Flags().StringVarP(&storSystem, "sys", "s", storSystem,
 		fmt.Sprintf("storage `system`.  Supported systems: %s", strings.Join(supportedStorSystems, ",")))
 
-	projectCreateCmd.Flags().StringVarP(&storSystem, "sys", "s", "netapp",
+	projectCreateCmd.Flags().StringVarP(&storSystem, "sys", "s", storSystem,
 		fmt.Sprintf("storage `system`.  Supported systems: %s", strings.Join(supportedStorSystems, ",")))
 
-	projectUpdateCmd.Flags().BoolVarP(&activeProjectOnly, "active-only", "a", false,
+	projectUpdateCmd.Flags().BoolVarP(&activeProjectOnly, "active-only", "a", activeProjectOnly,
 		"update only the active projects")
 
-	projectAlertCmd.PersistentFlags().StringVarP(&alertDbPath, "dbpath", "", "alert.db",
+	projectAlertCmd.PersistentFlags().StringVarP(&alertDbPath, "dbpath", "", alertDbPath,
 		"`path` of the internal alert history database")
 
-	projectAlertCmd.PersistentFlags().StringVarP(&alertTestProjectID, "test", "t", "",
+	projectAlertCmd.PersistentFlags().StringVarP(&alertTestProjectID, "test", "t", alertTestProjectID,
 		"`id` of project for testing ooq alert")
 
-	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", false,
+	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", alertSkipPI,
 		"set to skip sending alert to PIs")
+
+	projectAlertOotCmd.Flags().StringVarP(&alertMode, "mode", "m", alertMode,
+		fmt.Sprintf("alert `mode`. Supported modes: %s", strings.Join(supportedAlertModes, ",")))
 
 	projectActionCmd.AddCommand(projectActionListCmd, projectActionExecCmd)
 
@@ -497,10 +527,10 @@ var projectAlertOotSend = &cobra.Command{
 			}()
 		}
 
-		for _, project := range projects {
+		alertDate := ootAlertDate[alertMode]
 
-			now := time.Now()
-			if now.AddDate(0, 0, 28).After(project.End) {
+		for _, project := range projects {
+			if project.End.Format(dateLayout) == alertDate {
 				cprjs <- project
 			} else {
 				log.Debugf("[%s] skipped as the end time (%s) > 4 weeks from now", project.ID, project.End)
@@ -717,6 +747,14 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		// sending alerts to recipients
 		nsent := 0
+		data := ProjectAlertTemplateData{
+			ProjectID:      info.ProjectID,
+			ProjectTitle:   prj.Name,
+			ProjectEndDate: prj.End.Format(dateLayout),
+			SenderName:     "Sabita Raktoe", // TODO: make sender name as input argument
+		}
+		fromAddress := "sabita.raktoe@donders.ru.nl" // TODO: make sender address as input argument
+
 		for r := range recipients {
 			u, err := ipdb.GetUser(r)
 			if err != nil {
@@ -728,10 +766,32 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 				log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
 				continue
 			}
-
 			log.Debugf("[%s] alert %s", info.ProjectID, u.Email)
 
-			if err := mailer.AlertProjectStorageOot(*u, prj.End.Format("2006-01-02"), info.ProjectID, prj.Name); err != nil {
+			data.RecipientName = u.DisplayName()
+
+			// compose alert subject and body
+			var subject, body string
+			switch alertMode {
+			case "p4w":
+				data.ExpiringInDays = 28
+				subject, body, err = ComposeProjectExpiringAlert(data)
+			case "p2w":
+				data.ExpiringInDays = 14
+				subject, body, err = ComposeProjectExpiringAlert(data)
+			case "now":
+				data.ExpiringInDays = 0
+				subject, body, err = ComposeProjectExpiringAlert(data)
+			default:
+				subject, body, err = ComposeProjectExpiredAlert(data)
+			}
+
+			if err != nil {
+				log.Debugf("[%s] skip alert %s due to failure generating alert: %s", info.ProjectID, u.ID, err)
+				continue
+			}
+
+			if err := mailer.SendMail(fromAddress, u.Email, subject, body); err != nil {
 				log.Errorf("[%s] fail to sent oot alert to %s: %s", info.ProjectID, u.Email, err)
 			}
 
@@ -808,6 +868,13 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 	// sending alerts to recipients
 	nsent := 0
+	data := ProjectAlertTemplateData{
+		ProjectID:       info.ProjectID,
+		ProjectTitle:    prj.Name,
+		QuotaUsageRatio: uratio,
+		SenderName:      "DCCN TG Helpdesk", // TODO: make sender name as input argument
+	}
+	fromAddress := "no-reply@donders.ru.nl" // TODO: make sender address as input argument
 	for r := range recipients {
 		u, err := ipdb.GetUser(r)
 		if err != nil {
@@ -822,7 +889,16 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		log.Debugf("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
 
-		if err := mailer.AlertProjectStorageOoq(*u, info.Storage, info.ProjectID, prj.Name); err != nil {
+		data.RecipientName = u.DisplayName()
+
+		subject, body, err := ComposeProjectOutOfQuotaAlert(data)
+
+		if err != nil {
+			log.Debugf("[%s] skip alert %s due to failure generating alert: %s", info.ProjectID, u.ID, err)
+			continue
+		}
+
+		if err := mailer.SendMail(fromAddress, u.Email, subject, body); err != nil {
 			log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
 		}
 
@@ -1050,6 +1126,13 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 			return fmt.Errorf("[%s] fail getting project detail for notification: %s", pid, err)
 		}
 
+		data := ProjectAlertTemplateData{
+			ProjectID:    pid,
+			ProjectTitle: p.Name,
+			SenderName:   "DCCN TG Helpdesk", // TODO: make sender name as input argument
+		}
+		fromAddress := "no-reply@donders.ru.nl" // TODO: make sender address as input argument
+
 		mailer := mailer.New(conf.SMTP)
 		for _, m := range managers {
 
@@ -1057,12 +1140,21 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 
 			u, err := ipdb.GetUser(m)
 
+			data.RecipientName = u.DisplayName()
+
 			if err != nil {
 				log.Errorf("[%s] fail getting user profile of manager %s: %s", pid, m, err)
 				continue
 			}
 
-			if err := mailer.NotifyProjectProvisioned(*u, pid, p.Name); err != nil {
+			subject, body, err := ComposeProjectProvisionedAlert(data)
+
+			if err != nil {
+				log.Debugf("[%s] skip notify %s due to failure generating alert: %s", pid, u.ID, err)
+				continue
+			}
+
+			if err := mailer.SendMail(fromAddress, u.Email, subject, body); err != nil {
 				log.Errorf("[%s] fail notifying manager %s: %s", pid, m, err)
 			}
 		}
