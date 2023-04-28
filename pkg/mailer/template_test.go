@@ -1,11 +1,10 @@
-package pdbutil
+package mailer
 
 import (
 	"os"
 	"testing"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/mailer"
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 )
 
@@ -23,7 +22,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	mailer := mailer.New(conf.SMTP)
+	m := New(conf.SMTP)
 
 	data := ProjectAlertTemplateData{
 		ProjectID:    "3010000.01",
@@ -41,7 +40,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if mailer.SendMail("no-reply@donders.ru.nl", manager.Email, subject, body); err != nil {
+	if m.SendMail("no-reply@donders.ru.nl", manager.Email, subject, body); err != nil {
 		t.Errorf("%s", err)
 	}
 }
@@ -60,7 +59,7 @@ func TestNotifyProjectExpiring(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	mailer := mailer.New(conf.SMTP)
+	m := New(conf.SMTP)
 
 	data := ProjectAlertTemplateData{
 		ProjectID:      "3010000.01",
@@ -81,7 +80,7 @@ func TestNotifyProjectExpiring(t *testing.T) {
 			t.Errorf("%s", err)
 		}
 
-		if mailer.SendMail("sabita.raktoe@donders.ru.nl", manager.Email, subject, body); err != nil {
+		if m.SendMail("sabita.raktoe@donders.ru.nl", manager.Email, subject, body); err != nil {
 			t.Errorf("%s", err)
 		}
 	}
@@ -101,7 +100,7 @@ func TestNotifyProjectExpired(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	mailer := mailer.New(conf.SMTP)
+	m := New(conf.SMTP)
 
 	data := ProjectAlertTemplateData{
 		ProjectID:      "3010000.01",
@@ -120,7 +119,7 @@ func TestNotifyProjectExpired(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if mailer.SendMail("sabita.raktoe@donders.ru.nl", manager.Email, subject, body); err != nil {
+	if m.SendMail("sabita.raktoe@donders.ru.nl", manager.Email, subject, body); err != nil {
 		t.Errorf("%s", err)
 	}
 }
@@ -139,7 +138,7 @@ func TestNotifyProjectOutOfQuota(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	mailer := mailer.New(conf.SMTP)
+	m := New(conf.SMTP)
 
 	data := ProjectAlertTemplateData{
 		ProjectID:       "3010000.01",
@@ -158,7 +157,7 @@ func TestNotifyProjectOutOfQuota(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if mailer.SendMail("no-reply@donders.ru.nl", manager.Email, subject, body); err != nil {
+	if m.SendMail("no-reply@donders.ru.nl", manager.Email, subject, body); err != nil {
 		t.Errorf("%s", err)
 	}
 }

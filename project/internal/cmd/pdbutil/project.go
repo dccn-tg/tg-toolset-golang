@@ -39,6 +39,8 @@ var (
 	alertTestProjectID string
 	alertSkipPI        bool   = false
 	alertMode          string = "p4w"
+	alertSender        string = "DCCN TG Helpdesk"
+	alertSenderEmail   string = "helpdesk@donders.ru.nl"
 
 	// ootAlertDate calculates the project expiry alerting dates for:
 	// - "p4w": 4 weeks in advance
@@ -117,6 +119,12 @@ func init() {
 
 	projectAlertCmd.PersistentFlags().StringVarP(&alertTestProjectID, "test", "t", alertTestProjectID,
 		"`id` of project for testing ooq alert")
+
+	projectAlertCmd.PersistentFlags().StringVarP(&alertSender, "sender", "", alertSender,
+		"`name` of the alert sender")
+
+	projectAlertCmd.PersistentFlags().StringVarP(&alertSenderEmail, "from", "f", alertSenderEmail,
+		"`email` of the alert sender")
 
 	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", alertSkipPI,
 		"set to skip sending alert to PIs")
@@ -733,7 +741,7 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	if now.After(next) {
 		// send the email
 		// initializing mailer
-		mailer := mailer.New(smtpConfig)
+		m := mailer.New(smtpConfig)
 
 		// gather user ids of potential recipients
 		recipients := make(map[string]struct{})
@@ -747,13 +755,12 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		// sending alerts to recipients
 		nsent := 0
-		data := ProjectAlertTemplateData{
+		data := mailer.ProjectAlertTemplateData{
 			ProjectID:      info.ProjectID,
 			ProjectTitle:   prj.Name,
 			ProjectEndDate: prj.End.Format(dateLayout),
-			SenderName:     "Sabita Raktoe", // TODO: make sender name as input argument
+			SenderName:     alertSender,
 		}
-		fromAddress := "sabita.raktoe@donders.ru.nl" // TODO: make sender address as input argument
 
 		for r := range recipients {
 			u, err := ipdb.GetUser(r)
@@ -775,15 +782,15 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			switch alertMode {
 			case "p4w":
 				data.ExpiringInDays = 28
-				subject, body, err = ComposeProjectExpiringAlert(data)
+				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
 			case "p2w":
 				data.ExpiringInDays = 14
-				subject, body, err = ComposeProjectExpiringAlert(data)
+				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
 			case "now":
 				data.ExpiringInDays = 0
-				subject, body, err = ComposeProjectExpiringAlert(data)
+				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
 			default:
-				subject, body, err = ComposeProjectExpiredAlert(data)
+				subject, body, err = mailer.ComposeProjectExpiredAlert(data)
 			}
 
 			if err != nil {
@@ -791,7 +798,7 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 				continue
 			}
 
-			if err := mailer.SendMail(fromAddress, u.Email, subject, body); err != nil {
+			if err := m.SendMail(alertSenderEmail, u.Email, subject, body); err != nil {
 				log.Errorf("[%s] fail to sent oot alert to %s: %s", info.ProjectID, u.Email, err)
 			}
 
@@ -854,7 +861,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	}
 
 	// initializing mailer
-	mailer := mailer.New(smtpConfig)
+	m := mailer.New(smtpConfig)
 
 	// gather user ids of potential recipients
 	recipients := make(map[string]struct{})
@@ -868,13 +875,12 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 	// sending alerts to recipients
 	nsent := 0
-	data := ProjectAlertTemplateData{
+	data := mailer.ProjectAlertTemplateData{
 		ProjectID:       info.ProjectID,
 		ProjectTitle:    prj.Name,
 		QuotaUsageRatio: uratio,
-		SenderName:      "DCCN TG Helpdesk", // TODO: make sender name as input argument
+		SenderName:      alertSender,
 	}
-	fromAddress := "no-reply@donders.ru.nl" // TODO: make sender address as input argument
 	for r := range recipients {
 		u, err := ipdb.GetUser(r)
 		if err != nil {
@@ -891,14 +897,14 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		data.RecipientName = u.DisplayName()
 
-		subject, body, err := ComposeProjectOutOfQuotaAlert(data)
+		subject, body, err := mailer.ComposeProjectOutOfQuotaAlert(data)
 
 		if err != nil {
 			log.Debugf("[%s] skip alert %s due to failure generating alert: %s", info.ProjectID, u.ID, err)
 			continue
 		}
 
-		if err := mailer.SendMail(fromAddress, u.Email, subject, body); err != nil {
+		if err := m.SendMail(alertSenderEmail, u.Email, subject, body); err != nil {
 			log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
 		}
 
@@ -1126,35 +1132,34 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 			return fmt.Errorf("[%s] fail getting project detail for notification: %s", pid, err)
 		}
 
-		data := ProjectAlertTemplateData{
+		data := mailer.ProjectAlertTemplateData{
 			ProjectID:    pid,
 			ProjectTitle: p.Name,
-			SenderName:   "DCCN TG Helpdesk", // TODO: make sender name as input argument
+			SenderName:   alertSender,
 		}
-		fromAddress := "no-reply@donders.ru.nl" // TODO: make sender address as input argument
 
-		mailer := mailer.New(conf.SMTP)
-		for _, m := range managers {
+		m := mailer.New(conf.SMTP)
+		for _, manager := range managers {
 
-			log.Debugf("[%s] sending notification to manager %s", pid, m)
+			log.Debugf("[%s] sending notification to manager %s", pid, manager)
 
-			u, err := ipdb.GetUser(m)
+			u, err := ipdb.GetUser(manager)
 
 			data.RecipientName = u.DisplayName()
 
 			if err != nil {
-				log.Errorf("[%s] fail getting user profile of manager %s: %s", pid, m, err)
+				log.Errorf("[%s] fail getting user profile of manager %s: %s", pid, manager, err)
 				continue
 			}
 
-			subject, body, err := ComposeProjectProvisionedAlert(data)
+			subject, body, err := mailer.ComposeProjectProvisionedAlert(data)
 
 			if err != nil {
 				log.Debugf("[%s] skip notify %s due to failure generating alert: %s", pid, u.ID, err)
 				continue
 			}
 
-			if err := mailer.SendMail(fromAddress, u.Email, subject, body); err != nil {
+			if err := m.SendMail(alertSenderEmail, u.Email, subject, body); err != nil {
 				log.Errorf("[%s] fail notifying manager %s: %s", pid, m, err)
 			}
 		}
