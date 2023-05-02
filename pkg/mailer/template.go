@@ -16,11 +16,19 @@ type ProjectAlertTemplateData struct {
 }
 
 // template of project expiration
-var projectExpiringSubject string = `Warning, project {{.ProjectID}} is approaching it's enddate in {{.ExpiringInDays}} days!`
+var projectExpiringSubject string = `Warning, project {{.ProjectID}} {{ if (eq .ExpiringInDays 0) }}expires today!{{ else }}is approaching it's enddate in {{.ExpiringInDays}} days!{{ end }}`
 
 var projectExpiringBody string = `Dear {{.RecipientName}},
+{{ if (eq .ExpiringInDays 0) }}
+Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor expires today on {{.ProjectEndDate}}. This has the following consequences regarding the assigned quota to this project and the access to the project storage:
 
-Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor will expire on {{.ProjectEndDate}}. This has consequences regarding the assigned quota to this project.
+  - The project quota will be reduced to 0 from tomorrow. Data can still be accessed with only "read" and "delete" operations. It is the begin of the 60-day grace period in which the managers/contributors should archive data to, for example, the Donders Repository.
+{{ else }}
+Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor will expire on {{.ProjectEndDate}}. This has the following consequences regarding the assigned quota to this project and the access to the project storage:
+
+  - one day after the expiration, the project quota is reduced to 0. Data can still be accessed with only "read" and "delete" operations. It is the begin of the 60-day grace period in which the managers/contributors should archive data to, for example, the Donders Repository.
+{{ end }}
+  - two months after the project expiration, the access to the project storage is "removed" from the users.
 
 If this project has finished please take care the data is securely archived, remove the remaining data in the project directory and send an email to the helpdesk@donders.ru.nl that everything is properly archived and that the project can be deleted from central storage.
 
@@ -41,14 +49,20 @@ Phone (+3124 36) 10750
 Management Assistant DCCN
 `
 
-var projectExpiredSubject string = `Warning, project {{.ProjectID}} has expired!`
+var projectExpiredSubject string = `Warning, project {{.ProjectID}} has expired {{neg .ExpiringInDays}} days ago!`
 
 var projectExpiredBody string = `Dear {{.RecipientName}},
+{{ if (eq .ExpiringInDays -30) }}
+Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor has expired {{neg .ExpiringInDays}} days ago on {{.ProjectEndDate}}.
 
-Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor has expired on {{.ProjectEndDate}}. This has consequences regarding the assigned quota to this project.
+Data in the project storage can still be accessed with only "read" and "delete" operations. In 30 days, data access to the project storage will be removed completely.
 
 Please take care the data is securely archived, remove the remaining data in the project directory and send an email to the helpdesk@donders.ru.nl that everything is properly archived and that the project can be deleted from central storage.
+{{ else }}
+Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor has expired {{neg .ExpiringInDays}} days ago on {{.ProjectEndDate}}.
 
+Data access to the project storage is going to be removed.
+{{ end }}
 More information on project expiration and quota :
 
   - ProjectExpirationProcedure (see https://intranet.donders.ru.nl/uploads/media/20190624-ProjectExpirationProcedure-Rev3.pdf)
@@ -182,11 +196,19 @@ func ComposeProjectProvisionedAlert(data ProjectAlertTemplateData) (string, stri
 	return subject, body, nil
 }
 
+// template function definition
+var funcMap = template.FuncMap{
+	// The name "neg" is a template function to convert integer to negtive value.
+	"neg": func(i int) int {
+		return 0 - i
+	},
+}
+
 // composeMessage composes a message using the given `tempfile` template file and the `data`
 // provided.
 func composeMessageTempfile(tempfile string, data interface{}) (string, error) {
 	var buf bytes.Buffer
-	t := template.Must(template.New("message").ParseFiles([]string{tempfile}...))
+	t := template.Must(template.New("message").Funcs(funcMap).ParseFiles([]string{tempfile}...))
 	err := t.Execute(&buf, data)
 	if err != nil {
 		return "", err
@@ -198,7 +220,7 @@ func composeMessageTempfile(tempfile string, data interface{}) (string, error) {
 // provided.
 func composeMessageTempstr(tempstr string, data interface{}) (string, error) {
 	var buf bytes.Buffer
-	t := template.Must(template.New("message").Parse(tempstr))
+	t := template.Must(template.New("message").Funcs(funcMap).Parse(tempstr))
 	err := t.Execute(&buf, data)
 	if err != nil {
 		return "", err

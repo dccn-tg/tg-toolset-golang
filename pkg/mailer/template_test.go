@@ -8,6 +8,8 @@ import (
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 )
 
+var cc = "Bruin, R.J.G. de (Rene) <rene.debruin@donders.ru.nl>"
+
 func TestNotifyProjectProvisioned(t *testing.T) {
 
 	var manager = &pdb.User{
@@ -40,7 +42,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if m.SendMail("no-reply@donders.ru.nl", manager.Email, subject, body); err != nil {
+	if m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
 		t.Errorf("%s", err)
 	}
 }
@@ -80,7 +82,7 @@ func TestNotifyProjectExpiring(t *testing.T) {
 			t.Errorf("%s", err)
 		}
 
-		if m.SendMail("sabita.raktoe@donders.ru.nl", manager.Email, subject, body); err != nil {
+		if m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
 			t.Errorf("%s", err)
 		}
 	}
@@ -111,16 +113,20 @@ func TestNotifyProjectExpired(t *testing.T) {
 
 	data.RecipientName = manager.DisplayName()
 
-	subject, body, err := ComposeProjectExpiredAlert(data)
-	if err != nil {
-		t.Errorf("%s", err)
-	}
+	for _, days := range []int{-30, -60} {
+		data.ExpiringInDays = days
+		subject, body, err := ComposeProjectExpiredAlert(data)
 
-	t.Logf("subject: %s", subject)
-	t.Logf("body: %s", body)
+		t.Logf("subject: %s", subject)
+		t.Logf("body: %s", body)
 
-	if m.SendMail("sabita.raktoe@donders.ru.nl", manager.Email, subject, body); err != nil {
-		t.Errorf("%s", err)
+		if err != nil {
+			t.Errorf("%s", err)
+		}
+
+		if m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
+			t.Errorf("%s", err)
+		}
 	}
 }
 
@@ -157,7 +163,7 @@ func TestNotifyProjectOutOfQuota(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if m.SendMail("no-reply@donders.ru.nl", manager.Email, subject, body); err != nil {
+	if m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
 		t.Errorf("%s", err)
 	}
 }

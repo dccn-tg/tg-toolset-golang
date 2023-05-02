@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/smtp"
+	"strings"
 
 	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
 )
@@ -21,14 +22,15 @@ type Mailer struct {
 
 // SendMail sends out a email with given `from`, `to`, `subject` and `body` content
 // using the SMTP server configuration provided by `config`.
-func (m *Mailer) SendMail(from, to, subject, body string) error {
+func (m *Mailer) SendMail(from, subject, body string, to []string, cc ...string) error {
 
 	// SMTP server address
 	addr := fmt.Sprintf("%s:%d", m.config.Host, m.config.Port)
 
 	header := make(map[string]string)
 	header["From"] = from
-	header["To"] = to
+	header["To"] = strings.Join(to, ";")
+	header["Cc"] = strings.Join(cc, ";")
 	header["Subject"] = subject
 	header["MIME-Version"] = "1.0"
 	header["Content-Type"] = "text/plain; charset=\"utf-8\""
@@ -43,9 +45,9 @@ func (m *Mailer) SendMail(from, to, subject, body string) error {
 	// SMTP plain auth with username/password
 	if m.config.AuthPlainUser != "" && m.config.AuthPlainPass != "" {
 		auth := smtp.PlainAuth("", m.config.AuthPlainUser, m.config.AuthPlainPass, m.config.Host)
-		return smtp.SendMail(addr, auth, from, []string{to}, []byte(message))
+		return smtp.SendMail(addr, auth, from, append(to, cc...), []byte(message))
 	}
 
 	// no SMTP authentication
-	return smtp.SendMail(addr, nil, from, []string{to}, []byte(message))
+	return smtp.SendMail(addr, nil, from, append(to, cc...), []byte(message))
 }

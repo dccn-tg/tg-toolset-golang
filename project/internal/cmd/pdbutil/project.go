@@ -43,17 +43,17 @@ var (
 	alertSenderEmail   string = "helpdesk@donders.ru.nl"
 
 	// ootAlertDate calculates the project expiry alerting dates for:
-	// - "p4w": 4 weeks in advance
-	// - "p23": 2 weeks in advance
+	// - "p4w": 28-day in advance
+	// - "p23": 14-day in advance
 	// - "now": on the expiration date
-	// - "g1m": 1 month grace time
-	// - "g2m": 2 month gracen time
+	// - "g1m": 30-day grace time
+	// - "g2m": 60-day gracen time
 	ootAlertDate map[string]string = map[string]string{
 		"p4w": now.AddDate(0, 0, 28).Format(dateLayout),
 		"p2w": now.AddDate(0, 0, 14).Format(dateLayout),
 		"now": now.Format(dateLayout),
-		"g1m": now.AddDate(0, -1, 0).Format(dateLayout),
-		"g2m": now.AddDate(0, -2, 0).Format(dateLayout),
+		"g1m": now.AddDate(0, 0, -30).Format(dateLayout),
+		"g2m": now.AddDate(0, 0, -60).Format(dateLayout),
 	}
 )
 
@@ -804,8 +804,16 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			case "now":
 				data.ExpiringInDays = 0
 				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
-			default:
+			case "g1m":
+				data.ExpiringInDays = -30
 				subject, body, err = mailer.ComposeProjectExpiredAlert(data)
+			case "g2m":
+				data.ExpiringInDays = -60
+				subject, body, err = mailer.ComposeProjectExpiredAlert(data)
+			default:
+				// ignore operation if alertMode is not a defined mode
+				msg := fmt.Sprintf("ignore unknown alert mode %s", alertMode)
+				return lastAlert, &pdb.OpsIgnored{Message: msg}
 			}
 
 			if err != nil {
@@ -813,7 +821,7 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 				continue
 			}
 
-			if err := m.SendMail(alertSenderEmail, u.Email, subject, body); err != nil {
+			if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
 				log.Errorf("[%s] fail to sent oot alert to %s: %s", info.ProjectID, u.Email, err)
 			}
 
@@ -919,7 +927,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			continue
 		}
 
-		if err := m.SendMail(alertSenderEmail, u.Email, subject, body); err != nil {
+		if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
 			log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
 		}
 
@@ -1174,7 +1182,7 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 				continue
 			}
 
-			if err := m.SendMail(alertSenderEmail, u.Email, subject, body); err != nil {
+			if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
 				log.Errorf("[%s] fail notifying manager %s: %s", pid, m, err)
 			}
 		}
