@@ -129,7 +129,7 @@ func init() {
 	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", alertSkipPI,
 		"set to skip sending alert to PIs")
 
-	projectAlertOotCmd.Flags().StringVarP(&alertMode, "mode", "m", alertMode,
+	projectAlertOotCmd.PersistentFlags().StringVarP(&alertMode, "mode", "m", alertMode,
 		fmt.Sprintf("alert `mode`. Supported modes: %s", strings.Join(supportedAlertModes, ",")))
 
 	projectActionCmd.AddCommand(projectActionListCmd, projectActionExecCmd)
