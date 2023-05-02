@@ -824,7 +824,7 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			Timestamp: now,
 		}, nil
 	}
-	msg := fmt.Sprintf("%s not reaching next alert %s.", now, next)
+	msg := fmt.Sprintf("last alert has been sent on %s", lastAlert.Timestamp.Format(dateLayout))
 	return lastAlert, &pdb.OpsIgnored{Message: msg}
 }
 
