@@ -22,11 +22,11 @@ var projectExpiringBody string = `Dear {{.RecipientName}},
 {{ if (eq .ExpiringInDays 0) }}
 Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor expires today on {{.ProjectEndDate}}. This has the following consequences regarding the assigned quota to this project and the access to the project storage:
 
-  - The project quota will be reduced to 0 from tomorrow. Data can still be accessed with only "read" and "delete" operations. It is the begin of the 60-day grace period in which the managers/contributors should archive data to, for example, the Donders Repository.
+  - The project quota will be reduced to 0 from tomorrow. Data can still be accessed with only "read" and "delete" operations. It is the beginning of the 60-day grace period in which the managers/contributors should archive data to, for example, the Donders Repository.
 {{ else }}
 Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor will expire on {{.ProjectEndDate}}. This has the following consequences regarding the assigned quota to this project and the access to the project storage:
 
-  - one day after the expiration, the project quota is reduced to 0. Data can still be accessed with only "read" and "delete" operations. It is the begin of the 60-day grace period in which the managers/contributors should archive data to, for example, the Donders Repository.
+  - one day after the expiration, the project quota is reduced to 0. Data can still be accessed with only "read" and "delete" operations. It is the beginning of the 60-day grace period in which the managers/contributors should archive data to, for example, the Donders Repository.
 {{ end }}
   - two months after the project expiration, the access to the project storage is "removed" from the users.
 
