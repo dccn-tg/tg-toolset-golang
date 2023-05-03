@@ -784,7 +784,8 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 				continue
 			}
 
-			if alertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
+			// only apply `alertSkipPI` option if there are more than 1 alert recipient
+			if len(recipients) > 1 && alertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
 				log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
 				continue
 			}
