@@ -450,14 +450,6 @@ var projectAlertOotSend = &cobra.Command{
 		// perform pending actions with 4 concurrent workers,
 		// each works on a project.
 		var wg sync.WaitGroup
-
-		type alertData struct {
-			project   *pdb.Project
-			dataInfo  *pdb.DataProjectInfo
-			lastAlert pdb.OotLastAlert
-		}
-		calrt := make(chan alertData)
-
 		cprjs := make(chan *pdb.Project, execNthreads*2)
 		for w := 0; w < execNthreads; w++ {
 			wg.Add(1)
@@ -496,21 +488,24 @@ var projectAlertOotSend = &cobra.Command{
 					}
 					log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
 
-					// push alert data to `calrt` channel
-					calrt <- alertData{
-						project:   prj,
-						dataInfo:  info,
-						lastAlert: lastAlert,
+					// check and send alert
+					switch lastAlert, err := ootAlert(ipdb, prj, info, lastAlert, conf.SMTP); err.(type) {
+					case nil:
+						log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
+						// alert sent, update store db with new last alert information
+						data, _ := json.Marshal(&lastAlert)
+						store.Set(dbBucket, []byte(prj.ID), data)
+					case *pdb.OpsIgnored:
+						// alert ignored
+						log.Debugf("[%s] %s", prj.ID, err)
+						log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
+					default:
+						// something wrong
+						log.Errorf("[%s] fail to send alert for project out-of-time: +%v", prj.ID, err)
 					}
 				}
 			}()
 		}
-
-		// go routine to wait for all projects are processed by concurrent workers, and close the `calrt` channel.
-		go func() {
-			defer close(calrt)
-			wg.Wait()
-		}()
 
 		// select projects matching the alerting mode criteria
 		for _, project := range projects {
@@ -522,24 +517,7 @@ var projectAlertOotSend = &cobra.Command{
 		}
 		close(cprjs)
 
-		// sending out alert sequentially, blocking until `calrt` channel is closed.
-		for alert := range calrt {
-			// check and send alert
-			switch lastAlert, err := ootAlert(ipdb, alert.project, alert.dataInfo, alert.lastAlert, conf.SMTP); err.(type) {
-			case nil:
-				log.Debugf("[%s] last oot alert: %+v", alert.project.ID, lastAlert)
-				// alert sent, update store db with new last alert information
-				data, _ := json.Marshal(&lastAlert)
-				store.Set(dbBucket, []byte(alert.project.ID), data)
-			case *pdb.OpsIgnored:
-				// alert ignored
-				log.Debugf("[%s] %s", alert.project.ID, err)
-				log.Debugf("[%s] last oot alert: %+v", alert.project.ID, lastAlert)
-			default:
-				// something wrong
-				log.Errorf("[%s] fail to send alert for project out-of-time: +%v", alert.project.ID, err)
-			}
-		}
+		wg.Wait()
 
 		return nil
 	},
@@ -646,14 +624,6 @@ var projectAlertOoqSend = &cobra.Command{
 		// perform pending actions with 4 concurrent workers,
 		// each works on a project.
 		var wg sync.WaitGroup
-
-		type alertData struct {
-			project   *pdb.Project
-			dataInfo  *pdb.DataProjectInfo
-			lastAlert pdb.OoqLastAlert
-		}
-		calrt := make(chan alertData)
-
 		cprjs := make(chan *pdb.Project, execNthreads*2)
 		for w := 0; w < execNthreads; w++ {
 			wg.Add(1)
@@ -692,48 +662,35 @@ var projectAlertOoqSend = &cobra.Command{
 					}
 					log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
 
-					// push alert data to `calrt` channel
-					calrt <- alertData{
-						project:   prj,
-						dataInfo:  info,
-						lastAlert: lastAlert,
+					// check and send alert
+					switch lastAlert, err := ooqAlert(ipdb, prj, info, lastAlert, conf.SMTP); err.(type) {
+					case nil:
+						log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
+						// alert sent, update store db with new last alert information
+						data, _ := json.Marshal(&lastAlert)
+						store.Set(dbBucket, []byte(prj.ID), data)
+					case *pdb.OpsIgnored:
+						// alert ignored
+						log.Debugf("[%s] %s", prj.ID, err)
+						log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
+						// alert ignored, still need to update the lastAlert to alert history db with
+						// the current project UsagePercent.
+						data, _ := json.Marshal(&lastAlert)
+						store.Set(dbBucket, []byte(prj.ID), data)
+					default:
+						// something wrong
+						log.Errorf("[%s] fail to send alert for project out-of-quota: +%v", prj.ID, err)
 					}
 				}
 			}()
 		}
-
-		// go routine to wait for all projects are processed by concurrent workers, and close the `calrt` channel.
-		go func() {
-			defer close(calrt)
-			wg.Wait()
-		}()
 
 		for _, project := range projects {
 			cprjs <- project
 		}
 		close(cprjs)
 
-		for alert := range calrt {
-			// check and send alert
-			switch lastAlert, err := ooqAlert(ipdb, alert.project, alert.dataInfo, alert.lastAlert, conf.SMTP); err.(type) {
-			case nil:
-				log.Debugf("[%s] last ooq alert: %+v", alert.project.ID, lastAlert)
-				// alert sent, update store db with new last alert information
-				data, _ := json.Marshal(&lastAlert)
-				store.Set(dbBucket, []byte(alert.project.ID), data)
-			case *pdb.OpsIgnored:
-				// alert ignored
-				log.Debugf("[%s] %s", alert.project.ID, err)
-				log.Debugf("[%s] last ooq alert: %+v", alert.project.ID, lastAlert)
-				// alert ignored, still need to update the lastAlert to alert history db with
-				// the current project UsagePercent.
-				data, _ := json.Marshal(&lastAlert)
-				store.Set(dbBucket, []byte(alert.project.ID), data)
-			default:
-				// something wrong
-				log.Errorf("[%s] fail to send alert for project out-of-quota: +%v", alert.project.ID, err)
-			}
-		}
+		wg.Wait()
 
 		return nil
 	},
