@@ -38,6 +38,7 @@ var (
 	alertDbPath        string = "alert.db"
 	alertTestProjectID string
 	alertSkipPI        bool   = false
+	alertDryrun        bool   = false
 	alertMode          string = "p4w"
 	alertSender        string = "DCCN TG Helpdesk"
 	alertSenderEmail   string = "helpdesk@donders.ru.nl"
@@ -128,6 +129,9 @@ func init() {
 
 	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", alertSkipPI,
 		"set to skip sending alert to PIs")
+
+	projectAlertCmd.PersistentFlags().BoolVarP(&alertDryrun, "dryrun", "", alertDryrun,
+		"print out alerts and recipients without really sent them")
 
 	projectAlertOotCmd.PersistentFlags().StringVarP(&alertMode, "mode", "m", alertMode,
 		fmt.Sprintf("alert `mode`. Supported modes: %s", strings.Join(supportedAlertModes, ",")))
@@ -489,7 +493,14 @@ var projectAlertOotSend = &cobra.Command{
 					log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
 
 					// check and send alert
-					switch lastAlert, err := ootAlert(ipdb, prj, info, lastAlert, conf.SMTP); err.(type) {
+					lastAlert, err = ootAlert(ipdb, prj, info, lastAlert, conf.SMTP)
+
+					// do nothing to the db for dryrun
+					if alertDryrun {
+						continue
+					}
+
+					switch err.(type) {
 					case nil:
 						log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
 						// alert sent, update store db with new last alert information
@@ -663,7 +674,14 @@ var projectAlertOoqSend = &cobra.Command{
 					log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
 
 					// check and send alert
-					switch lastAlert, err := ooqAlert(ipdb, prj, info, lastAlert, conf.SMTP); err.(type) {
+					lastAlert, err = ooqAlert(ipdb, prj, info, lastAlert, conf.SMTP)
+
+					// do nothing to the db for dryrun
+					if alertDryrun {
+						continue
+					}
+
+					switch err.(type) {
 					case nil:
 						log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
 						// alert sent, update store db with new last alert information
@@ -746,7 +764,6 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 				log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
 				continue
 			}
-			log.Debugf("[%s] alert %s", info.ProjectID, u.Email)
 
 			data.RecipientName = u.DisplayName()
 
@@ -779,7 +796,9 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 				continue
 			}
 
-			if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
+			if alertDryrun {
+				log.Infof("[%s] alert %s", info.ProjectID, u.Email)
+			} else if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
 				log.Errorf("[%s] fail to sent oot alert to %s: %s", info.ProjectID, u.Email, err)
 			}
 
@@ -874,8 +893,6 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			continue
 		}
 
-		log.Debugf("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
-
 		data.RecipientName = u.DisplayName()
 
 		subject, body, err := mailer.ComposeProjectOutOfQuotaAlert(data)
@@ -885,7 +902,9 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			continue
 		}
 
-		if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
+		if alertDryrun {
+			log.Infof("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
+		} else if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
 			log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
 		}
 
