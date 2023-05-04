@@ -42,6 +42,7 @@ var (
 	alertMode          string = "p4w"
 	alertSender        string = "DCCN TG Helpdesk"
 	alertSenderEmail   string = "helpdesk@donders.ru.nl"
+	alertCarbonCopy    string = "rene.debruin@donders.ru.nl"
 
 	// ootAlertDate calculates the project expiry alerting dates for:
 	// - "p4w": 28-day in advance
@@ -129,6 +130,9 @@ func init() {
 
 	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", alertSkipPI,
 		"set to skip sending alert to PIs")
+
+	projectAlertCmd.PersistentFlags().StringVarP(&alertCarbonCopy, "cc", "", alertCarbonCopy,
+		"alert carbon copy `email`")
 
 	projectAlertCmd.PersistentFlags().BoolVarP(&alertDryrun, "dryrun", "", alertDryrun,
 		"print out alerts and recipients without really sent them")
@@ -798,7 +802,7 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 			if alertDryrun {
 				log.Infof("[%s] alert %s", info.ProjectID, u.Email)
-			} else if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
+			} else if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}, alertCarbonCopy); err != nil {
 				log.Errorf("[%s] fail to sent oot alert to %s: %s", info.ProjectID, u.Email, err)
 			}
 
