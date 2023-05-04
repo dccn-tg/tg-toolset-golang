@@ -51,9 +51,9 @@ var (
 	ootAlertDate map[string]string = map[string]string{
 		"p4w": now.AddDate(0, 0, 28).Format(dateLayout),
 		"p2w": now.AddDate(0, 0, 14).Format(dateLayout),
+		"p1w": now.AddDate(0, 0, 7).Format(dateLayout),
 		"now": now.Format(dateLayout),
-		"g1m": now.AddDate(0, 0, -30).Format(dateLayout),
-		"g2m": now.AddDate(0, 0, -60).Format(dateLayout),
+		"g2m": now.AddDate(0, -2, 0).Format(dateLayout),
 	}
 )
 
@@ -748,11 +748,11 @@ var projectAlertOoqSend = &cobra.Command{
 func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OotLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OotLastAlert, error) {
 
 	now := time.Now()
-	next := lastAlert.Timestamp.AddDate(0, 0, 7)
+	next := lastAlert.Timestamp.AddDate(0, 0, 3)
 
-	// prevent sending alert if it has been sent once in the last 7 days
+	// prevent sending alert if it has been sent once in the last 3 days
 	// NOTE: this is a redundent protection given that the ootAlert implements `mode` to
-	//       send out alert on an exact dates based on the project end time (i.e. 28/14/0 days in advance)
+	//       send out alert on an exact dates based on the project end time (i.e. 28/14/7/0 days in advance)
 	if now.After(next) {
 		// send the email
 		// initializing mailer
@@ -802,15 +802,15 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			case "p2w":
 				data.ExpiringInDays = 14
 				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
+			case "p1w":
+				data.ExpiringInDays = 7
+				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
 			case "now":
 				data.ExpiringInDays = 0
 				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
-			case "g1m":
-				data.ExpiringInDays = -30
-				subject, body, err = mailer.ComposeProjectExpiredAlert(data)
 			case "g2m":
-				data.ExpiringInDays = -60
-				subject, body, err = mailer.ComposeProjectExpiredAlert(data)
+				data.ExpiringInMonths = -2
+				subject, body, err = mailer.ComposeProjectEndOfGracePeriodAlert(data)
 			default:
 				// ignore operation if alertMode is not a defined mode
 				msg := fmt.Sprintf("ignore unknown alert mode %s", alertMode)

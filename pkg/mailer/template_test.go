@@ -71,7 +71,7 @@ func TestNotifyProjectExpiring(t *testing.T) {
 	}
 
 	data.RecipientName = manager.DisplayName()
-	for _, days := range []int{28, 14, 0} {
+	for _, days := range []int{28, 14, 7, 0} {
 		data.ExpiringInDays = days
 		subject, body, err := ComposeProjectExpiringAlert(data)
 
@@ -88,7 +88,7 @@ func TestNotifyProjectExpiring(t *testing.T) {
 	}
 }
 
-func TestNotifyProjectExpired(t *testing.T) {
+func TestNotifyProjectEndOfGracePeriod(t *testing.T) {
 
 	var manager = &pdb.User{
 		Firstname:  "Hürng-Chun",
@@ -112,22 +112,20 @@ func TestNotifyProjectExpired(t *testing.T) {
 	}
 
 	data.RecipientName = manager.DisplayName()
+	data.ExpiringInMonths = -2
+	subject, body, err := ComposeProjectEndOfGracePeriodAlert(data)
 
-	for _, days := range []int{-30, -60} {
-		data.ExpiringInDays = days
-		subject, body, err := ComposeProjectExpiredAlert(data)
+	t.Logf("subject: %s", subject)
+	t.Logf("body: %s", body)
 
-		t.Logf("subject: %s", subject)
-		t.Logf("body: %s", body)
-
-		if err != nil {
-			t.Errorf("%s", err)
-		}
-
-		if m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
-			t.Errorf("%s", err)
-		}
+	if err != nil {
+		t.Errorf("%s", err)
 	}
+
+	if m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
+		t.Errorf("%s", err)
+	}
+
 }
 
 func TestNotifyProjectOutOfQuota(t *testing.T) {

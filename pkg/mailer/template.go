@@ -6,17 +6,18 @@ import (
 )
 
 type ProjectAlertTemplateData struct {
-	ProjectID       string // project id
-	ProjectTitle    string // project title
-	ProjectEndDate  string // project end date in format of "2006-01-02"
-	RecipientName   string // full name of the alert recipient to be addressed
-	SenderName      string // full name of the alert sender
-	ExpiringInDays  int    // number of days before the project's end date
-	QuotaUsageRatio int    // project storage quota usage ratio
+	ProjectID        string // project id
+	ProjectTitle     string // project title
+	ProjectEndDate   string // project end date in format of "2006-01-02"
+	RecipientName    string // full name of the alert recipient to be addressed
+	SenderName       string // full name of the alert sender
+	ExpiringInDays   int    // number of days before the project's end date
+	ExpiringInMonths int    // number of months before the project's end date
+	QuotaUsageRatio  int    // project storage quota usage ratio
 }
 
-// template of project expiration
-var projectExpiringSubject string = `Warning, project {{.ProjectID}} {{ if (eq .ExpiringInDays 0) }}expires today!{{ else }}is approaching it's enddate in {{.ExpiringInDays}} days!{{ end }}`
+// template for project expiring
+var projectExpiringSubject string = `Warning, project {{.ProjectID}} {{ if (eq .ExpiringInDays 0) }}expires today!{{ else }}is approaching it's end date in {{.ExpiringInDays}} days!{{ end }}`
 
 var projectExpiringBody string = `Dear {{.RecipientName}},
 {{ if (eq .ExpiringInDays 0) }}
@@ -49,6 +50,7 @@ Phone (+3124 36) 10750
 Management Assistant DCCN
 `
 
+// template for project expired
 var projectExpiredSubject string = `Warning, project {{.ProjectID}} has expired {{neg .ExpiringInDays}} days ago!`
 
 var projectExpiredBody string = `Dear {{.RecipientName}},
@@ -63,6 +65,32 @@ Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are 
 
 Data access to the project storage is going to be removed.
 {{ end }}
+More information on project expiration and quota :
+
+  - ProjectExpirationProcedure (see https://intranet.donders.ru.nl/uploads/media/20190624-ProjectExpirationProcedure-Rev3.pdf)
+  - Quota on central storage (see https://intranet.donders.ru.nl/index.php?id=quota)
+
+In case of any questions, please send an e-mail to the Project Database Administration (Sabita Raktoe).
+
+With kind regards,
+
+The project administration
+Room number 0.021
+Phone (+3124 36) 10750
+	
+{{.SenderName}}
+Management Assistant DCCN
+`
+
+// template for project end of grace period
+var projectEndOfGracePeriodSubject string = `Warning, project {{.ProjectID}} has reached the end of the {{neg .ExpiringInMonths}}-month grace period after expiration!`
+
+var projectEndOfGracePeriodBody string = `Dear {{.RecipientName}},
+
+Please be aware that project '{{.ProjectTitle}}' ({{.ProjectID}}) where you are a manager/contributor has expired {{neg .ExpiringInMonths}} months days ago on {{.ProjectEndDate}}.
+
+It is the end of the grace period after the project expiration and thus data access to the project storage will be removed.
+
 More information on project expiration and quota :
 
   - ProjectExpirationProcedure (see https://intranet.donders.ru.nl/uploads/media/20190624-ProjectExpirationProcedure-Rev3.pdf)
@@ -159,6 +187,21 @@ func ComposeProjectExpiredAlert(data ProjectAlertTemplateData) (string, string, 
 		return "", "", err
 	}
 	body, err := composeMessageTempstr(projectExpiredBody, data)
+	if err != nil {
+		return "", "", err
+	}
+
+	return subject, body, nil
+}
+
+// ComposeProjectEndOfGracePeriodAlert composes the subject and body of the email alert concerning
+// project has passed its end date.
+func ComposeProjectEndOfGracePeriodAlert(data ProjectAlertTemplateData) (string, string, error) {
+	subject, err := composeMessageTempstr(projectEndOfGracePeriodSubject, data)
+	if err != nil {
+		return "", "", err
+	}
+	body, err := composeMessageTempstr(projectEndOfGracePeriodBody, data)
 	if err != nil {
 		return "", "", err
 	}
