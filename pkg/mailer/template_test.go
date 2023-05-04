@@ -8,7 +8,7 @@ import (
 	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
 )
 
-var cc = "Bruin, R.J.G. de (Rene) <rene.debruin@donders.ru.nl>"
+var cc = "rene.debruin@donders.ru.nl"
 
 func TestNotifyProjectProvisioned(t *testing.T) {
 
