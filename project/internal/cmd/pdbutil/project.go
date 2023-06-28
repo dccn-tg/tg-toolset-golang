@@ -737,13 +737,34 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 		// initializing mailer
 		m := mailer.New(smtpConfig)
 
-		// gather user ids of potential recipients
-		recipients := make(map[string]struct{})
-		recipients[prj.Owner] = struct{}{}
+		// gather user information of project owner
+		recipients := make(map[string]*pdb.User)
+		u, err := ipdb.GetUser(prj.Owner)
+		switch {
+		case err != nil:
+			log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, prj.Owner)
+		case u.Status != pdb.UserStatusCheckedIn && u.Status != pdb.UserStatusCheckedOutExtended:
+			log.Debugf("[%s] skip alert %s due to user state %s", info.ProjectID, u.ID, u.Status)
+		default:
+			recipients[prj.Owner] = u
+		}
 
+		// gather user information of project members
 		for _, m := range info.Members {
-			if m.Role == acl.Manager.String() || m.Role == acl.Contributor.String() {
-				recipients[m.UserID] = struct{}{}
+
+			if m.Role != acl.Manager.String() && m.Role != acl.Contributor.String() {
+				log.Debugf("[%s] skip alert %s due to user role %s", info.ProjectID, m.UserID, m.Role)
+				continue
+			}
+
+			u, err := ipdb.GetUser(m.UserID)
+			switch {
+			case err != nil:
+				log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, m.UserID)
+			case u.Status != pdb.UserStatusCheckedIn && u.Status != pdb.UserStatusCheckedOutExtended:
+				log.Debugf("[%s] skip alert %s due to user state %s", info.ProjectID, u.ID, u.Status)
+			default:
+				recipients[m.UserID] = u
 			}
 		}
 
@@ -756,16 +777,11 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			SenderName:     alertSender,
 		}
 
-		for r := range recipients {
-			u, err := ipdb.GetUser(r)
-			if err != nil {
-				log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, r)
-				continue
-			}
+		for _, u := range recipients {
 
 			// only apply `alertSkipPI` option if there are more than 1 alert recipient
 			if len(recipients) > 1 && alertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
-				log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
+				log.Debugf("[%s] skip alert PI: %s", info.ProjectID, u.ID)
 				continue
 			}
 
@@ -867,13 +883,35 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	// initializing mailer
 	m := mailer.New(smtpConfig)
 
-	// gather user ids of potential recipients
-	recipients := make(map[string]struct{})
-	recipients[prj.Owner] = struct{}{}
+	// gather user information of project owner
+	recipients := make(map[string]*pdb.User)
 
+	u, err := ipdb.GetUser(prj.Owner)
+	switch {
+	case err != nil:
+		log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, prj.Owner)
+	case u.Status != pdb.UserStatusCheckedIn && u.Status != pdb.UserStatusCheckedOutExtended:
+		log.Debugf("[%s] skip alert %s due to user state %s", info.ProjectID, u.ID, u.Status)
+	default:
+		recipients[prj.Owner] = u
+	}
+
+	// gather user information of project members
 	for _, m := range info.Members {
-		if m.Role == acl.Manager.String() || m.Role == acl.Contributor.String() {
-			recipients[m.UserID] = struct{}{}
+
+		if m.Role != acl.Manager.String() && m.Role != acl.Contributor.String() {
+			log.Debugf("[%s] skip alert %s due to user role %s", info.ProjectID, m.UserID, m.Role)
+			continue
+		}
+
+		u, err := ipdb.GetUser(m.UserID)
+		switch {
+		case err != nil:
+			log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, m.UserID)
+		case u.Status != pdb.UserStatusCheckedIn && u.Status != pdb.UserStatusCheckedOutExtended:
+			log.Debugf("[%s] skip alert %s due to user state %s", info.ProjectID, u.ID, u.Status)
+		default:
+			recipients[m.UserID] = u
 		}
 	}
 
@@ -885,15 +923,11 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 		QuotaUsageRatio: uratio,
 		SenderName:      alertSender,
 	}
-	for r := range recipients {
-		u, err := ipdb.GetUser(r)
-		if err != nil {
-			log.Errorf("[%s] cannot get recipient info from project database: %s", info.ProjectID, r)
-			continue
-		}
+	for _, u := range recipients {
 
+		// shall we ignore `skip-pi` option if PI is the only recipient??
 		if alertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
-			log.Debugf("[%s] skip alert to PI: %s", info.ProjectID, u.ID)
+			log.Debugf("[%s] skip alert PI: %s", info.ProjectID, u.ID)
 			continue
 		}
 

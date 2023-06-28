@@ -147,6 +147,23 @@ const (
 	UserStatusTentative
 )
 
+// String implements the interface for `fmt.Stringer`.  It returns the
+// human-readable name of the state.
+func (u UserStatus) String() string {
+	s := "Unknown"
+	switch u {
+	case UserStatusCheckedIn:
+		s = "CheckedIn"
+	case UserStatusCheckedOut:
+		s = "CheckedOut"
+	case UserStatusTentative:
+		s = "Tentative"
+	case UserStatusCheckedOutExtended:
+		s = "CheckedOutExtended"
+	}
+	return s
+}
+
 // Lab defines an enumerator for the lab categories.
 type Lab int
 
