@@ -4,7 +4,7 @@ CLI tools and re-usable libraries for interacting and managing various ICT servi
 
 ## Code structure
 
-Currently, the whole package is divided into three major parts, each provides a set of CLI tools.  They are:
+Currently, the whole package is divided into a few parts, each provides a set of CLI tools.  They are:
 
 - [dataflow](dataflow) contains tools and libraries for automatic MEG/MRI dataflow.
   * [lab_bookings](dataflow/cmd/lab_bookings): a CLI for retrieving lab-booking events from the calendar system. It is utilized on the MEG console to provide information for structuring MEG raw data in the project storage.
