@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/pdb"
 )
 
 func TestKVStoreSetGetObject(t *testing.T) {

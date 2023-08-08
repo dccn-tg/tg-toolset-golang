@@ -1,7 +1,7 @@
 package acl
 
 import (
-	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
+	ufp "github.com/dccn-tg/tg-toolset-golang/pkg/filepath"
 )
 
 // NetAppRoler implements Roler interfaces for the NetApp filer.

@@ -28,7 +28,7 @@ import (
 	"syscall"
 	"time"
 
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
 )
 
 // counterStore is a in-memory temporary data storage for holding

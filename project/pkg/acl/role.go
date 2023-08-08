@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
+	ufp "github.com/dccn-tg/tg-toolset-golang/pkg/filepath"
 )
 
 var roleStrings = map[Role]string{

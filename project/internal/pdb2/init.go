@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 	"github.com/Khan/genqlient/graphql"
 )
 

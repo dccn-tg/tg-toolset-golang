@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
 )
 
 var testConf config.Configuration

@@ -8,8 +8,8 @@ Version:    %{getenv:VERSION}
 Release:    1%{?dist}
 Summary:    CLI tools for interacting various services managed by the TG.
 License:    FIXME
-URL: https://github.com/Donders-Institute/%{name}
-Source0: https://github.com/Donders-Institute/%{name}/archive/%{gittag}.tar.gz
+URL: https://github.com/dccn-tg/%{name}
+Source0: https://github.com/dccn-tg/%{name}/archive/%{gittag}.tar.gz
 
 BuildArch: x86_64
 Requires: libcap acl nfs4-acl-tools

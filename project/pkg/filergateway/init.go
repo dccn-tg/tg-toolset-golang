@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/pdb"
 
 	fgwcli "github.com/Donders-Institute/filer-gateway/pkg/swagger/client/client"
 	fgwops "github.com/Donders-Institute/filer-gateway/pkg/swagger/client/client/operations"
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
 )
 
 // NewClient returns a new `filerGateway` instance with settings

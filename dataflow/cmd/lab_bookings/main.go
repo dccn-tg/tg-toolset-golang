@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/pdb"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -7,7 +7,7 @@ import (
 	"net/smtp"
 	"strings"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 )
 
 // New returns a new mailer instance.

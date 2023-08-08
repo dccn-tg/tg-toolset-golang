@@ -1,4 +1,4 @@
-module github.com/Donders-Institute/tg-toolset-golang
+module github.com/dccn-tg/tg-toolset-golang
 
 go 1.20
 

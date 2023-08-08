@@ -23,9 +23,9 @@ import (
 	"path/filepath"
 	"regexp"
 
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
+	ustr "github.com/dccn-tg/tg-toolset-golang/pkg/strings"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/acl"
 )
 
 // global variables from command-line arguments

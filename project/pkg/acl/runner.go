@@ -11,9 +11,9 @@ import (
 	"sync"
 	"syscall"
 
-	ufp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
+	ufp "github.com/dccn-tg/tg-toolset-golang/pkg/filepath"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
+	ustr "github.com/dccn-tg/tg-toolset-golang/pkg/strings"
 )
 
 var signalHandled = []os.Signal{

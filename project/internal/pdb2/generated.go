@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	graphql2 "github.com/Donders-Institute/tg-toolset-golang/pkg/graphql"
+	graphql2 "github.com/dccn-tg/tg-toolset-golang/pkg/graphql"
 	"github.com/Khan/genqlient/graphql"
 )
 

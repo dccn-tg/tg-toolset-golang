@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 )
 
 // VolumeManager defines functions for managing storage volume for a project.

@@ -4,8 +4,8 @@ package pdb
 import (
 	"fmt"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
 )
 
 const Location = "Europe/Amsterdam"

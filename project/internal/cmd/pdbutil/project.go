@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/mailer"
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/store"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/filergateway"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/mailer"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/store"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/acl"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/filergateway"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/pdb"
 	"github.com/spf13/cobra"
 )
 

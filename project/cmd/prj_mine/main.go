@@ -21,10 +21,10 @@ import (
 	"sync"
 	"time"
 
-	fp "github.com/Donders-Institute/tg-toolset-golang/pkg/filepath"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
+	fp "github.com/dccn-tg/tg-toolset-golang/pkg/filepath"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/acl"
 
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
 )
 
 var optsPath *string

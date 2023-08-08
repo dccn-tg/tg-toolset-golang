@@ -13,8 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	ipdb "github.com/Donders-Institute/tg-toolset-golang/project/pkg/pdb"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
+	ipdb "github.com/dccn-tg/tg-toolset-golang/project/pkg/pdb"
 )
 
 var (

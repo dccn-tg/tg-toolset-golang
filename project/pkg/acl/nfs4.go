@@ -6,8 +6,8 @@ import (
 	"os/user"
 	"strings"
 
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	ustr "github.com/Donders-Institute/tg-toolset-golang/pkg/strings"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
+	ustr "github.com/dccn-tg/tg-toolset-golang/pkg/strings"
 	"github.com/pkg/errors"
 )
 

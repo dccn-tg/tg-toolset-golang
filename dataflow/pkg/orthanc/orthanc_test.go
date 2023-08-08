@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 	"github.com/spf13/viper"
 )
 
@@ -15,7 +15,7 @@ var conf config.Configuration
 
 func init() {
 	// load configuration
-	cfg := filepath.Join(os.Getenv("GOPATH"), "src/github.com/Donders-Institute/tg-toolset-golang/configs/config_test.yml")
+	cfg := filepath.Join(os.Getenv("GOPATH"), "src/github.com/dccn-tg/tg-toolset-golang/configs/config_test.yml")
 	viper.SetConfigFile(cfg)
 	if err := viper.ReadInConfig(); err != nil {
 		panic(fmt.Sprintf("Error reading config file, %s", err))

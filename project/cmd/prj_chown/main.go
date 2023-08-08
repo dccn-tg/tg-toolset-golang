@@ -19,8 +19,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/acl"
 )
 
 func init() {

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Donders-Institute/tg-toolset-golang/project/pkg/acl"
+	"github.com/dccn-tg/tg-toolset-golang/project/pkg/acl"
 	"github.com/spf13/cobra"
 )
 

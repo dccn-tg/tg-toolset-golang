@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Donders-Institute/tg-toolset-golang/pkg/config"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 
-	log "github.com/Donders-Institute/tg-toolset-golang/pkg/logger"
-	api "github.com/Donders-Institute/tg-toolset-golang/project/internal/pdb2"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
+	api "github.com/dccn-tg/tg-toolset-golang/project/internal/pdb2"
 )
 
 // projectStatusEnum converts the project status string returned from the core-api
