@@ -56,7 +56,7 @@ tag="v$rnum"
 
 RPM_BUILD_ROOT=$HOME/rpmbuild
 
-GH_ORG="Donders-Institute"
+GH_ORG="dccn-tg"
 GH_REPO_NAME="tg-toolset-golang"
 
 GH_API="https://api.github.com"
