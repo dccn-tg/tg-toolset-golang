@@ -2,11 +2,11 @@
 // project managers when POSIX ACL system is used on the filesystem (e.g.
 // CephFs). Specific capababilities are:
 //
-// - CAP_SYS_ADMIN: for accessing the `trusted.managers` xattr that maintains
-//                  a list of project managers.
+//   - CAP_SYS_ADMIN: for accessing the `trusted.managers` xattr that maintains
+//     a list of project managers.
 //
-// - CAP_FOWNER: for allowing managers to set ACLs via the `setfacl` command
-//               without being the owner of files and directories.
+//   - CAP_FOWNER: for allowing managers to set ACLs via the `setfacl` command
+//     without being the owner of files and directories.
 //
 // In order to allow this trick to work, this executable should be set in
 // advance to allow using the linux capability using the following command.
@@ -34,9 +34,9 @@ var optsPath *string
 var optsManager *string
 var optsContributor *string
 
-//var optsWriter *string
+// var optsWriter *string
 var optsViewer *string
-var optsTraverse *bool
+var optsNoTraverse *bool
 var optsNthreads *int
 var optsForce *bool
 var optsVerbose *bool
@@ -49,7 +49,7 @@ func init() {
 	optsContributor = flag.String("c", "", "specify a comma-separated-list of users for the contributor role")
 	// optsWriter = flag.String("w", "", "specify a comma-separated-list of users for the writer role")
 	optsViewer = flag.String("u", "", "specify a comma-separated-list of users for the viewer role")
-	optsTraverse = flag.Bool("t", true, "enable/disable role users to travel through parent directories")
+	optsNoTraverse = flag.Bool("t", false, "`skip` setting role users to travel through parent directories")
 	optsBase = flag.String("d", "/project", "set the root path of project storage")
 	optsPath = flag.String("p", "", "set path of a sub-directory in the project folder")
 	optsNthreads = flag.Int("n", 4, "set number of concurrent processing threads")
@@ -115,7 +115,7 @@ func main() {
 		Contributors: *optsContributor,
 		Viewers:      *optsViewer,
 		RootPath:     ppathSym,
-		Traverse:     *optsTraverse,
+		Traverse:     !*optsNoTraverse,
 		Force:        *optsForce,
 		FollowLink:   *optsFollowLink,
 		SkipFiles:    *optsSkipFiles,
