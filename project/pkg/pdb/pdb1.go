@@ -21,7 +21,7 @@ type V1 struct {
 // GetProjectPendingActions performs queries to get project pending roles and project storage
 // resource, and combines the results into a data structure that can be directly used for
 // sending project update request to the filer-gateway API:
-// https://github.com/Donders-Institute/filer-gateway
+// https://github.com/dccn-tg/filer-gateway
 func (v1 V1) GetProjectPendingActions() (map[string]*DataProjectUpdate, error) {
 
 	actions := make(map[string]*DataProjectUpdate)

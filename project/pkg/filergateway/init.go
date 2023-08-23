@@ -16,8 +16,8 @@ import (
 	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 	"github.com/dccn-tg/tg-toolset-golang/project/pkg/pdb"
 
-	fgwcli "github.com/Donders-Institute/filer-gateway/pkg/swagger/client/client"
-	fgwops "github.com/Donders-Institute/filer-gateway/pkg/swagger/client/client/operations"
+	fgwcli "github.com/dccn-tg/filer-gateway/pkg/swagger/client/client"
+	fgwops "github.com/dccn-tg/filer-gateway/pkg/swagger/client/client/operations"
 	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
 )
 
