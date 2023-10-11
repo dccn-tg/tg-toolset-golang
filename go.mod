@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/Khan/genqlient v0.5.0
+	github.com/dccn-tg/filer-gateway v0.0.0-20230823135907-b05be22a1163
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.1
@@ -12,7 +13,7 @@ require (
 	github.com/spf13/viper v1.10.1
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.17.0
-	golang.org/x/crypto v0.12.0
+	golang.org/x/crypto v0.14.0
 	golang.org/x/oauth2 v0.11.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
@@ -21,7 +22,6 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
-	github.com/dccn-tg/filer-gateway v0.0.0-20230823135907-b05be22a1163 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-openapi/analysis v0.20.1 // indirect
 	github.com/go-openapi/errors v0.20.1 // indirect
@@ -35,7 +35,6 @@ require (
 	github.com/go-openapi/validate v0.20.3 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -57,9 +56,9 @@ require (
 	go.mongodb.org/mongo-driver v1.7.3 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/net v0.14.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect
