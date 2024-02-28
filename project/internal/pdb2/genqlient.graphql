@@ -14,7 +14,7 @@ query getProjects {
 }
 
 query getProject($number: ID!) {
-    project(number: $number) {
+    project(id: $number) {
 		number,
 		title,
 		owner {
@@ -29,7 +29,7 @@ query getProject($number: ID!) {
 }
 
 query getProjectQuota($number: ID!) {
-	project(number: $number) {
+	project(id: $number) {
 		overrulingQuotaGiB
 		storage {
 			quotaGiB
@@ -38,8 +38,26 @@ query getProjectQuota($number: ID!) {
 	}
 }
 
-query getUsers {
-	users {
+query getUsers() {
+	users() {
+		username,
+		firstName,
+		middleName,
+		lastName,
+		email,
+		status,
+		function,
+	}
+}
+
+# Issue: the generated GO code doesn't handle the filter very well.
+#        For instance, it assumes that the `DateTimeFilter` supports `"null"`
+#        field if it not used in the filter.  For this reason, we need to
+#        create the filter explicitly in the query.
+query getUserByEmail($email: String) {
+	users(filterBy: {
+		email: { equals: $email}
+	}) {
 		username,
 		firstName,
 		middleName,
@@ -51,7 +69,7 @@ query getUsers {
 }
 
 query getUser($username: ID!) {
-	user(username: $username) {
+	user(id: $username) {
 		username,
 		firstName,
 		middleName,
@@ -75,8 +93,12 @@ query getLabs {
 	}
 }
 
-query getBookingEvents($start: DateTime, $end: DateTime, $resources: [ResourceID!]) {
-	bookingEvents(start: $start, end: $end, resources: $resources) {
+query getBookingEvents($start: DateTime, $end: DateTime, $resources: [ID!]) {
+	bookingEvents(filterBy: {
+		bookableResource: { id: { in: $resources} },
+		start: { after: $start },
+		end: { before: $end }
+	}) {
 		start,
 		end,
 		status,
