@@ -202,7 +202,7 @@ func (v2 V2) GetLabBookingsForWorklist(lab Lab, date string) ([]*LabBooking, err
 		return nil, err
 	}
 
-	return v2.getLabBookingEvents(lab, dtime, dtime.Add(24*time.Hour), true)
+	return v2.getLabBookingEvents(lab, dtime, dtime.Add(86399*time.Second), true)
 }
 
 // GetLabBookingsForReport retrieves calendar bookings in all status concerning the given `Lab`
@@ -220,7 +220,7 @@ func (v2 V2) GetLabBookingsForReport(lab Lab, from, to string) ([]*LabBooking, e
 		return nil, err
 	}
 
-	return v2.getLabBookingEvents(lab, dfrom, dto, false)
+	return v2.getLabBookingEvents(lab, dfrom, dto.Add(86399*time.Second), false)
 }
 
 // getLabBookingEvents retrieves booking events from the core-api.
