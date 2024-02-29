@@ -41,6 +41,9 @@ const (
 	UserFunctionOtherresearcher        UserFunction = "OtherResearcher"
 	UserFunctionStaffscientist         UserFunction = "StaffScientist"
 	UserFunctionSupportingstaff        UserFunction = "SupportingStaff"
+	UserFunctionSeniorresearcher       UserFunction = "SeniorResearcher"
+	UserFunctionResearchfellow         UserFunction = "ResearchFellow"
+	UserFunctionStudentassistant       UserFunction = "StudentAssistant"
 	UserFunctionUnknown                UserFunction = "Unknown"
 )
 
@@ -820,7 +823,7 @@ func (v *getUsersUsersUser) GetFunction() UserFunction { return v.Function }
 // The query or mutation executed by getBookingEvents.
 const getBookingEvents_Operation = `
 query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ID!]) {
-	bookingEvents(filterBy: {bookableResource:{id:{in:$resources}},start:{after:$start},end:{before:$end}}) {
+	bookingEvents(filterBy: {resource:{lab:{id:{in:$resources}}},start:{after:$start},end:{before:$end}}) {
 		start
 		end
 		status
@@ -1123,6 +1126,10 @@ query getUserByEmail ($email: String) {
 }
 `
 
+// Issue: the generated GO code doesn't handle the filter very well.
+// For instance, it assumes that the `DateTimeFilter` supports `"null"`
+// field if it not used in the filter.  For this reason, we need to
+// create the filter explicitly in the query.
 func getUserByEmail(
 	ctx context.Context,
 	client graphql.Client,

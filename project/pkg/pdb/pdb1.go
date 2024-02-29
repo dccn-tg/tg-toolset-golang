@@ -18,6 +18,10 @@ type V1 struct {
 	config config.DBConfiguration
 }
 
+func (v1 V1) GetUsers(activeOnly bool) ([]*User, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // GetProjectPendingActions performs queries to get project pending roles and project storage
 // resource, and combines the results into a data structure that can be directly used for
 // sending project update request to the filer-gateway API:

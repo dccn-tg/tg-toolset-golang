@@ -3,6 +3,7 @@ package pdb
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -147,6 +148,39 @@ func (v2 V2) GetProject(projectID string) (*Project, error) {
 	}, nil
 }
 
+func (v2 V2) GetUsers(activeOnly bool) ([]*User, error) {
+
+	resp, err := api.GetUsers(v2.config)
+
+	if err != nil {
+		return nil, err
+	}
+
+	activeStates := []UserStatus{
+		UserStatusCheckedIn,
+		UserStatusCheckedOutExtended,
+	}
+
+	var users []*User
+	for _, u := range resp.Users {
+
+		if activeOnly && slices.Contains(activeStates, userStatusEnum(u.Status)) {
+			continue
+		}
+
+		users = append(users, &User{
+			ID:         u.Username,
+			Firstname:  u.FirstName,
+			Middlename: u.MiddleName,
+			Lastname:   u.LastName,
+			Email:      u.Email,
+			Status:     userStatusEnum(u.Status),
+		})
+	}
+
+	return users, nil
+}
+
 // GetUser gets the user identified by the given uid in the project database.
 // It returns the pointer to the user data represented in the User data structure.
 func (v2 V2) GetUser(uid string) (*User, error) {
@@ -236,10 +270,6 @@ func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) 
 		modality(lab),
 		true,
 	)
-
-	for i, r := range resources {
-		resources[i] = fmt.Sprintf("lab:%s", r)
-	}
 
 	log.Debugf("resources: %+v\n", resources)
 

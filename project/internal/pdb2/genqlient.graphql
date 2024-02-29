@@ -95,7 +95,7 @@ query getLabs {
 
 query getBookingEvents($start: DateTime, $end: DateTime, $resources: [ID!]) {
 	bookingEvents(filterBy: {
-		bookableResource: { id: { in: $resources} },
+		resource: { lab: { id: {in: $resources} } },
 		start: { after: $start },
 		end: { before: $end }
 	}) {

@@ -53,6 +53,19 @@ func init() {
 	}
 }
 
+func TestGetUsers(t *testing.T) {
+	users, err := testPDB.GetUsers(true)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	t.Logf("%d users\n", len(users))
+
+	for i := 0; i < int(math.Min(3, float64(len(users)))); i++ {
+		t.Logf("%d: %+v\n", i, users[i])
+	}
+}
+
 func TestGetProjects(t *testing.T) {
 	prjs, err := testPDB.GetProjects(true)
 	if err != nil {

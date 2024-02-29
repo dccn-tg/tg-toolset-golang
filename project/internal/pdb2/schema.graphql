@@ -1,3 +1,5 @@
+directive @oneOf on INPUT_OBJECT
+
 type Account {
 	active: Boolean!
 	expiresOn: DateTime
@@ -19,8 +21,6 @@ type ActivateLabAccountOutput {
 }
 
 input BookableResourceFilter {
-	id: IdFilter
-	typ: ResourceTypeFilter
 	lab: LabFilter
 	room: RoomFilter
 }
@@ -31,8 +31,8 @@ input BookableResourceOrdering {
 }
 
 enum BookableResourceOrderingField {
-	Id
-	Typ
+	Lab
+	Room
 }
 
 type Booking {
@@ -120,11 +120,11 @@ input BookingEventFilter {
 	end: DateTimeFilter
 	status: BookingEventStatusFilter
 	statusUpdatedAt: DateTimeFilter
-	subject: StringFilter
-	session: StringFilter
-	remark: StringFilter
-	bookableResource: BookableResourceFilter
+	subject: NullableStringFilter
+	session: NullableStringFilter
+	remark: NullableStringFilter
 	booking: BookingFilter
+	resource: BookableResourceFilter
 }
 
 input BookingEventOrdering {
@@ -137,7 +137,7 @@ enum BookingEventOrderingField {
 	CreatedAt
 	UpdatedAt
 	Booking
-	BookableResource
+	Resource
 	Start
 	End
 	Status
@@ -157,7 +157,6 @@ enum BookingEventStatus {
 }
 
 input BookingEventStatusFilter {
-	null: Boolean
 	equals: BookingEventStatus
 	notEquals: BookingEventStatus
 	in: [BookingEventStatus!]
@@ -167,7 +166,7 @@ input BookingFilter {
 	id: IdFilter
 	createdAt: DateTimeFilter
 	updatedAt: DateTimeFilter
-	title: StringFilter
+	title: NullableStringFilter
 	project: ProjectFilter
 	experiment: ExperimentFilter
 	owner: UserFilter
@@ -189,7 +188,6 @@ enum BookingOrderingField {
 }
 
 input BoolFilter {
-	null: Boolean
 	equals: Boolean
 	notEquals: Boolean
 }
@@ -376,7 +374,6 @@ input CurrentQuotaRuleFilter {
 scalar DateTime
 
 input DateTimeFilter {
-	null: Boolean
 	equals: DateTime
 	notEquals: DateTime
 	in: [DateTime!]
@@ -417,7 +414,6 @@ enum EthicalApprovalStatus {
 }
 
 input EthicalApprovalStatusFilter {
-	null: Boolean
 	equals: EthicalApprovalStatus
 	notEquals: EthicalApprovalStatus
 	in: [EthicalApprovalStatus!]
@@ -442,8 +438,8 @@ input ExperimentFilter {
 	sessionDurationMinutes: IntegerFilter
 	quotaRuleVersion: IntegerFilter
 	withStructuralMri: BoolFilter
-	modality: ModalityFilter
 	project: ProjectFilter
+	modality: ModalityFilter
 }
 
 input ExperimentOrdering {
@@ -563,7 +559,6 @@ enum GroupStatus {
 }
 
 input GroupStatusFilter {
-	null: Boolean
 	equals: GroupStatus
 	notEquals: GroupStatus
 	in: [GroupStatus!]
@@ -578,7 +573,6 @@ input IdFilter {
 
 
 input IntegerFilter {
-	null: Boolean
 	equals: Int
 	notEquals: Int
 	in: [Int!]
@@ -626,12 +620,13 @@ type Modality {
 	shortName: String!
 	legacy: Boolean!
 	experiments(filterBy: ExperimentFilter, orderBy: ExperimentOrdering): [Experiment!]!
+	labs(filterBy: LabFilter, orderBy: LabOrdering): [Lab!]!
 	sessionQuotaMiB(version: Int): Int!
 }
 
 input ModalityFilter {
 	name: StringFilter
-	shortName: StringFilter
+	shortName: NullableStringFilter
 	legacy: BoolFilter
 	id: CurrentQuotaRuleFilter
 }
@@ -720,6 +715,41 @@ Format: %Y-%m-%d
 """
 scalar NaiveDate
 
+input NullableBoolFilter {
+	null: Boolean
+	equals: Boolean
+	notEquals: Boolean
+}
+
+input NullableDateTimeFilter {
+	null: Boolean
+	equals: DateTime
+	notEquals: DateTime
+	in: [DateTime!]
+	before: DateTime
+	after: DateTime
+}
+
+input NullableIntegerFilter {
+	null: Boolean
+	equals: Int
+	notEquals: Int
+	in: [Int!]
+	lessThan: Int
+	lessThanEquals: Int
+	greaterThan: Int
+	greaterThanEquals: Int
+}
+
+input NullableStringFilter {
+	null: Boolean
+	equals: String
+	notEquals: String
+	in: [String!]
+	contains: String
+	startsWith: String
+}
+
 enum OrderingDirection {
 	Ascending
 	Descending
@@ -761,8 +791,8 @@ enum OrganisationalUnitOrderingField {
 
 input OrganisationalUnitUserFilter {
 	primary: BoolFilter
-	user: UserFilter
 	ou: OrganisationalUnitFilter
+	user: UserFilter
 }
 
 input OrganisationalUnitUserOrdering {
@@ -860,8 +890,8 @@ input ProjectFilter {
 	status: ProjectStatusFilter
 	start: DateTimeFilter
 	end: DateTimeFilter
-	overrulingQuotaGiB: IntegerFilter
-	overrulingQuotaUpdatedAt: DateTimeFilter
+	overrulingQuotaGiB: NullableIntegerFilter
+	overrulingQuotaUpdatedAt: NullableDateTimeFilter
 	owner: UserFilter
 	fundingSource: FundingSourceFilter
 }
@@ -923,7 +953,6 @@ enum ProjectStatus {
 }
 
 input ProjectStatusFilter {
-	null: Boolean
 	equals: ProjectStatus
 	notEquals: ProjectStatus
 	in: [ProjectStatus!]
@@ -969,22 +998,9 @@ type Query {
 
 union Resource = Lab | Room
 
-input ResourceID {
-	type: ResourceType!
-	id: ID!
-}
-
-enum ResourceType {
-	Item
-	Lab
-	Room
-}
-
-input ResourceTypeFilter {
-	null: Boolean
-	equals: ResourceType
-	notEquals: ResourceType
-	in: [ResourceType!]
+input ResourceID @oneOf {
+	lab: ID
+	room: ID
 }
 
 type Room {
@@ -1030,13 +1046,13 @@ type RoomEdge {
 
 input RoomFilter {
 	id: IdFilter
-	floor: IntegerFilter
+	floor: NullableIntegerFilter
 	number: StringFilter
-	name: StringFilter
-	phone: StringFilter
-	flex: BoolFilter
-	desks: IntegerFilter
-	comments: StringFilter
+	name: NullableStringFilter
+	phone: NullableStringFilter
+	flex: NullableBoolFilter
+	desks: NullableIntegerFilter
+	comments: NullableStringFilter
 	building: BuildingFilter
 }
 
@@ -1064,7 +1080,6 @@ type Storage {
 
 
 input StringFilter {
-	null: Boolean
 	equals: String
 	notEquals: String
 	in: [String!]
@@ -1087,14 +1102,13 @@ type UpdateAccountOutput {
 }
 
 input UpdateBookingEventInput {
-	bookableResource: ID
+	resource: ResourceID
 	start: DateTime
 	end: DateTime
 	status: BookingEventStatus
 	subject: String
 	session: String
 	remark: String
-	resource: ResourceID
 }
 
 input UpdateBookingInput {
@@ -1232,7 +1246,7 @@ type UserBillingCategory {
 input UserBillingCategoryFilter {
 	id: IdFilter
 	name: StringFilter
-	description: StringFilter
+	description: NullableStringFilter
 }
 
 input UserBillingCategoryOrdering {
@@ -1275,20 +1289,20 @@ input UserFilter {
 	username: IdFilter
 	createdAt: DateTimeFilter
 	updatedAt: DateTimeFilter
-	firstName: StringFilter
-	middleName: StringFilter
-	lastName: StringFilter
-	overrideName: StringFilter
+	firstName: NullableStringFilter
+	middleName: NullableStringFilter
+	lastName: NullableStringFilter
+	overrideName: NullableStringFilter
 	displayName: StringFilter
 	function: UserFunctionFilter
-	email: StringFilter
-	emailExt: StringFilter
-	phone: StringFilter
-	phoneExt: StringFilter
+	email: NullableStringFilter
+	emailExt: NullableStringFilter
+	phone: NullableStringFilter
+	phoneExt: NullableStringFilter
 	status: UserStatusFilter
-	desk: IntegerFilter
-	room: RoomFilter
+	desk: NullableIntegerFilter
 	billingCategory: UserBillingCategoryFilter
+	room: RoomFilter
 }
 
 enum UserFunction {
@@ -1301,11 +1315,13 @@ enum UserFunction {
 	OtherResearcher
 	StaffScientist
 	SupportingStaff
+	SeniorResearcher
+	ResearchFellow
+	StudentAssistant
 	Unknown
 }
 
 input UserFunctionFilter {
-	null: Boolean
 	equals: UserFunction
 	notEquals: UserFunction
 	in: [UserFunction!]
@@ -1344,7 +1360,6 @@ enum UserStatus {
 }
 
 input UserStatusFilter {
-	null: Boolean
 	equals: UserStatus
 	notEquals: UserStatus
 	in: [UserStatus!]
