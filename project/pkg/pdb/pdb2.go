@@ -3,6 +3,7 @@ package pdb
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -147,6 +148,39 @@ func (v2 V2) GetProject(projectID string) (*Project, error) {
 	}, nil
 }
 
+func (v2 V2) GetUsers(activeOnly bool) ([]*User, error) {
+
+	resp, err := api.GetUsers(v2.config)
+
+	if err != nil {
+		return nil, err
+	}
+
+	activeStates := []UserStatus{
+		UserStatusCheckedIn,
+		UserStatusCheckedOutExtended,
+	}
+
+	var users []*User
+	for _, u := range resp.Users {
+
+		if activeOnly && slices.Contains(activeStates, userStatusEnum(u.Status)) {
+			continue
+		}
+
+		users = append(users, &User{
+			ID:         u.Username,
+			Firstname:  u.FirstName,
+			Middlename: u.MiddleName,
+			Lastname:   u.LastName,
+			Email:      u.Email,
+			Status:     userStatusEnum(u.Status),
+		})
+	}
+
+	return users, nil
+}
+
 // GetUser gets the user identified by the given uid in the project database.
 // It returns the pointer to the user data represented in the User data structure.
 func (v2 V2) GetUser(uid string) (*User, error) {
@@ -171,27 +205,25 @@ func (v2 V2) GetUser(uid string) (*User, error) {
 // GetUserByEmail gets the user identified by the given email address.
 func (v2 V2) GetUserByEmail(email string) (*User, error) {
 
-	resp, err := api.GetUsers(v2.config)
+	resp, err := api.GetUserByEmail(v2.config, email)
 
 	if err != nil {
 		return nil, err
 	}
 
-	for _, u := range resp.Users {
-		if u.Email == email {
-			return &User{
-				ID:         u.Username,
-				Firstname:  u.FirstName,
-				Middlename: u.MiddleName,
-				Lastname:   u.LastName,
-				Email:      u.Email,
-				Status:     userStatusEnum(u.Status),
-				Function:   userFunctionEnum(u.Function),
-			}, nil
-		}
+	if len(resp.Users) == 0 {
+		return nil, fmt.Errorf("user not found, email: %s", email)
 	}
 
-	return nil, fmt.Errorf("user not found, email: %s", email)
+	return &User{
+		ID:         resp.Users[0].Username,
+		Firstname:  resp.Users[0].FirstName,
+		Middlename: resp.Users[0].MiddleName,
+		Lastname:   resp.Users[0].LastName,
+		Email:      resp.Users[0].Email,
+		Status:     userStatusEnum(resp.Users[0].Status),
+		Function:   userFunctionEnum(resp.Users[0].Function),
+	}, nil
 }
 
 // GetLabBookingsForWorklist retrieves TENTATIVE and CONFIRMED calendar bookings concerning
@@ -204,7 +236,7 @@ func (v2 V2) GetLabBookingsForWorklist(lab Lab, date string) ([]*LabBooking, err
 		return nil, err
 	}
 
-	return v2.getLabBookingEvents(lab, dtime, dtime, true)
+	return v2.getLabBookingEvents(lab, dtime, dtime.Add(86399*time.Second), true)
 }
 
 // GetLabBookingsForReport retrieves calendar bookings in all status concerning the given `Lab`
@@ -222,7 +254,7 @@ func (v2 V2) GetLabBookingsForReport(lab Lab, from, to string) ([]*LabBooking, e
 		return nil, err
 	}
 
-	return v2.getLabBookingEvents(lab, dfrom, dto, false)
+	return v2.getLabBookingEvents(lab, dfrom, dto.Add(86399*time.Second), false)
 }
 
 // getLabBookingEvents retrieves booking events from the core-api.
@@ -249,7 +281,7 @@ func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) 
 		v2.config,
 		resources,
 		from,
-		to.Add(24*time.Hour),
+		to,
 	)
 
 	if err != nil {

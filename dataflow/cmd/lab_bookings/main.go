@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
 	"github.com/dccn-tg/tg-toolset-golang/project/pkg/pdb"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -33,14 +33,18 @@ func init() {
 
 	flag.Parse()
 
-	// set logging
-	log.SetOutput(os.Stderr)
-	// set logging level
-	llevel := log.InfoLevel
+	// initiate default logger
+	llevel := log.Info
 	if *optsVerbose {
-		llevel = log.DebugLevel
+		llevel = log.Debug
 	}
-	log.SetLevel(llevel)
+
+	cfg := log.Configuration{
+		EnableConsole:     true,
+		ConsoleJSONFormat: false,
+		ConsoleLevel:      llevel,
+	}
+	log.NewLogger(cfg, log.InstanceLogrusLogger)
 }
 
 func usage() {

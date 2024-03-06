@@ -1,722 +1,1373 @@
-directive @cacheControl(
-  maxAge: Int
-  scope: CacheControlScope
-) on FIELD_DEFINITION | OBJECT | INTERFACE
-# A user's account information.
+directive @oneOf on INPUT_OBJECT
+
 type Account {
-  # The user who this account belongs to.
-  user: User!
-  active: Boolean!
-  # The date and time on which this account will expire.
-  expiresOn: DateTime
-  passwordExpiresOn: AccountPasswordExpiration!
-  primaryGroup: Group
-  # The user's home directory storage information if it exists.
-  homeStorage: Storage
+	active: Boolean!
+	expiresOn: DateTime
+	passwordExpiresOn: AccountPasswordExpiration!
+	lastLogon: DateTime
+	user: User!
+	primaryGroup: Group
+	homeStorage: Storage
 }
 
 type AccountPasswordExpiration {
-  expired: Boolean!
-  expiresOn: DateTime
+	expired: Boolean!
+	expiresOn: DateTime
+}
+
+type ActivateLabAccountOutput {
+	account: LabAccount!
+	password: String!
+}
+
+input BookableResourceFilter {
+	lab: LabFilter
+	room: RoomFilter
+}
+
+input BookableResourceOrdering {
+	field: BookableResourceOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum BookableResourceOrderingField {
+	Lab
+	Room
 }
 
 type Booking {
-  id: ID!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  title: String
-  rrule: String
-  owner: User!
-  project: Project
-  experiment: Experiment
-  events: [BookingEvent!]!
+	id: ID!
+	createdAt: DateTime!
+	updatedAt: DateTime!
+	title: String
+	rrule: String
+	owner: User!
+	project: Project
+	experiment: Experiment
+	events(filterBy: BookingEventFilter, orderBy: BookingEventOrdering): [BookingEvent!]!
+}
+
+type BookingConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [BookingEdge!]!
+}
+
+"""
+An edge in a connection.
+"""
+type BookingEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: Booking!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
 }
 
 type BookingEvent {
-  id: ID!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  booking: Booking!
-  resource: Resource!
-  start: DateTime!
-  end: DateTime!
-  status: BookingEventStatus!
-  statusUpdatedAt: DateTime!
-  subject: String
-  session: String
-  remark: String
+	id: ID!
+	createdAt: DateTime!
+	updatedAt: DateTime!
+	start: DateTime!
+	end: DateTime!
+	status: BookingEventStatus!
+	statusUpdatedAt: DateTime!
+	subject: String
+	session: String
+	remark: String
+	booking: Booking!
+	resource: Resource!
+}
+
+type BookingEventConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [BookingEventEdge!]!
+}
+
+"""
+An edge in a connection.
+"""
+type BookingEventEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: BookingEvent!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+input BookingEventFilter {
+	id: IdFilter
+	createdAt: DateTimeFilter
+	updatedAt: DateTimeFilter
+	start: DateTimeFilter
+	end: DateTimeFilter
+	status: BookingEventStatusFilter
+	statusUpdatedAt: DateTimeFilter
+	subject: NullableStringFilter
+	session: NullableStringFilter
+	remark: NullableStringFilter
+	booking: BookingFilter
+	resource: BookableResourceFilter
+}
+
+input BookingEventOrdering {
+	field: BookingEventOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum BookingEventOrderingField {
+	Id
+	CreatedAt
+	UpdatedAt
+	Booking
+	Resource
+	Start
+	End
+	Status
+	StatusUpdatedAt
+	Subject
+	Session
+	Remark
 }
 
 enum BookingEventStatus {
-  Tentative
-  Confirmed
-  Rejected
-  CancelRequested
-  CanceledInTime
-  CanceledNotInTime
+	Tentative
+	Confirmed
+	Rejected
+	CancelRequested
+	CanceledInTime
+	CanceledNotInTime
 }
+
+input BookingEventStatusFilter {
+	equals: BookingEventStatus
+	notEquals: BookingEventStatus
+	in: [BookingEventStatus!]
+}
+
+input BookingFilter {
+	id: IdFilter
+	createdAt: DateTimeFilter
+	updatedAt: DateTimeFilter
+	title: NullableStringFilter
+	project: ProjectFilter
+	experiment: ExperimentFilter
+	owner: UserFilter
+}
+
+input BookingOrdering {
+	field: BookingOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum BookingOrderingField {
+	Id
+	CreatedAt
+	UpdatedAt
+	Title
+	Owner
+	Project
+	Experiment
+}
+
+input BoolFilter {
+	equals: Boolean
+	notEquals: Boolean
+}
+
 
 type Building {
-  id: ID!
-  name: String!
-  address: String!
-  rooms(floor: Int): [Room!]!
-  room(number: String!): Room
-  organizationalUnits: [OrganizationalUnit!]!
+	id: ID!
+	name: String!
+	address: String!
+	rooms(filterBy: RoomFilter, orderBy: RoomOrdering): [Room!]!
+	organisationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]!
+	organizationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]! @deprecated(reason: "Use `organisationalUnits` instead")
 }
 
-enum CacheControlScope {
-  PUBLIC
-  PRIVATE
+input BuildingFilter {
+	id: IdFilter
+	name: StringFilter
+	address: StringFilter
 }
 
-# Information used to create an account.
+input BuildingOrdering {
+	field: BuildingOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum BuildingOrderingField {
+	Id
+	Name
+	Address
+}
+
 input CreateAccountInput {
-  primaryGroup: ID!
-  expiresOn: DateTime
-  homeQuotaGiB: Int
+	primaryGroup: ID!
+	expiresOn: DateTime
+	homeQuotaGiB: Int
+	expirePassword: Boolean! = true
 }
 
 type CreateAccountOutput {
-  account: Account!
-  password: String!
-  storageTaskId: ID
+	account: Account!
+	password: String!
+	storageTaskId: ID
 }
 
 input CreateBookingInput {
-  createdAt: DateTime
-  updatedAt: DateTime
-  title: String
-  owner: ID!
-  rrule: String
-  project: ID
-  experiment: ID
-  events: [CreateBookingInput_Event!]!
+	title: String
+	rrule: String
+	owner: ID!
+	project: ID
+	experiment: ID
+	events: [CreateBookingInput_Event!]! = []
 }
 
 input CreateBookingInput_Event {
-  createdAt: DateTime
-  updatedAt: DateTime
-  start: DateTime!
-  end: DateTime!
-  resource: ResourceID!
-  status: BookingEventStatus
-  statusUpdatedAt: DateTime
-  subject: String
-  session: String
-  remark: String
+	start: DateTime!
+	end: DateTime!
+	resource: ResourceID!
+	status: BookingEventStatus
+	subject: String
+	session: String
+	remark: String
 }
 
-# Information used to create a building.
 input CreateBuildingInput {
-  name: String!
-  address: String!
+	name: String!
+	address: String!
 }
 
 input CreateExperimentInput {
-  project: ID!
-  modality: ID!
-  numSubjects: Int!
-  numSessions: Int!
-  sessionDurationMinutes: Int!
-  withStructuralMri: Boolean
-  quotaRuleVersion: Int
+	project: ID!
+	numSubjects: Int!
+	numSessions: Int!
+	sessionDurationMinutes: Int!
+	modality: ID!
+	quotaRuleVersion: Int
+	withStructuralMri: Boolean
 }
 
 input CreateFundingSourceInput {
-  name: String!
+	name: String!
 }
 
-# Information used to create a group.
 input CreateGroupInput {
-  name: String!
-  status: GroupStatus
+	name: String!
+	status: GroupStatus
+	head: ID
 }
 
 input CreateLabInput {
-  name: String!
-  room: ID!
-  modalities: [ID!]
-  bookable: Boolean
+	name: String!
+	room: ID!
+	bookable: Boolean! = false
+	modalities: [ID!]! = []
 }
 
-input CreateOrganizationalUnitInput {
-  name: String!
-  description: String!
+input CreateModalityInput {
+	name: String!
+	shortName: String
+	legacy: Boolean
 }
 
-# Information used to create or update a user.
-input CreateOrUpdateUserInput {
-  firstName: String
-  middleName: String
-  lastName: String
-  overrideName: String
-  status: UserStatus
-  function: UserFunction
-  email: String
-  emailExt: String
-  phone: String
-  phoneExt: String
-  billingCategory: ID
-  room: ID
-  groups: [ID!]
-  organizationalUnits: [ID!]
+input CreateOrganisationalUnitInput {
+	name: String!
+	description: String!
 }
 
-# Information used to create a project.
 input CreateProjectInput {
-  fundingSource: ID!
-  title: String!
-  status: ProjectStatus
-  owner: ID!
-  start: Date!
-  end: Date!
-  overrulingQuotaGiB: Int
-  members: [CreateProjectInput_Member!]
-  experiments: [CreateProjectInput_Experiment!]
-  experimenters: [ID!]
-  ethicalApprovals: [CreateProjectInput_EthicalApproval!]
+	fundingSource: ID!
+	title: String!
+	status: ProjectStatus
+	owner: ID!
+	start: DateTime!
+	end: DateTime!
+	overrulingQuotaGiB: Int
+	members: [CreateProjectInput_Member!]! = []
+	experiments: [CreateProjectInput_Experiment!]! = []
+	experimenters: [ID!]! = []
+	ethicalApprovals: [CreateProjectInput_EthicalApproval!]! = []
 }
 
 input CreateProjectInput_EthicalApproval {
-  name: ID!
-  status: EthicalApprovalStatus
+	name: String!
+	status: EthicalApprovalStatus
 }
 
 input CreateProjectInput_Experiment {
-  modality: ID!
-  numSubjects: Int!
-  numSessions: Int!
-  sessionDurationMinutes: Int!
-  withStructuralMri: Boolean
-  quotaRuleVersion: Int
+	modality: ID!
+	numSubjects: Int!
+	numSessions: Int!
+	sessionDurationMinutes: Int!
+	withStructuralMri: Boolean
+	quotaRuleVersion: Int
 }
 
 input CreateProjectInput_Member {
-  username: ID!
-  role: ProjectMemberRole!
+	user: ID!
+	role: ProjectMemberRole!
 }
 
-# Information used to create a project proposal.
 input CreateProjectProposalInput {
-  meetingDate: Date!
+	meetingDate: NaiveDate!
 }
 
-# Information used to create a room.
 input CreateRoomInput {
-  building: ID!
-  number: String!
-  name: String
-  floor: Int
-  phone: String
-  bookable: Boolean
+	floor: Int
+	number: String!
+	name: String
+	phone: String
+	flex: Boolean
+	desks: Int
+	comments: String
+	building: ID!
+	bookable: Boolean! = false
 }
 
 input CreateUserBillingCategoryInput {
-  name: String!
-  description: String
+	name: String!
+	description: String
 }
 
-scalar Date
+input CreateUserInput {
+	firstName: String
+	middleName: String
+	lastName: String
+	overrideName: String
+	function: UserFunction
+	email: String
+	emailExt: String
+	phone: String
+	phoneExt: String
+	status: UserStatus
+	room: String
+	billingCategory: ID
+	desk: Int
+}
+
+input CurrentQuotaRuleFilter {
+	modality: IdFilter
+	version: IntegerFilter
+	updatedAt: DateTimeFilter
+	sessionQuotaMib: IntegerFilter
+}
 
 scalar DateTime
 
+input DateTimeFilter {
+	equals: DateTime
+	notEquals: DateTime
+	in: [DateTime!]
+	before: DateTime
+	after: DateTime
+}
+
+type DeleteAccountOutput {
+	storageTaskId: ID
+}
+
 type EthicalApproval {
-  name: String!
-  status: EthicalApprovalStatus!
-  project: Project!
+	name: String!
+	status: EthicalApprovalStatus! @deprecated
+	project: Project!
+}
+
+input EthicalApprovalFilter {
+	name: StringFilter
+	status: EthicalApprovalStatusFilter
+	project: ProjectFilter
+}
+
+input EthicalApprovalOrdering {
+	field: EthicalApprovalOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum EthicalApprovalOrderingField {
+	Name
+	Status
+	Project
 }
 
 enum EthicalApprovalStatus {
-  Approved
-  Pending
+	Approved
+	Pending
+}
+
+input EthicalApprovalStatusFilter {
+	equals: EthicalApprovalStatus
+	notEquals: EthicalApprovalStatus
+	in: [EthicalApprovalStatus!]
 }
 
 type Experiment {
-  id: ID!
-  project: Project!
-  numSubjects: Int!
-  numSessions: Int!
-  sessionDurationMinutes: Int!
-  modality: Modality!
-  sessionQuotaMiB: Int!
-  withStructuralMri: Boolean!
-  bookings: [Booking!]!
+	id: ID!
+	numSubjects: Int!
+	numSessions: Int!
+	sessionDurationMinutes: Int!
+	withStructuralMri: Boolean!
+	sessionQuotaMiB: Int!
+	project: Project!
+	modality: Modality!
+	bookings(filterBy: BookingFilter, orderBy: BookingOrdering): [Booking!]!
+}
+
+input ExperimentFilter {
+	id: IdFilter
+	numSubjects: IntegerFilter
+	numSessions: IntegerFilter
+	sessionDurationMinutes: IntegerFilter
+	quotaRuleVersion: IntegerFilter
+	withStructuralMri: BoolFilter
+	project: ProjectFilter
+	modality: ModalityFilter
+}
+
+input ExperimentOrdering {
+	field: ExperimentOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum ExperimentOrderingField {
+	Id
+	Project
+	NumSubjects
+	NumSessions
+	SessionDurationMinutes
+	Modality
+	QuotaRuleVersion
+	WithStructuralMri
 }
 
 enum FilerTaskStatus {
-  Waiting
-  Processing
-  Failed
-  Succeeded
-  Canceled
+	Waiting
+	Processing
+	Failed
+	Succeeded
+	Canceled
 }
 
 type FilerTaskStatusOutput {
-  type: FilerTaskType!
-  id: ID!
-  status: FilerTaskStatus!
-  result: String
-  error: String
+	type: FilerTaskType!
+	id: ID!
+	status: FilerTaskStatus!
+	result: String
+	error: String
 }
 
 enum FilerTaskType {
-  User
-  Project
+	User
+	Project
 }
+
 
 type FundingSource {
-  number: ID!
-  name: String!
-  projects: [Project!]!
+	id: ID!
+	number: String!
+	name: String!
+	projects(filterBy: ProjectFilter, orderBy: ProjectOrdering): [Project!]!
 }
 
-# A logical group.
+input FundingSourceFilter {
+	id: IdFilter
+	name: StringFilter
+}
+
+input FundingSourceOrdering {
+	field: FundingSourceOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum FundingSourceOrderingField {
+	Id
+	Name
+}
+
 type Group {
-  # The unique identifier of this group.
-  id: ID!
-  # The name of the group.
-  name: String!
-  # The group's status.
-  status: GroupStatus!
-  # The user's that belong to this group.
-  members: [GroupMember!]!
-  # The head of the group.
-  head: User
-  # The organizational units this group belongs to.
-  organizationalUnits: [OrganizationalUnit!]!
+	id: ID!
+	name: String!
+	status: GroupStatus!
+	head: User
+	members(orderBy: GroupMemberOrdering): [GroupMember!]!
+	organisationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]!
+	organizationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]! @deprecated(reason: "Use `organisationalUnits` instead")
 }
 
-# A user's group membership.
+input GroupFilter {
+	id: IdFilter
+	name: StringFilter
+	status: GroupStatusFilter
+	head: UserFilter
+}
+
 type GroupMember {
-  # The associated group.
-  group: Group!
-  # The associated user.
-  member: User!
-  # Whether this group is the user's primary group.
-  primary: Boolean!
-  # The user's role in this group.
-  role: GroupMemberRole!
+	group: Group!
+	member: User!
+	primary: Boolean!
+	role: GroupMemberRole! @deprecated
 }
 
-# The role of a user in a group.
+input GroupMemberOrdering {
+	field: GroupMemberOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum GroupMemberOrderingField {
+	Group
+	Member
+}
+
 enum GroupMemberRole {
-  # The head of a group.
-  Head
-  # Miscellaneous group member.
-  Member
+	Head
+	Member
 }
 
-# The status of a group.
+input GroupOrdering {
+	field: GroupOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum GroupOrderingField {
+	Id
+	Name
+	Status
+	Head
+}
+
 enum GroupStatus {
-  # The group is active.
-  Active
-  # The group is not active.
-  Inactive
+	Active
+	Inactive
+}
+
+input GroupStatusFilter {
+	equals: GroupStatus
+	notEquals: GroupStatus
+	in: [GroupStatus!]
+}
+
+
+input IdFilter {
+	equals: ID
+	notEquals: ID
+	in: [ID!]
+}
+
+
+input IntegerFilter {
+	equals: Int
+	notEquals: Int
+	in: [Int!]
+	lessThan: Int
+	lessThanEquals: Int
+	greaterThan: Int
+	greaterThanEquals: Int
 }
 
 type Lab {
-  id: ID!
-  name: String!
-  room: Room!
-  modalities: [Modality!]!
-  organizationalUnits: [OrganizationalUnit!]!
-  bookable: Boolean!
+	id: ID!
+	name: String!
+	bookable: Boolean!
+	room: Room!
+	modalities(filterBy: ModalityFilter, orderBy: ModalityOrdering): [Modality!]!
+	organisationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]!
+	organizationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]! @deprecated(reason: "Use `organisationalUnits` instead")
+}
+
+type LabAccount {
+	username: String!
+	expiresOn: DateTime!
+}
+
+input LabFilter {
+	id: IdFilter
+	name: StringFilter
+	room: RoomFilter
+}
+
+input LabOrdering {
+	field: LabOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum LabOrderingField {
+	Id
+	Name
+	Room
 }
 
 type Modality {
-  id: ID!
-  name: String!
-  shortName: String!
-  sessionQuotaMiB(version: Int): Int!
-  legacy: Boolean!
-  experiments: [Experiment!]!
+	id: ID!
+	name: String!
+	shortName: String!
+	legacy: Boolean!
+	experiments(filterBy: ExperimentFilter, orderBy: ExperimentOrdering): [Experiment!]!
+	labs(filterBy: LabFilter, orderBy: LabOrdering): [Lab!]!
+	sessionQuotaMiB(version: Int): Int!
+}
+
+input ModalityFilter {
+	name: StringFilter
+	shortName: NullableStringFilter
+	legacy: BoolFilter
+	id: CurrentQuotaRuleFilter
+}
+
+input ModalityOrdering {
+	field: ModalityOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum ModalityOrderingField {
+	Id
+	Name
+	ShortName
+	Legacy
 }
 
 type Mutation {
-  enableFilerProjectSynchronizer(enable: Boolean!): Boolean!
-  triggerFilerProjectSynchronizer: Boolean!
-  _purge: [String!]!
-  createAccount(username: ID!, data: CreateAccountInput!): CreateAccountOutput!
-  updateAccount(username: ID!, data: UpdateAccountInput!): UpdateAccountOutput!
-  createBooking(data: CreateBookingInput!): Booking!
-  deleteBooking(id: ID!): Booking!
-  updateBookingEvent(id: ID!, data: UpdateBookingEventInput!): BookingEvent!
-  deleteBookingEvent(id: ID!): BookingEvent!
-  createBuilding(id: ID!, data: CreateBuildingInput!): Building!
-  addEthicalApprovalToProject(
-    name: ID!
-    project: ID!
-    status: EthicalApprovalStatus
-  ): EthicalApproval! @deprecated(reason: "Use `createEthicalApproval`.")
-  createEthicalApproval(
-    name: ID!
-    project: ID!
-    status: EthicalApprovalStatus
-  ): EthicalApproval!
-  updateEthicalApprovalStatus(
-    name: ID!
-    project: ID!
-    status: EthicalApprovalStatus!
-  ): EthicalApproval!
-  deleteEthicalApproval(name: ID!, project: ID!): EthicalApproval!
-  createExperiment(data: CreateExperimentInput!): Experiment!
-  updateExperiment(id: ID!, data: UpdateExperimentInput!): Experiment!
-  deleteExperiment(id: ID!): Experiment!
-  createFundingSource(
-    number: ID!
-    data: CreateFundingSourceInput!
-  ): FundingSource!
-  updateFundingSource(
-    number: ID!
-    data: UpdateFundingSourceInput!
-  ): FundingSource!
-  deleteFundingSource(number: ID!): FundingSource!
-  createGroup(id: ID!, data: CreateGroupInput!): Group!
-  addOrUpdateGroupMember(
-    group: ID!
-    member: ID!
-    role: GroupMemberRole
-  ): GroupMember!
-  createLab(id: ID!, data: CreateLabInput!): Lab!
-  addModalityToLab(id: ID!, lab: ID!): Boolean!
-  createOrganizationalUnit(
-    id: ID!
-    data: CreateOrganizationalUnitInput!
-  ): OrganizationalUnit!
-  addGroupToOrganizationalUnit(id: ID!, ou: ID!): Boolean!
-  addLabToOrganizationalUnit(id: ID!, ou: ID!): Boolean!
-  addOrUpdateOrganizationalUnitMember(
-    username: ID!
-    ou: ID!
-    primary: Boolean
-  ): OrganizationalUnitMember!
-  createProject(number: ID, data: CreateProjectInput!): Project!
-  updateProject(number: ID!, data: UpdateProjectInput!): Project!
-  addExperimenterToProject(project: ID!, username: ID!): Boolean!
-  removeExperimentFromProject(username: ID!): Boolean!
-  addOrUpdateProjectMember(
-    project: ID!
-    username: ID!
-    role: ProjectMemberRole!
-  ): ProjectMember!
-  removeProjectMember(project: ID!, username: ID!): ProjectMember
-  createProjectProposal(
-    number: ID!
-    data: CreateProjectProposalInput!
-  ): ProjectProposal!
-  createRoom(id: ID!, data: CreateRoomInput!): Room!
-  createUser(username: ID!, data: CreateOrUpdateUserInput): User!
-  updateUser(username: ID!, data: CreateOrUpdateUserInput!): User!
-  createUserBillingCategory(
-    data: CreateUserBillingCategoryInput!
-  ): UserBillingCategory!
-  updateUserBillingCategory(
-    id: ID!
-    data: UpdateUserBillingCategoryInput!
-  ): UserBillingCategory!
-  deleteUserBillingCategory(id: ID!): UserBillingCategory!
+	createAccount(username: ID!, data: CreateAccountInput!): CreateAccountOutput!
+	updateAccount(username: ID!, data: UpdateAccountInput!): UpdateAccountOutput!
+	deleteAccount(username: ID!): DeleteAccountOutput!
+	activateLabAccount(username: ID!, expiresOn: DateTime): ActivateLabAccountOutput!
+	createBooking(data: CreateBookingInput!): Booking!
+	updateBooking(id: ID!, data: UpdateBookingInput!): Booking!
+	deleteBooking(id: ID!): Booking!
+	updateBookingEvent(id: ID!, data: UpdateBookingEventInput!): BookingEvent!
+	deleteBookingEvent(id: ID!): BookingEvent!
+	createBuilding(id: ID!, data: CreateBuildingInput!): Building!
+	updateBuilding(id: ID!, data: UpdateBuildingInput!): Building!
+	deleteBuilding(id: ID!): Building!
+	createEthicalApproval(name: String!, project: ID!, status: EthicalApprovalStatus): EthicalApproval!
+	updateEthicalApprovalStatus(name: String!, project: ID!, status: EthicalApprovalStatus!): EthicalApproval!
+	deleteEthicalApproval(name: String!, project: ID!): EthicalApproval!
+	createExperiment(data: CreateExperimentInput!): Experiment!
+	updateExperiment(id: ID!, data: UpdateExperimentInput!): Experiment!
+	deleteExperiment(id: ID!): Experiment!
+	addExperimenterToProject(project: ID!, user: ID!): Boolean!
+	createFundingSource(id: ID!, data: CreateFundingSourceInput!): FundingSource!
+	updateFundingSource(id: ID!, data: UpdateFundingSourceInput!): FundingSource!
+	deleteFundingSource(id: ID!): FundingSource!
+	createGroup(id: ID!, data: CreateGroupInput!): Group!
+	updateGroup(id: ID!, data: UpdateGroupInput!): Group!
+	deleteGroup(id: ID!): Group!
+	addOrUpdateGroupMember(group: ID!, member: ID!, role: GroupMemberRole): GroupMember! @deprecated(reason: "Use `addUserToGroup` and `updateGroup` instead")
+	addUserToGroup(group: ID!, user: ID!): Boolean!
+	createLab(id: ID!, data: CreateLabInput!): Lab!
+	updateLab(id: ID!, data: UpdateLabInput!): Lab!
+	deleteLab(id: ID!): Lab!
+	addModalityToLab(lab: ID!, modality: ID!): Boolean!
+	createModality(id: ID!, data: CreateModalityInput!): Modality!
+	updateModality(id: ID!, data: UpdateModalityInput!): Modality!
+	deleteModality(id: ID!): Modality!
+	createOrganisationalUnit(id: ID!, data: CreateOrganisationalUnitInput!): OrganisationalUnit!
+	updateOrganisationalUnit(id: ID!, data: UpdateOrganisationalUnitInput!): OrganisationalUnit!
+	deleteOrganisationalUnit(id: ID!): OrganisationalUnit!
+	addGroupToOrganisationalUnit(ou: ID!, group: ID!): Boolean!
+	addLabToOrganisationalUnit(ou: ID!, lab: ID!): Boolean!
+	createOrganizationalUnit(id: ID!, data: CreateOrganisationalUnitInput!): OrganisationalUnit! @deprecated(reason: "Use `createOrganisationalUnit` instead")
+	updateOrganizationalUnit(id: ID!, data: UpdateOrganisationalUnitInput!): OrganisationalUnit! @deprecated(reason: "Use `updateOrganisationalUnit` instead")
+	deleteOrganizationalUnit(id: ID!): OrganisationalUnit! @deprecated(reason: "Use `deleteOrganisationalUnit` instead")
+	addGroupToOrganizationalUnit(id: ID!, group: ID!): Boolean! @deprecated(reason: "Use `addGroupToOrganisationalUnit` instead")
+	addLabToOrganizationalUnit(id: ID!, lab: ID!): Boolean! @deprecated(reason: "Use `addLabToOrganisationalUnit` instead")
+	createProject(id: ID, data: CreateProjectInput!): Project!
+	updateProject(id: ID!, data: UpdateProjectInput!): Project!
+	deleteProject(id: ID!): Project!
+	createProjectProposal(id: ID!, data: CreateProjectProposalInput!): ProjectProposal!
+	updateProjectProposal(id: ID!, data: UpdateProjectProposalInput!): ProjectProposal!
+	deleteProjectProposal(id: ID!): ProjectProposal!
+	createRoom(id: ID!, data: CreateRoomInput!): Room!
+	updateRoom(id: ID!, data: UpdateRoomInput!): Room!
+	deleteRoom(id: ID!): Room!
+	createUser(id: ID!, data: CreateUserInput): User!
+	updateUser(id: ID!, data: UpdateUserInput!): User!
+	createUserBillingCategory(id: ID!, data: CreateUserBillingCategoryInput!): UserBillingCategory!
+	updateUserBillingCategory(id: ID!, data: UpdateUserBillingCategoryInput!): UserBillingCategory!
+	deleteUserBillingCategory(id: ID!): UserBillingCategory!
 }
 
-# An organizational unit (OU), e.g. an organization or department.
-type OrganizationalUnit {
-  # The unique identifier for this OU.
-  id: ID!
-  # The display name for this OU.
-  name: String!
-  # Short text describing this OU.
-  description: String!
-  # Buildings that belong to this OU.
-  buildings: [Building!]!
-  labs: [Lab!]!
-  # Groups that belong to this OU.
-  groups: [Group!]!
-  # Rooms that belong to this OU.
-  rooms: [Room!]!
-  # Users that belong to this OU.
-  users: [OrganizationalUnitMember!]!
+"""
+ISO 8601 calendar date without timezone.
+Format: %Y-%m-%d
+
+# Examples
+
+* `1994-11-13`
+* `2000-02-24`
+"""
+scalar NaiveDate
+
+input NullableBoolFilter {
+	null: Boolean
+	equals: Boolean
+	notEquals: Boolean
 }
 
-type OrganizationalUnitMember {
-  organizationalUnit: OrganizationalUnit!
-  user: User!
-  primary: Boolean!
+input NullableDateTimeFilter {
+	null: Boolean
+	equals: DateTime
+	notEquals: DateTime
+	in: [DateTime!]
+	before: DateTime
+	after: DateTime
+}
+
+input NullableIntegerFilter {
+	null: Boolean
+	equals: Int
+	notEquals: Int
+	in: [Int!]
+	lessThan: Int
+	lessThanEquals: Int
+	greaterThan: Int
+	greaterThanEquals: Int
+}
+
+input NullableStringFilter {
+	null: Boolean
+	equals: String
+	notEquals: String
+	in: [String!]
+	contains: String
+	startsWith: String
+}
+
+enum OrderingDirection {
+	Ascending
+	Descending
+}
+
+type OrganisationalUnit {
+	id: ID!
+	name: String!
+	description: String!
+	buildings(filterBy: BuildingFilter, orderBy: BuildingOrdering): [Building!]!
+	groups(filterBy: GroupFilter, orderBy: GroupOrdering): [Group!]!
+	labs(filterBy: LabFilter, orderBy: LabOrdering): [Lab!]!
+	rooms(filterBy: RoomFilter, orderBy: RoomOrdering): [Room!]!
+	users(filterBy: UserFilter, orderBy: UserOrdering): [User!]!
+}
+
+input OrganisationalUnitFilter {
+	id: IdFilter
+	name: StringFilter
+	description: StringFilter
+}
+
+type OrganisationalUnitMember {
+	organisationalUnit: OrganisationalUnit! @deprecated
+	user: User! @deprecated
+	primary: Boolean! @deprecated
+}
+
+input OrganisationalUnitOrdering {
+	field: OrganisationalUnitOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum OrganisationalUnitOrderingField {
+	Id
+	Name
+	Description
+}
+
+input OrganisationalUnitUserFilter {
+	primary: BoolFilter
+	ou: OrganisationalUnitFilter
+	user: UserFilter
+}
+
+input OrganisationalUnitUserOrdering {
+	field: OrganisationalUnitUserOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum OrganisationalUnitUserOrderingField {
+	Ou
+	User
+	Primary
+}
+
+"""
+Information about pagination in a connection
+"""
+type PageInfo {
+	"""
+	When paginating backwards, are there more items?
+	"""
+	hasPreviousPage: Boolean!
+	"""
+	When paginating forwards, are there more items?
+	"""
+	hasNextPage: Boolean!
+	"""
+	When paginating backwards, the cursor to continue.
+	"""
+	startCursor: String
+	"""
+	When paginating forwards, the cursor to continue.
+	"""
+	endCursor: String
 }
 
 enum PendingProjectMemberUpdate {
-  ChangeToManager
-  ChangeToContributor
-  ChangeToViewer
-  Remove
+	ChangeToManager
+	ChangeToContributor
+	ChangeToViewer
+	Remove
 }
 
-# A research project.
 type Project {
-  # The unique project number of this project.
-  number: ID!
-  # Creation time of this record.
-  createdAt: DateTime!
-  # Time this record was last updated.
-  updatedAt: DateTime!
-  fundingSource: FundingSource!
-  # The title of the project.
-  title: String!
-  # The project's current status.
-  status: ProjectStatus!
-  # The user who owns the project.
-  owner: User!
-  # The date on which the project starts.
-  start: Date!
-  # The date on which the project ends.
-  end: Date!
-  # Information about the project's storage usage if available.
-  storage: Storage
-  overrulingQuotaGiB: Int
-  overrulingQuotaUpdatedAt: DateTime
-  # The list of project members.
-  members: [ProjectMember!]!
-  # The associated project proposal if it exists.
-  proposal: ProjectProposal
-  experiments: [Experiment!]!
-  experimenters: [User!]!
-  ethicalApprovals: [EthicalApproval!]!
-  bookings: [Booking!]!
+	id: ID!
+	number: String!
+	createdAt: DateTime!
+	updatedAt: DateTime!
+	start: DateTime!
+	end: DateTime!
+	title: String!
+	status: ProjectStatus!
+	overrulingQuotaGiB: Int
+	overrulingQuotaUpdatedAt: DateTime
+	owner: User!
+	fundingSource: FundingSource!
+	experiments(filterBy: ExperimentFilter, orderBy: ExperimentOrdering): [Experiment!]!
+	experimenters(filterBy: UserFilter, orderBy: UserOrdering): [User!]!
+	ethicalApprovals(filterBy: EthicalApprovalFilter, orderBy: EthicalApprovalOrdering): [EthicalApproval!]!
+	members(orderBy: ProjectMemberOrdering): [ProjectMember!]!
+	proposal: ProjectProposal
+	bookings(filterBy: BookingFilter, orderBy: BookingOrdering): [Booking!]!
+	storage: Storage
 }
 
-# A member of project.
+type ProjectConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [ProjectEdge!]!
+}
+
+"""
+An edge in a connection.
+"""
+type ProjectEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: Project!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+input ProjectFilter {
+	id: IdFilter
+	createdAt: DateTimeFilter
+	updatedAt: DateTimeFilter
+	title: StringFilter
+	status: ProjectStatusFilter
+	start: DateTimeFilter
+	end: DateTimeFilter
+	overrulingQuotaGiB: NullableIntegerFilter
+	overrulingQuotaUpdatedAt: NullableDateTimeFilter
+	owner: UserFilter
+	fundingSource: FundingSourceFilter
+}
+
 type ProjectMember {
-  # The associated project.
-  project: Project!
-  # The associated user.
-  member: User!
-  # The member's role in the project.
-  role: ProjectMemberRole
-  pendingUpdate: PendingProjectMemberUpdate
+	project: Project!
+	user: User!
+	member: User! @deprecated(reason: "Use `user` instead")
+	role: ProjectMemberRole
+	pendingUpdate: PendingProjectMemberUpdate
 }
 
-# The role and access rights of a project member.
+input ProjectMemberOrdering {
+	field: ProjectMemberOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum ProjectMemberOrderingField {
+	PROJECT
+	MEMBER
+	ROLE
+	PENDING_UPDATE
+}
+
 enum ProjectMemberRole {
-  # A manager has full access to the project and its storage including the right to add and remove other members.
-  Manager
-  # A contributor has read and write access to the project's storage.
-  Contributor
-  # A viewer has read-only access to the project's storage.
-  Viewer
-  # A project member with the traverse role only has access to specific subfolder(s) of the project.
-  Traverse
+	Manager
+	Contributor
+	Viewer
+	Traverse
 }
 
-# A project proposal.
+input ProjectOrdering {
+	field: ProjectOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum ProjectOrderingField {
+	Id
+	CreatedAt
+	UpdatedAt
+	FundingSource
+	Title
+	Status
+	Owner
+	Start
+	End
+	OverrulingQuotaGiB
+	OverrulingQuotaUpdatedAt
+}
+
 type ProjectProposal {
-  # The associated project.
-  project: Project!
-  # The date of the project proposal meeting.
-  meetingDate: Date
+	meetingDate: NaiveDate!
+	project: Project!
 }
 
-# The status of a project.
 enum ProjectStatus {
-  # The project is active.
-  Active
-  # The project is inactive.
-  Inactive
+	Active
+	Inactive
+}
+
+input ProjectStatusFilter {
+	equals: ProjectStatus
+	notEquals: ProjectStatus
+	in: [ProjectStatus!]
 }
 
 type Query {
-  bookingEvents(
-    start: DateTime
-    end: DateTime
-    resources: [ResourceID!]
-    owner: ID
-    project: ID
-  ): [BookingEvent!]!
-  # Retrieve a building given its unique id or name.
-  building(id: ID, name: String): Building
-  buildings: [Building!]!
-  experiment(id: ID!): Experiment
-  fundingSource(number: ID!): FundingSource
-  fundingSources: [FundingSource!]!
-  # The list of all groups.
-  groups(status: GroupStatus): [Group!]!
-  # Retrieve a group given its unique identifier or name.
-  group(id: ID, name: String): Group
-  labs: [Lab!]!
-  lab(id: ID!): Lab
-  modality(id: ID!): Modality
-  modalities: [Modality!]!
-  organizationalUnits: [OrganizationalUnit!]!
-  # The list of all projects.
-  projects: [Project!]!
-  # Retrieve a project given its unique number.
-  project(number: ID!): Project
-  projectsOwnedBy(username: ID!): [Project!]!
-  projectsExperimenterOf(username: ID!): [Project!]!
-  bookableResources: [Resource!]!
-  filerTaskStatus(type: FilerTaskType!, id: ID!): FilerTaskStatusOutput
-  # The list of all users.
-  users(status: [UserStatus!]): [User!]!
-  # Retrieve a user given their unique username.
-  user(username: ID!): User
-  userBillingCategories: [UserBillingCategory!]!
+	bookings(id: [ID!], filterBy: BookingFilter, orderBy: BookingOrdering): [Booking!]!
+	bookingsConnection(after: String, before: String, first: Int, last: Int, filterBy: BookingFilter, orderBy: BookingOrdering): BookingConnection!
+	booking(id: ID!): Booking
+	bookingEvents(id: [ID!], filterBy: BookingEventFilter, orderBy: BookingEventOrdering): [BookingEvent!]!
+	bookingEventsConnection(after: String, before: String, first: Int, last: Int, filterBy: BookingEventFilter, orderBy: BookingEventOrdering): BookingEventConnection!
+	bookingEvent(id: ID!): BookingEvent
+	buildings(id: [ID!], filterBy: BuildingFilter, orderBy: BuildingOrdering): [Building!]!
+	building(id: ID!): Building
+	experiments(id: [ID!], filterBy: ExperimentFilter, orderBy: ExperimentOrdering): [Experiment!]!
+	experiment(id: ID!): Experiment
+	filerTaskStatus(type: FilerTaskType!, id: ID!): FilerTaskStatusOutput
+	fundingSource(number: ID!): FundingSource
+	fundingSources(number: [ID!], filterBy: FundingSourceFilter, orderBy: FundingSourceOrdering): [FundingSource!]!
+	groups(id: [ID!], filterBy: GroupFilter, orderBy: GroupOrdering): [Group!]!
+	group(id: ID!): Group
+	labs(id: [ID!], filterBy: LabFilter, orderBy: LabOrdering): [Lab!]!
+	lab(id: ID!): Lab
+	modalities(id: [ID!], filterBy: ModalityFilter, orderBy: ModalityOrdering): [Modality!]!
+	modality(id: ID!): Modality
+	organisationalUnits(id: [ID!], filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]!
+	organisationalUnit(id: ID!): OrganisationalUnit
+	projects(id: [ID!], filterBy: ProjectFilter, orderBy: ProjectOrdering): [Project!]!
+	projectsConnection(after: String, before: String, first: Int, last: Int, filterBy: ProjectFilter, orderBy: ProjectOrdering): ProjectConnection!
+	project(id: ID!): Project
+	projectsOwnedBy(user: ID!, orderBy: ProjectOrdering): [Project!]! @deprecated
+	projectsExperimenterOf(user: ID!, orderBy: ProjectOrdering): [Project!]! @deprecated
+	bookableResources(id: [ResourceID!], filterBy: BookableResourceFilter, orderBy: BookableResourceOrdering): [Resource!]!
+	rooms(id: [ID!], filterBy: RoomFilter, orderBy: RoomOrdering): [Room!]!
+	roomsConnection(after: String, before: String, first: Int, last: Int, filterBy: RoomFilter, orderBy: RoomOrdering): RoomConnection!
+	room(id: ID!): Room
+	users(id: [ID!], filterBy: UserFilter, orderBy: UserOrdering): [User!]!
+	usersConnection(after: String, before: String, first: Int, last: Int, filterBy: UserFilter, orderBy: UserOrdering): UserConnection!
+	user(id: ID!): User
+	userBillingCategories(id: [ID!], filterBy: UserBillingCategoryFilter, orderBy: UserBillingCategoryOrdering): [UserBillingCategory!]!
+	userBillingCategory(id: ID!): UserBillingCategory
 }
 
 union Resource = Lab | Room
-input ResourceID {
-  type: ResourceType!
-  id: ID!
-}
 
-enum ResourceType {
-  Lab
-  Room
-  Item
+input ResourceID @oneOf {
+	lab: ID
+	room: ID
 }
 
 type Room {
-  id: ID!
-  number: String!
-  name: String
-  phone: String
-  floor: Int
-  bookable: Boolean!
-  users: [User!]!
-  building: Building!
-  organizationalUnits: [OrganizationalUnit!]!
+	id: ID!
+	floor: Int
+	number: String!
+	name: String
+	phone: String
+	flex: Boolean
+	desks: Int
+	comments: String
+	bookable: Boolean!
+	building: Building!
+	users(filterBy: UserFilter, orderBy: UserOrdering): [User!]!
+	organisationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]!
+	organizationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]! @deprecated(reason: "Use `organisationalUnits` instead")
+}
+
+type RoomConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [RoomEdge!]!
+}
+
+"""
+An edge in a connection.
+"""
+type RoomEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: Room!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+input RoomFilter {
+	id: IdFilter
+	floor: NullableIntegerFilter
+	number: StringFilter
+	name: NullableStringFilter
+	phone: NullableStringFilter
+	flex: NullableBoolFilter
+	desks: NullableIntegerFilter
+	comments: NullableStringFilter
+	building: BuildingFilter
+}
+
+input RoomOrdering {
+	field: RoomOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum RoomOrderingField {
+	Id
+	Floor
+	Number
+	Name
+	Phone
+	Flex
+	Desks
+	Comments
+	Building
 }
 
 type Storage {
-  # The total amount of storage available.
-  quotaGiB: Int!
-  # The amount of storage space in use.
-  usageMiB: Int!
+	quotaGiB: Int!
+	usageMiB: Int!
+}
+
+
+input StringFilter {
+	equals: String
+	notEquals: String
+	in: [String!]
+	contains: String
+	startsWith: String
 }
 
 input UpdateAccountInput {
-  active: Boolean
-  expiresOn: DateTime
-  resetPassword: Boolean
-  homeQuotaGiB: Int
+	active: Boolean
+	expiresOn: DateTime
+	resetPassword: Boolean! = false
+	expirePassword: Boolean! = true
+	homeQuotaGiB: Int
 }
 
 type UpdateAccountOutput {
-  account: Account!
-  password: String
-  storageTaskId: ID
+	account: Account!
+	password: String
+	storageTaskId: ID
 }
 
 input UpdateBookingEventInput {
-  start: DateTime
-  end: DateTime
-  resource: ResourceID
-  status: BookingEventStatus
-  subject: String
-  session: String
-  remark: String
+	resource: ResourceID
+	start: DateTime
+	end: DateTime
+	status: BookingEventStatus
+	subject: String
+	session: String
+	remark: String
+}
+
+input UpdateBookingInput {
+	title: String
+	rrule: String
+	owner: ID
+	project: ID
+	experiment: ID
+}
+
+input UpdateBuildingInput {
+	name: String
+	address: String
 }
 
 input UpdateExperimentInput {
-  project: ID
-  modality: ID
-  numSubjects: Int
-  numSessions: Int
-  sessionDurationMinutes: Int
-  withStructuralMri: Boolean
-  quotaRuleVersion: Int
+	project: ID
+	numSubjects: Int
+	numSessions: Int
+	sessionDurationMinutes: Int
+	modality: ID
+	quotaRuleVersion: Int
+	withStructuralMri: Boolean
 }
 
 input UpdateFundingSourceInput {
-  name: String
+	name: String
 }
 
-# Information used to update a project.
+input UpdateGroupInput {
+	name: String
+	status: GroupStatus
+	head: ID
+}
+
+input UpdateLabInput {
+	name: String
+	room: ID
+}
+
+input UpdateModalityInput {
+	name: String
+	shortName: String
+	legacy: Boolean
+}
+
+input UpdateOrganisationalUnitInput {
+	name: String
+	description: String
+}
+
 input UpdateProjectInput {
-  title: String
-  status: ProjectStatus
-  owner: ID
-  start: Date
-  end: Date
-  overrulingQuotaGiB: Int
-  experimenters: [ID!]
+	fundingSource: ID
+	title: String
+	status: ProjectStatus
+	owner: ID
+	start: DateTime
+	end: DateTime
+	overrulingQuotaGiB: Int
+	experimenters: [ID!]
+}
+
+input UpdateProjectProposalInput {
+	meetingDate: NaiveDate
+}
+
+input UpdateRoomInput {
+	floor: Int
+	number: String
+	name: String
+	phone: String
+	flex: Boolean
+	desks: Int
+	comments: String
+	building: ID
 }
 
 input UpdateUserBillingCategoryInput {
-  name: String
-  description: String
+	name: String
+	description: String
 }
 
-# The `Upload` scalar type represents a file upload.
-scalar Upload
+input UpdateUserInput {
+	firstName: String
+	middleName: String
+	lastName: String
+	overrideName: String
+	function: UserFunction
+	email: String
+	emailExt: String
+	phone: String
+	phoneExt: String
+	status: UserStatus
+	room: String
+	billingCategory: ID
+	desk: Int
+}
 
-# A user in the Project Database. This user does not have to be associated with an account.
 type User {
-  # The unique name of the user. Corresponds to the account name in Active Directory if present.
-  username: ID!
-  # Creation time of this record.
-  createdAt: DateTime!
-  # Time this record was last updated.
-  updatedAt: DateTime!
-  # The user's first name.
-  firstName: String
-  # The user's middle name.
-  middleName: String
-  # The user's last name.
-  lastName: String
-  # A custom name that overrides the user's full name for displaying.
-  overrideName: String
-  # The computed user's display name. The value of this field is:
-  # - the value of the `overrideName` field if present
-  # - a combination of the `firstName`, `middleName` and `lastName` fields if present
-  # - the value of the `username` field in all other cases
-  displayName: String!
-  # The user's primary role within the institute.
-  function: UserFunction!
-  # The user's private business e-mail address.
-  email: String
-  # The user's public e-mail address.
-  emailExt: String
-  # The user's internal phone number.
-  phone: String
-  # The user's external phone number.
-  phoneExt: String
-  # The room this user resides in.
-  room: Room
-  # The administrative status associated with this user.
-  status: UserStatus!
-  billingCategory: UserBillingCategory!
-  # The Active Directory account information if an account is present.
-  account: Account
-  # The groups this user belongs to.
-  groups: [GroupMember!]!
-  # The projects this user is a member of.
-  projects: [ProjectMember!]!
-  # The organizational units this user belongs to.
-  organizationalUnits: [OrganizationalUnitMember!]!
+	id: ID!
+	username: String!
+	createdAt: DateTime!
+	updatedAt: DateTime!
+	status: UserStatus!
+	firstName: String
+	middleName: String
+	lastName: String
+	overrideName: String
+	displayName: String!
+	function: UserFunction!
+	email: String
+	emailExt: String
+	phone: String
+	phoneExt: String
+	desk: Int
+	room: Room
+	account: Account
+	labAccount: LabAccount
+	groups(orderBy: GroupMemberOrdering): [GroupMember!]!
+	projects(orderBy: ProjectMemberOrdering): [ProjectMember!]!
+	billingCategory: UserBillingCategory!
+	experimenterOf(filterBy: ProjectFilter, orderBy: ProjectOrdering): [Project!]!
+	primaryOrganisationalUnit: OrganisationalUnit!
+	organisationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]!
+	organizationalUnits(filterBy: OrganisationalUnitUserFilter, orderBy: OrganisationalUnitUserOrdering): [OrganisationalUnitMember!]! @deprecated(reason: "Use `organisationalUnits` and `primaryOrganisationalUnit` instead")
 }
 
 type UserBillingCategory {
-  id: ID!
-  name: String!
-  description: String
-  users: [User!]!
+	id: ID!
+	name: String!
+	description: String
+	users(filterBy: UserFilter, orderBy: UserOrdering): [User!]!
+}
+
+input UserBillingCategoryFilter {
+	id: IdFilter
+	name: StringFilter
+	description: NullableStringFilter
+}
+
+input UserBillingCategoryOrdering {
+	field: UserBillingCategoryOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum UserBillingCategoryOrderingField {
+	Id
+	Name
+	Description
+}
+
+type UserConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [UserEdge!]!
+}
+
+"""
+An edge in a connection.
+"""
+type UserEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: User!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+input UserFilter {
+	username: IdFilter
+	createdAt: DateTimeFilter
+	updatedAt: DateTimeFilter
+	firstName: NullableStringFilter
+	middleName: NullableStringFilter
+	lastName: NullableStringFilter
+	overrideName: NullableStringFilter
+	displayName: StringFilter
+	function: UserFunctionFilter
+	email: NullableStringFilter
+	emailExt: NullableStringFilter
+	phone: NullableStringFilter
+	phoneExt: NullableStringFilter
+	status: UserStatusFilter
+	desk: NullableIntegerFilter
+	billingCategory: UserBillingCategoryFilter
+	room: RoomFilter
 }
 
 enum UserFunction {
-  Trainee
-  PhdStudent
-  PostdoctoralResearcher
-  PrincipalInvestigator
-  ResearchStaff
-  ResearchAssistant
-  OtherResearcher
-  StaffScientist
-  SupportingStaff
-  Unknown
+	Trainee
+	PhdStudent
+	PostdoctoralResearcher
+	PrincipalInvestigator
+	ResearchStaff
+	ResearchAssistant
+	OtherResearcher
+	StaffScientist
+	SupportingStaff
+	SeniorResearcher
+	ResearchFellow
+	StudentAssistant
+	Unknown
+}
+
+input UserFunctionFilter {
+	equals: UserFunction
+	notEquals: UserFunction
+	in: [UserFunction!]
+}
+
+input UserOrdering {
+	field: UserOrderingField!
+	direction: OrderingDirection! = Ascending
+}
+
+enum UserOrderingField {
+	Username
+	CreatedAt
+	UpdatedAt
+	FirstName
+	MiddleName
+	LastName
+	OverrideName
+	DisplayName
+	Function
+	Email
+	EmailExt
+	Phone
+	PhoneExt
+	Status
+	Room
+	BillingCategory
+	Desk
 }
 
 enum UserStatus {
-  Tentative
-  CheckedIn
-  CheckedOut
-  CheckedOutExtended
+	Tentative
+	CheckedIn
+	CheckedOut
+	CheckedOutExtended
 }
 
+input UserStatusFilter {
+	equals: UserStatus
+	notEquals: UserStatus
+	in: [UserStatus!]
+}
+
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+schema {
+	query: Query
+	mutation: Mutation
+}

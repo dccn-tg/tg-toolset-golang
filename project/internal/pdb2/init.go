@@ -6,8 +6,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 	"github.com/Khan/genqlient/graphql"
+	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
+	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
 )
 
 // GetProjects queries PDB2 to get metadata of all projects, using GraphQL.
@@ -109,6 +110,26 @@ func GetUser(config config.CoreAPIConfiguration, username string) (*getUserRespo
 	return resp, nil
 }
 
+// GetUserByEmail queries PDB2 to get metadata of the user with the given `email`.
+func GetUserByEmail(config config.CoreAPIConfiguration, email string) (*getUserByEmailResponse, error) {
+
+	c1, err := oauth2HttpClient(
+		config.AuthClientID,
+		config.AuthClientSecret,
+		config.AuthURL,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return getUserByEmail(
+		context.Background(),
+		graphql.NewClient(config.CoreAPIURL, c1),
+		email,
+	)
+}
+
 // GetLabs queries PDB2 to get the IDs of certain lab modality.
 func GetLabs(config config.CoreAPIConfiguration, modality *regexp.Regexp, bookableOnly bool) ([]string, error) {
 
@@ -161,19 +182,14 @@ func GetBookingEvents(config config.CoreAPIConfiguration, resources []string, st
 		return nil, err
 	}
 
-	// construct resources input
-	inputResources := make([]ResourceID, len(resources))
-	for i, r := range resources {
-		inputResources[i].Id = r
-		inputResources[i].Type = ResourceTypeLab
-	}
+	log.Debugf("%+v - %+v, %+v", start, end, resources)
 
 	return getBookingEvents(
 		context.Background(),
 		graphql.NewClient(config.CoreAPIURL, c1),
 		start,
 		end,
-		inputResources,
+		resources,
 	)
 }
 

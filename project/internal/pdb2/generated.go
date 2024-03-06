@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	graphql2 "github.com/dccn-tg/tg-toolset-golang/pkg/graphql"
 	"github.com/Khan/genqlient/graphql"
 )
 
@@ -30,25 +29,6 @@ const (
 	ProjectStatusInactive ProjectStatus = "Inactive"
 )
 
-type ResourceID struct {
-	Type ResourceType `json:"type"`
-	Id   string       `json:"id"`
-}
-
-// GetType returns ResourceID.Type, and is useful for accessing the field via an interface.
-func (v *ResourceID) GetType() ResourceType { return v.Type }
-
-// GetId returns ResourceID.Id, and is useful for accessing the field via an interface.
-func (v *ResourceID) GetId() string { return v.Id }
-
-type ResourceType string
-
-const (
-	ResourceTypeLab  ResourceType = "Lab"
-	ResourceTypeRoom ResourceType = "Room"
-	ResourceTypeItem ResourceType = "Item"
-)
-
 type UserFunction string
 
 const (
@@ -61,6 +41,9 @@ const (
 	UserFunctionOtherresearcher        UserFunction = "OtherResearcher"
 	UserFunctionStaffscientist         UserFunction = "StaffScientist"
 	UserFunctionSupportingstaff        UserFunction = "SupportingStaff"
+	UserFunctionSeniorresearcher       UserFunction = "SeniorResearcher"
+	UserFunctionResearchfellow         UserFunction = "ResearchFellow"
+	UserFunctionStudentassistant       UserFunction = "StudentAssistant"
 	UserFunctionUnknown                UserFunction = "Unknown"
 )
 
@@ -75,9 +58,9 @@ const (
 
 // __getBookingEventsInput is used internally by genqlient
 type __getBookingEventsInput struct {
-	Start     time.Time    `json:"start"`
-	End       time.Time    `json:"end"`
-	Resources []ResourceID `json:"resources"`
+	Start     time.Time `json:"start"`
+	End       time.Time `json:"end"`
+	Resources []string  `json:"resources"`
 }
 
 // GetStart returns __getBookingEventsInput.Start, and is useful for accessing the field via an interface.
@@ -87,7 +70,7 @@ func (v *__getBookingEventsInput) GetStart() time.Time { return v.Start }
 func (v *__getBookingEventsInput) GetEnd() time.Time { return v.End }
 
 // GetResources returns __getBookingEventsInput.Resources, and is useful for accessing the field via an interface.
-func (v *__getBookingEventsInput) GetResources() []ResourceID { return v.Resources }
+func (v *__getBookingEventsInput) GetResources() []string { return v.Resources }
 
 // __getProjectInput is used internally by genqlient
 type __getProjectInput struct {
@@ -104,6 +87,14 @@ type __getProjectQuotaInput struct {
 
 // GetNumber returns __getProjectQuotaInput.Number, and is useful for accessing the field via an interface.
 func (v *__getProjectQuotaInput) GetNumber() string { return v.Number }
+
+// __getUserByEmailInput is used internally by genqlient
+type __getUserByEmailInput struct {
+	Email string `json:"email"`
+}
+
+// GetEmail returns __getUserByEmailInput.Email, and is useful for accessing the field via an interface.
+func (v *__getUserByEmailInput) GetEmail() string { return v.Email }
 
 // __getUserInput is used internally by genqlient
 type __getUserInput struct {
@@ -175,7 +166,7 @@ func (v *getBookingEventsBookingEventsBookingEvent) UnmarshalJSON(b []byte) erro
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
-					"Unable to unmarshal getBookingEventsBookingEventsBookingEvent.Resource: %w", err)
+					"unable to unmarshal getBookingEventsBookingEventsBookingEvent.Resource: %w", err)
 			}
 		}
 	}
@@ -224,7 +215,7 @@ func (v *getBookingEventsBookingEventsBookingEvent) __premarshalJSON() (*__prema
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
-				"Unable to marshal getBookingEventsBookingEventsBookingEvent.Resource: %w", err)
+				"unable to marshal getBookingEventsBookingEventsBookingEvent.Resource: %w", err)
 		}
 	}
 	return &retval, nil
@@ -579,8 +570,8 @@ type getProjectProject struct {
 	Title  string                     `json:"title"`
 	Owner  getProjectProjectOwnerUser `json:"owner"`
 	Status ProjectStatus              `json:"status"`
-	Start  time.Time                  `json:"-"`
-	End    time.Time                  `json:"-"`
+	Start  time.Time                  `json:"start"`
+	End    time.Time                  `json:"end"`
 }
 
 // GetNumber returns getProjectProject.Number, and is useful for accessing the field via an interface.
@@ -600,109 +591,6 @@ func (v *getProjectProject) GetStart() time.Time { return v.Start }
 
 // GetEnd returns getProjectProject.End, and is useful for accessing the field via an interface.
 func (v *getProjectProject) GetEnd() time.Time { return v.End }
-
-func (v *getProjectProject) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*getProjectProject
-		Start json.RawMessage `json:"start"`
-		End   json.RawMessage `json:"end"`
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.getProjectProject = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Start
-		src := firstPass.Start
-		if len(src) != 0 && string(src) != "null" {
-			err = graphql2.UnmarshalDate(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"Unable to unmarshal getProjectProject.Start: %w", err)
-			}
-		}
-	}
-
-	{
-		dst := &v.End
-		src := firstPass.End
-		if len(src) != 0 && string(src) != "null" {
-			err = graphql2.UnmarshalDate(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"Unable to unmarshal getProjectProject.End: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type __premarshalgetProjectProject struct {
-	Number string `json:"number"`
-
-	Title string `json:"title"`
-
-	Owner getProjectProjectOwnerUser `json:"owner"`
-
-	Status ProjectStatus `json:"status"`
-
-	Start json.RawMessage `json:"start"`
-
-	End json.RawMessage `json:"end"`
-}
-
-func (v *getProjectProject) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *getProjectProject) __premarshalJSON() (*__premarshalgetProjectProject, error) {
-	var retval __premarshalgetProjectProject
-
-	retval.Number = v.Number
-	retval.Title = v.Title
-	retval.Owner = v.Owner
-	retval.Status = v.Status
-	{
-
-		dst := &retval.Start
-		src := v.Start
-		var err error
-		*dst, err = json.Marshal(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"Unable to marshal getProjectProject.Start: %w", err)
-		}
-	}
-	{
-
-		dst := &retval.End
-		src := v.End
-		var err error
-		*dst, err = json.Marshal(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"Unable to marshal getProjectProject.End: %w", err)
-		}
-	}
-	return &retval, nil
-}
 
 // getProjectProjectOwnerUser includes the requested fields of the GraphQL type User.
 type getProjectProjectOwnerUser struct {
@@ -766,8 +654,8 @@ type getProjectsProjectsProject struct {
 	Title  string                              `json:"title"`
 	Owner  getProjectsProjectsProjectOwnerUser `json:"owner"`
 	Status ProjectStatus                       `json:"status"`
-	Start  time.Time                           `json:"-"`
-	End    time.Time                           `json:"-"`
+	Start  time.Time                           `json:"start"`
+	End    time.Time                           `json:"end"`
 }
 
 // GetNumber returns getProjectsProjectsProject.Number, and is useful for accessing the field via an interface.
@@ -787,109 +675,6 @@ func (v *getProjectsProjectsProject) GetStart() time.Time { return v.Start }
 
 // GetEnd returns getProjectsProjectsProject.End, and is useful for accessing the field via an interface.
 func (v *getProjectsProjectsProject) GetEnd() time.Time { return v.End }
-
-func (v *getProjectsProjectsProject) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*getProjectsProjectsProject
-		Start json.RawMessage `json:"start"`
-		End   json.RawMessage `json:"end"`
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.getProjectsProjectsProject = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Start
-		src := firstPass.Start
-		if len(src) != 0 && string(src) != "null" {
-			err = graphql2.UnmarshalDate(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"Unable to unmarshal getProjectsProjectsProject.Start: %w", err)
-			}
-		}
-	}
-
-	{
-		dst := &v.End
-		src := firstPass.End
-		if len(src) != 0 && string(src) != "null" {
-			err = graphql2.UnmarshalDate(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"Unable to unmarshal getProjectsProjectsProject.End: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type __premarshalgetProjectsProjectsProject struct {
-	Number string `json:"number"`
-
-	Title string `json:"title"`
-
-	Owner getProjectsProjectsProjectOwnerUser `json:"owner"`
-
-	Status ProjectStatus `json:"status"`
-
-	Start json.RawMessage `json:"start"`
-
-	End json.RawMessage `json:"end"`
-}
-
-func (v *getProjectsProjectsProject) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *getProjectsProjectsProject) __premarshalJSON() (*__premarshalgetProjectsProjectsProject, error) {
-	var retval __premarshalgetProjectsProjectsProject
-
-	retval.Number = v.Number
-	retval.Title = v.Title
-	retval.Owner = v.Owner
-	retval.Status = v.Status
-	{
-
-		dst := &retval.Start
-		src := v.Start
-		var err error
-		*dst, err = json.Marshal(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"Unable to marshal getProjectsProjectsProject.Start: %w", err)
-		}
-	}
-	{
-
-		dst := &retval.End
-		src := v.End
-		var err error
-		*dst, err = json.Marshal(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"Unable to marshal getProjectsProjectsProject.End: %w", err)
-		}
-	}
-	return &retval, nil
-}
 
 // getProjectsProjectsProjectOwnerUser includes the requested fields of the GraphQL type User.
 type getProjectsProjectsProjectOwnerUser struct {
@@ -914,6 +699,46 @@ type getProjectsResponse struct {
 
 // GetProjects returns getProjectsResponse.Projects, and is useful for accessing the field via an interface.
 func (v *getProjectsResponse) GetProjects() []getProjectsProjectsProject { return v.Projects }
+
+// getUserByEmailResponse is returned by getUserByEmail on success.
+type getUserByEmailResponse struct {
+	Users []getUserByEmailUsersUser `json:"users"`
+}
+
+// GetUsers returns getUserByEmailResponse.Users, and is useful for accessing the field via an interface.
+func (v *getUserByEmailResponse) GetUsers() []getUserByEmailUsersUser { return v.Users }
+
+// getUserByEmailUsersUser includes the requested fields of the GraphQL type User.
+type getUserByEmailUsersUser struct {
+	Username   string       `json:"username"`
+	FirstName  string       `json:"firstName"`
+	MiddleName string       `json:"middleName"`
+	LastName   string       `json:"lastName"`
+	Email      string       `json:"email"`
+	Status     UserStatus   `json:"status"`
+	Function   UserFunction `json:"function"`
+}
+
+// GetUsername returns getUserByEmailUsersUser.Username, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUser) GetUsername() string { return v.Username }
+
+// GetFirstName returns getUserByEmailUsersUser.FirstName, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUser) GetFirstName() string { return v.FirstName }
+
+// GetMiddleName returns getUserByEmailUsersUser.MiddleName, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUser) GetMiddleName() string { return v.MiddleName }
+
+// GetLastName returns getUserByEmailUsersUser.LastName, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUser) GetLastName() string { return v.LastName }
+
+// GetEmail returns getUserByEmailUsersUser.Email, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUser) GetEmail() string { return v.Email }
+
+// GetStatus returns getUserByEmailUsersUser.Status, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUser) GetStatus() UserStatus { return v.Status }
+
+// GetFunction returns getUserByEmailUsersUser.Function, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUser) GetFunction() UserFunction { return v.Function }
 
 // getUserResponse is returned by getUser on success.
 type getUserResponse struct {
@@ -995,18 +820,10 @@ func (v *getUsersUsersUser) GetStatus() UserStatus { return v.Status }
 // GetFunction returns getUsersUsersUser.Function, and is useful for accessing the field via an interface.
 func (v *getUsersUsersUser) GetFunction() UserFunction { return v.Function }
 
-func getBookingEvents(
-	ctx context.Context,
-	client graphql.Client,
-	start time.Time,
-	end time.Time,
-	resources []ResourceID,
-) (*getBookingEventsResponse, error) {
-	req := &graphql.Request{
-		OpName: "getBookingEvents",
-		Query: `
-query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ResourceID!]) {
-	bookingEvents(start: $start, end: $end, resources: $resources) {
+// The query or mutation executed by getBookingEvents.
+const getBookingEvents_Operation = `
+query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ID!]) {
+	bookingEvents(filterBy: {resource:{lab:{id:{in:$resources}}},start:{after:$start},end:{before:$end}}) {
 		start
 		end
 		status
@@ -1060,7 +877,18 @@ query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ResourceI
 		}
 	}
 }
-`,
+`
+
+func getBookingEvents(
+	ctx context.Context,
+	client graphql.Client,
+	start time.Time,
+	end time.Time,
+	resources []string,
+) (*getBookingEventsResponse, error) {
+	req := &graphql.Request{
+		OpName: "getBookingEvents",
+		Query:  getBookingEvents_Operation,
 		Variables: &__getBookingEventsInput{
 			Start:     start,
 			End:       end,
@@ -1081,13 +909,8 @@ query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ResourceI
 	return &data, err
 }
 
-func getLabs(
-	ctx context.Context,
-	client graphql.Client,
-) (*getLabsResponse, error) {
-	req := &graphql.Request{
-		OpName: "getLabs",
-		Query: `
+// The query or mutation executed by getLabs.
+const getLabs_Operation = `
 query getLabs {
 	labs {
 		id
@@ -1100,7 +923,15 @@ query getLabs {
 		}
 	}
 }
-`,
+`
+
+func getLabs(
+	ctx context.Context,
+	client graphql.Client,
+) (*getLabsResponse, error) {
+	req := &graphql.Request{
+		OpName: "getLabs",
+		Query:  getLabs_Operation,
 	}
 	var err error
 
@@ -1116,16 +947,10 @@ query getLabs {
 	return &data, err
 }
 
-func getProject(
-	ctx context.Context,
-	client graphql.Client,
-	number string,
-) (*getProjectResponse, error) {
-	req := &graphql.Request{
-		OpName: "getProject",
-		Query: `
+// The query or mutation executed by getProject.
+const getProject_Operation = `
 query getProject ($number: ID!) {
-	project(number: $number) {
+	project(id: $number) {
 		number
 		title
 		owner {
@@ -1138,7 +963,16 @@ query getProject ($number: ID!) {
 		end
 	}
 }
-`,
+`
+
+func getProject(
+	ctx context.Context,
+	client graphql.Client,
+	number string,
+) (*getProjectResponse, error) {
+	req := &graphql.Request{
+		OpName: "getProject",
+		Query:  getProject_Operation,
 		Variables: &__getProjectInput{
 			Number: number,
 		},
@@ -1157,16 +991,10 @@ query getProject ($number: ID!) {
 	return &data, err
 }
 
-func getProjectQuota(
-	ctx context.Context,
-	client graphql.Client,
-	number string,
-) (*getProjectQuotaResponse, error) {
-	req := &graphql.Request{
-		OpName: "getProjectQuota",
-		Query: `
+// The query or mutation executed by getProjectQuota.
+const getProjectQuota_Operation = `
 query getProjectQuota ($number: ID!) {
-	project(number: $number) {
+	project(id: $number) {
 		overrulingQuotaGiB
 		storage {
 			quotaGiB
@@ -1174,7 +1002,16 @@ query getProjectQuota ($number: ID!) {
 		}
 	}
 }
-`,
+`
+
+func getProjectQuota(
+	ctx context.Context,
+	client graphql.Client,
+	number string,
+) (*getProjectQuotaResponse, error) {
+	req := &graphql.Request{
+		OpName: "getProjectQuota",
+		Query:  getProjectQuota_Operation,
 		Variables: &__getProjectQuotaInput{
 			Number: number,
 		},
@@ -1193,13 +1030,8 @@ query getProjectQuota ($number: ID!) {
 	return &data, err
 }
 
-func getProjects(
-	ctx context.Context,
-	client graphql.Client,
-) (*getProjectsResponse, error) {
-	req := &graphql.Request{
-		OpName: "getProjects",
-		Query: `
+// The query or mutation executed by getProjects.
+const getProjects_Operation = `
 query getProjects {
 	projects {
 		number
@@ -1214,7 +1046,15 @@ query getProjects {
 		end
 	}
 }
-`,
+`
+
+func getProjects(
+	ctx context.Context,
+	client graphql.Client,
+) (*getProjectsResponse, error) {
+	req := &graphql.Request{
+		OpName: "getProjects",
+		Query:  getProjects_Operation,
 	}
 	var err error
 
@@ -1230,16 +1070,10 @@ query getProjects {
 	return &data, err
 }
 
-func getUser(
-	ctx context.Context,
-	client graphql.Client,
-	username string,
-) (*getUserResponse, error) {
-	req := &graphql.Request{
-		OpName: "getUser",
-		Query: `
+// The query or mutation executed by getUser.
+const getUser_Operation = `
 query getUser ($username: ID!) {
-	user(username: $username) {
+	user(id: $username) {
 		username
 		firstName
 		middleName
@@ -1249,7 +1083,16 @@ query getUser ($username: ID!) {
 		function
 	}
 }
-`,
+`
+
+func getUser(
+	ctx context.Context,
+	client graphql.Client,
+	username string,
+) (*getUserResponse, error) {
+	req := &graphql.Request{
+		OpName: "getUser",
+		Query:  getUser_Operation,
 		Variables: &__getUserInput{
 			Username: username,
 		},
@@ -1268,13 +1111,53 @@ query getUser ($username: ID!) {
 	return &data, err
 }
 
-func getUsers(
+// The query or mutation executed by getUserByEmail.
+const getUserByEmail_Operation = `
+query getUserByEmail ($email: String) {
+	users(filterBy: {email:{equals:$email}}) {
+		username
+		firstName
+		middleName
+		lastName
+		email
+		status
+		function
+	}
+}
+`
+
+// Issue: the generated GO code doesn't handle the filter very well.
+// For instance, it assumes that the `DateTimeFilter` supports `"null"`
+// field if it not used in the filter.  For this reason, we need to
+// create the filter explicitly in the query.
+func getUserByEmail(
 	ctx context.Context,
 	client graphql.Client,
-) (*getUsersResponse, error) {
+	email string,
+) (*getUserByEmailResponse, error) {
 	req := &graphql.Request{
-		OpName: "getUsers",
-		Query: `
+		OpName: "getUserByEmail",
+		Query:  getUserByEmail_Operation,
+		Variables: &__getUserByEmailInput{
+			Email: email,
+		},
+	}
+	var err error
+
+	var data getUserByEmailResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+// The query or mutation executed by getUsers.
+const getUsers_Operation = `
 query getUsers {
 	users {
 		username
@@ -1286,7 +1169,15 @@ query getUsers {
 		function
 	}
 }
-`,
+`
+
+func getUsers(
+	ctx context.Context,
+	client graphql.Client,
+) (*getUsersResponse, error) {
+	req := &graphql.Request{
+		OpName: "getUsers",
+		Query:  getUsers_Operation,
 	}
 	var err error
 
