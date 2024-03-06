@@ -3,7 +3,6 @@ package pdb
 import (
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -156,15 +155,12 @@ func (v2 V2) GetUsers(activeOnly bool) ([]*User, error) {
 		return nil, err
 	}
 
-	activeStates := []UserStatus{
-		UserStatusCheckedIn,
-		UserStatusCheckedOutExtended,
-	}
-
 	var users []*User
 	for _, u := range resp.Users {
 
-		if activeOnly && slices.Contains(activeStates, userStatusEnum(u.Status)) {
+		s := userStatusEnum(u.Status)
+
+		if activeOnly && !(s == UserStatusCheckedIn || s == UserStatusCheckedOutExtended) {
 			continue
 		}
 
@@ -174,7 +170,7 @@ func (v2 V2) GetUsers(activeOnly bool) ([]*User, error) {
 			Middlename: u.MiddleName,
 			Lastname:   u.LastName,
 			Email:      u.Email,
-			Status:     userStatusEnum(u.Status),
+			Status:     s,
 		})
 	}
 
