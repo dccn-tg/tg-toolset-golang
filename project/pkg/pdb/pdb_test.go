@@ -123,7 +123,6 @@ func TestGetUserByEmail(t *testing.T) {
 // }
 
 func TestGetLabBookings(t *testing.T) {
-
 	bookings, err := testPDB.GetLabBookingsForWorklist(MRI, bookingDate)
 	if err != nil {
 		t.Errorf("%s\n", err)
@@ -131,5 +130,42 @@ func TestGetLabBookings(t *testing.T) {
 	t.Logf("%d bookings: \n", len(bookings))
 	for i := 0; i < int(math.Min(3, float64(len(bookings)))); i++ {
 		t.Logf("%d: %+v\n", i, bookings[i])
+	}
+}
+
+func TestGetLabBookingsOvernight(t *testing.T) {
+
+	// we expect a MEG booking with the following data in the core-api:
+	//
+	//   {
+	//     "id": "162020",
+	//     "start": "2023-05-19T08:00:00+02:00",
+	//     "end": "2023-05-20T02:00:00+02:00",
+	//     "status": "Confirmed"
+	//   }
+	//
+	// this event should be in the worklist of 2023-05-19; but
+	// not in the worklist of 2023-05-20.
+
+	startDate := "2023-05-19"
+	endDate := "2023-05-20"
+
+	bookings, err := testPDB.GetLabBookingsForWorklist(MEG, startDate)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	if len(bookings) < 1 {
+		t.Errorf("event not found!\n")
+	} else {
+		t.Logf("%+v\n", bookings)
+	}
+
+	bookings, err = testPDB.GetLabBookingsForWorklist(MEG, endDate)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	if len(bookings) != 0 {
+		t.Errorf("more event than expected: %+v\n", bookings)
 	}
 }

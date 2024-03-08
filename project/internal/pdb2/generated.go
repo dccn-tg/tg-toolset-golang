@@ -822,8 +822,8 @@ func (v *getUsersUsersUser) GetFunction() UserFunction { return v.Function }
 
 // The query or mutation executed by getBookingEvents.
 const getBookingEvents_Operation = `
-query getBookingEvents ($start: DateTime, $end: DateTime, $resources: [ID!]) {
-	bookingEvents(filterBy: {resource:{lab:{id:{in:$resources}}},start:{after:$start},end:{before:$end}}) {
+query getBookingEvents ($start: DateTime!, $end: DateTime!, $resources: [ID!]) {
+	bookingEvents(filterBy: {resource:{lab:{id:{in:$resources}}},timeRange:{overlaps:{start:$start,end:$end}}}) {
 		start
 		end
 		status

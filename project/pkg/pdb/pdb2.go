@@ -288,6 +288,13 @@ func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) 
 	for _, b := range resp.BookingEvents {
 
 		if forWorklist {
+
+			// for worklist, we only want the event's `start time` later or at `from`.
+			if b.Start.Before(from) {
+				continue
+			}
+
+			// for worklist, only confirmed and tentative bookings are needed.
 			if b.Status != api.BookingEventStatusConfirmed && b.Status != api.BookingEventStatusTentative {
 				continue
 			}

@@ -27,7 +27,7 @@ input BookableResourceFilter {
 
 input BookableResourceOrdering {
 	field: BookableResourceOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum BookableResourceOrderingField {
@@ -118,18 +118,19 @@ input BookingEventFilter {
 	updatedAt: DateTimeFilter
 	start: DateTimeFilter
 	end: DateTimeFilter
+	timeRange: DateTimeRangeFilter
 	status: BookingEventStatusFilter
 	statusUpdatedAt: DateTimeFilter
 	subject: NullableStringFilter
 	session: NullableStringFilter
 	remark: NullableStringFilter
-	booking: BookingFilter
 	resource: BookableResourceFilter
+	booking: BookingFilter
 }
 
 input BookingEventOrdering {
 	field: BookingEventOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum BookingEventOrderingField {
@@ -167,14 +168,14 @@ input BookingFilter {
 	createdAt: DateTimeFilter
 	updatedAt: DateTimeFilter
 	title: NullableStringFilter
-	project: ProjectFilter
 	experiment: ExperimentFilter
 	owner: UserFilter
+	project: ProjectFilter
 }
 
 input BookingOrdering {
 	field: BookingOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum BookingOrderingField {
@@ -210,7 +211,7 @@ input BuildingFilter {
 
 input BuildingOrdering {
 	field: BuildingOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum BuildingOrderingField {
@@ -223,7 +224,7 @@ input CreateAccountInput {
 	primaryGroup: ID!
 	expiresOn: DateTime
 	homeQuotaGiB: Int
-	expirePassword: Boolean! = true
+	expirePassword: Boolean
 }
 
 type CreateAccountOutput {
@@ -238,7 +239,7 @@ input CreateBookingInput {
 	owner: ID!
 	project: ID
 	experiment: ID
-	events: [CreateBookingInput_Event!]! = []
+	events: [CreateBookingInput_Event!]
 }
 
 input CreateBookingInput_Event {
@@ -279,8 +280,8 @@ input CreateGroupInput {
 input CreateLabInput {
 	name: String!
 	room: ID!
-	bookable: Boolean! = false
-	modalities: [ID!]! = []
+	bookable: Boolean
+	modalities: [ID!]
 }
 
 input CreateModalityInput {
@@ -302,10 +303,10 @@ input CreateProjectInput {
 	start: DateTime!
 	end: DateTime!
 	overrulingQuotaGiB: Int
-	members: [CreateProjectInput_Member!]! = []
-	experiments: [CreateProjectInput_Experiment!]! = []
-	experimenters: [ID!]! = []
-	ethicalApprovals: [CreateProjectInput_EthicalApproval!]! = []
+	members: [CreateProjectInput_Member!]
+	experiments: [CreateProjectInput_Experiment!]
+	experimenters: [ID!]
+	ethicalApprovals: [CreateProjectInput_EthicalApproval!]
 }
 
 input CreateProjectInput_EthicalApproval {
@@ -340,7 +341,7 @@ input CreateRoomInput {
 	desks: Int
 	comments: String
 	building: ID!
-	bookable: Boolean! = false
+	bookable: Boolean
 }
 
 input CreateUserBillingCategoryInput {
@@ -381,6 +382,17 @@ input DateTimeFilter {
 	after: DateTime
 }
 
+input DateTimeRange {
+	start: DateTime!
+	end: DateTime!
+}
+
+input DateTimeRangeFilter {
+	overlaps: DateTimeRange
+	contains: DateTimeRange
+	contained: DateTimeRange
+}
+
 type DeleteAccountOutput {
 	storageTaskId: ID
 }
@@ -399,7 +411,7 @@ input EthicalApprovalFilter {
 
 input EthicalApprovalOrdering {
 	field: EthicalApprovalOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum EthicalApprovalOrderingField {
@@ -438,13 +450,13 @@ input ExperimentFilter {
 	sessionDurationMinutes: IntegerFilter
 	quotaRuleVersion: IntegerFilter
 	withStructuralMri: BoolFilter
-	project: ProjectFilter
 	modality: ModalityFilter
+	project: ProjectFilter
 }
 
 input ExperimentOrdering {
 	field: ExperimentOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum ExperimentOrderingField {
@@ -494,7 +506,7 @@ input FundingSourceFilter {
 
 input FundingSourceOrdering {
 	field: FundingSourceOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum FundingSourceOrderingField {
@@ -528,7 +540,7 @@ type GroupMember {
 
 input GroupMemberOrdering {
 	field: GroupMemberOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum GroupMemberOrderingField {
@@ -543,7 +555,7 @@ enum GroupMemberRole {
 
 input GroupOrdering {
 	field: GroupOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum GroupOrderingField {
@@ -605,7 +617,7 @@ input LabFilter {
 
 input LabOrdering {
 	field: LabOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum LabOrderingField {
@@ -633,7 +645,7 @@ input ModalityFilter {
 
 input ModalityOrdering {
 	field: ModalityOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum ModalityOrderingField {
@@ -691,6 +703,8 @@ type Mutation {
 	createProject(id: ID, data: CreateProjectInput!): Project!
 	updateProject(id: ID!, data: UpdateProjectInput!): Project!
 	deleteProject(id: ID!): Project!
+	addUserToProject(project: ID!, user: ID!, role: ProjectMemberRole!): ProjectMember!
+	removeUserFromProject(project: ID!, user: ID!): ProjectMember
 	createProjectProposal(id: ID!, data: CreateProjectProposalInput!): ProjectProposal!
 	updateProjectProposal(id: ID!, data: UpdateProjectProposalInput!): ProjectProposal!
 	deleteProjectProposal(id: ID!): ProjectProposal!
@@ -780,7 +794,7 @@ type OrganisationalUnitMember {
 
 input OrganisationalUnitOrdering {
 	field: OrganisationalUnitOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum OrganisationalUnitOrderingField {
@@ -791,13 +805,13 @@ enum OrganisationalUnitOrderingField {
 
 input OrganisationalUnitUserFilter {
 	primary: BoolFilter
-	ou: OrganisationalUnitFilter
 	user: UserFilter
+	ou: OrganisationalUnitFilter
 }
 
 input OrganisationalUnitUserOrdering {
 	field: OrganisationalUnitUserOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum OrganisationalUnitUserOrderingField {
@@ -890,10 +904,11 @@ input ProjectFilter {
 	status: ProjectStatusFilter
 	start: DateTimeFilter
 	end: DateTimeFilter
+	timeRange: DateTimeRangeFilter
 	overrulingQuotaGiB: NullableIntegerFilter
 	overrulingQuotaUpdatedAt: NullableDateTimeFilter
-	owner: UserFilter
 	fundingSource: FundingSourceFilter
+	owner: UserFilter
 }
 
 type ProjectMember {
@@ -906,7 +921,7 @@ type ProjectMember {
 
 input ProjectMemberOrdering {
 	field: ProjectMemberOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum ProjectMemberOrderingField {
@@ -925,7 +940,7 @@ enum ProjectMemberRole {
 
 input ProjectOrdering {
 	field: ProjectOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum ProjectOrderingField {
@@ -1058,7 +1073,7 @@ input RoomFilter {
 
 input RoomOrdering {
 	field: RoomOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum RoomOrderingField {
@@ -1090,8 +1105,8 @@ input StringFilter {
 input UpdateAccountInput {
 	active: Boolean
 	expiresOn: DateTime
-	resetPassword: Boolean! = false
-	expirePassword: Boolean! = true
+	resetPassword: Boolean
+	expirePassword: Boolean
 	homeQuotaGiB: Int
 }
 
@@ -1251,7 +1266,7 @@ input UserBillingCategoryFilter {
 
 input UserBillingCategoryOrdering {
 	field: UserBillingCategoryOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum UserBillingCategoryOrderingField {
@@ -1301,8 +1316,8 @@ input UserFilter {
 	phoneExt: NullableStringFilter
 	status: UserStatusFilter
 	desk: NullableIntegerFilter
-	billingCategory: UserBillingCategoryFilter
 	room: RoomFilter
+	billingCategory: UserBillingCategoryFilter
 }
 
 enum UserFunction {
@@ -1329,7 +1344,7 @@ input UserFunctionFilter {
 
 input UserOrdering {
 	field: UserOrderingField!
-	direction: OrderingDirection! = Ascending
+	direction: OrderingDirection
 }
 
 enum UserOrderingField {
