@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
@@ -133,6 +134,12 @@ func TestGetLabBookings(t *testing.T) {
 	}
 }
 
+type dateset struct {
+	year  int
+	month time.Month
+	day   int
+}
+
 func TestGetLabBookingsOvernight(t *testing.T) {
 
 	// we expect a MEG booking with the following data in the core-api:
@@ -147,25 +154,36 @@ func TestGetLabBookingsOvernight(t *testing.T) {
 	// this event should be in the worklist of 2023-05-19; but
 	// not in the worklist of 2023-05-20.
 
-	startDate := "2023-05-19"
-	endDate := "2023-05-20"
-
-	bookings, err := testPDB.GetLabBookingsForWorklist(MEG, startDate)
-	if err != nil {
-		t.Errorf("%s\n", err)
+	dates := map[string]dateset{
+		"2023-05-19": {
+			year:  2023,
+			month: time.May,
+			day:   19,
+		},
+		"2023-05-20": {
+			year:  2023,
+			month: time.May,
+			day:   20,
+		},
 	}
 
-	if len(bookings) < 1 {
-		t.Errorf("event not found!\n")
-	} else {
-		t.Logf("%+v\n", bookings)
-	}
+	for dstr, dset := range dates {
+		bookings, err := testPDB.GetLabBookingsForWorklist(MEG, dstr)
+		if err != nil {
+			t.Errorf("%s\n", err)
+		}
 
-	bookings, err = testPDB.GetLabBookingsForWorklist(MEG, endDate)
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-	if len(bookings) != 0 {
-		t.Errorf("more event than expected: %+v\n", bookings)
+		// consider failure if no booking is found for the day
+		if len(bookings) == 0 {
+			t.Errorf("no booking event for worklist %s\n", dstr)
+		}
+
+		// check if the event's starting day is the same as the date of the worklist
+		for _, b := range bookings {
+			y, m, d := b.StartTime.Date()
+			if y != dset.year || m != dset.month || d != dset.day {
+				t.Errorf("event shouldn't be in the worklist %s: %+v\n", dstr, b)
+			}
+		}
 	}
 }
