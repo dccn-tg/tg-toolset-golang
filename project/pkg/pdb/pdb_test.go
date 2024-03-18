@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 	log "github.com/dccn-tg/tg-toolset-golang/pkg/logger"
@@ -123,7 +124,6 @@ func TestGetUserByEmail(t *testing.T) {
 // }
 
 func TestGetLabBookings(t *testing.T) {
-
 	bookings, err := testPDB.GetLabBookingsForWorklist(MRI, bookingDate)
 	if err != nil {
 		t.Errorf("%s\n", err)
@@ -131,5 +131,59 @@ func TestGetLabBookings(t *testing.T) {
 	t.Logf("%d bookings: \n", len(bookings))
 	for i := 0; i < int(math.Min(3, float64(len(bookings)))); i++ {
 		t.Logf("%d: %+v\n", i, bookings[i])
+	}
+}
+
+type dateset struct {
+	year  int
+	month time.Month
+	day   int
+}
+
+func TestGetLabBookingsOvernight(t *testing.T) {
+
+	// we expect a MEG booking with the following data in the core-api:
+	//
+	//   {
+	//     "id": "162020",
+	//     "start": "2023-05-19T08:00:00+02:00",
+	//     "end": "2023-05-20T02:00:00+02:00",
+	//     "status": "Confirmed"
+	//   }
+	//
+	// this event should be in the worklist of 2023-05-19; but
+	// not in the worklist of 2023-05-20.
+
+	dates := map[string]dateset{
+		"2023-05-19": {
+			year:  2023,
+			month: time.May,
+			day:   19,
+		},
+		"2023-05-20": {
+			year:  2023,
+			month: time.May,
+			day:   20,
+		},
+	}
+
+	for dstr, dset := range dates {
+		bookings, err := testPDB.GetLabBookingsForWorklist(MEG, dstr)
+		if err != nil {
+			t.Errorf("%s\n", err)
+		}
+
+		// consider failure if no booking is found for the day
+		if len(bookings) == 0 {
+			t.Errorf("no booking event for worklist %s\n", dstr)
+		}
+
+		// check if the event's starting day is the same as the date of the worklist
+		for _, b := range bookings {
+			y, m, d := b.StartTime.Date()
+			if y != dset.year || m != dset.month || d != dset.day {
+				t.Errorf("event shouldn't be in the worklist %s: %+v\n", dstr, b)
+			}
+		}
 	}
 }

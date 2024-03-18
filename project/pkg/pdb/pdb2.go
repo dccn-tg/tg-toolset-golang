@@ -3,7 +3,6 @@ package pdb
 import (
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -156,15 +155,12 @@ func (v2 V2) GetUsers(activeOnly bool) ([]*User, error) {
 		return nil, err
 	}
 
-	activeStates := []UserStatus{
-		UserStatusCheckedIn,
-		UserStatusCheckedOutExtended,
-	}
-
 	var users []*User
 	for _, u := range resp.Users {
 
-		if activeOnly && slices.Contains(activeStates, userStatusEnum(u.Status)) {
+		s := userStatusEnum(u.Status)
+
+		if activeOnly && !(s == UserStatusCheckedIn || s == UserStatusCheckedOutExtended) {
 			continue
 		}
 
@@ -174,7 +170,7 @@ func (v2 V2) GetUsers(activeOnly bool) ([]*User, error) {
 			Middlename: u.MiddleName,
 			Lastname:   u.LastName,
 			Email:      u.Email,
-			Status:     userStatusEnum(u.Status),
+			Status:     s,
 		})
 	}
 
@@ -292,6 +288,13 @@ func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) 
 	for _, b := range resp.BookingEvents {
 
 		if forWorklist {
+
+			// for worklist, we only want the event's `start time` later or at `from`.
+			if b.Start.Before(from) {
+				continue
+			}
+
+			// for worklist, only confirmed and tentative bookings are needed.
 			if b.Status != api.BookingEventStatusConfirmed && b.Status != api.BookingEventStatusTentative {
 				continue
 			}
