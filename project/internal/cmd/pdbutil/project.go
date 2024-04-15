@@ -35,14 +35,17 @@ var (
 		"freenas": "/project_freenas",
 		"cephfs":  "/project_cephfs",
 	}
-	alertDbPath        string = "alert.db"
-	alertTestProjectID string
-	alertSkipPI        bool   = false
-	alertDryrun        bool   = false
-	alertMode          string = "p4w"
-	alertSender        string = "DCCN TG Helpdesk"
-	alertSenderEmail   string = "helpdesk@donders.ru.nl"
-	alertCarbonCopy    string = "rene.debruin@donders.ru.nl"
+	alertDbPath          string = "alert.db"
+	alertTestProjectID   string
+	alertSkipPI          bool     = false
+	alertDryrun          bool     = false
+	alertMode            string   = "p4w"
+	alertSender          string   = "DCCN TG Helpdesk"
+	alertSenderEmail     string   = "helpdesk@donders.ru.nl"
+	alertCarbonCopy      string   = "rene.debruin@donders.ru.nl"
+	alertSkipContributor []string = []string{}
+
+	skipContributorPmap map[string]bool = make(map[string]bool)
 
 	// ootAlertDate calculates the project expiry alerting dates for:
 	// - "p4w": 28-day in advance
@@ -130,6 +133,9 @@ func init() {
 
 	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", alertSkipPI,
 		"set to skip sending alert to PIs")
+
+	projectAlertCmd.PersistentFlags().StringSliceVarP(&alertSkipContributor, "skip-contributor", "", alertSkipContributor,
+		"specify a list of comma-separated projects of which the contributors are skipped for alert")
 
 	projectAlertCmd.PersistentFlags().StringVarP(&alertCarbonCopy, "cc", "", alertCarbonCopy,
 		"alert carbon copy `email`")
@@ -355,6 +361,17 @@ var projectAlertCmd = &cobra.Command{
 	Use:   "alert",
 	Short: "Utility for sending project-related alerts",
 	Long:  ``,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+
+		rootCmd.PersistentPreRun(cmd, args)
+
+		// convert input slice `alertSkipContributor` into internal map
+		for _, p := range alertSkipContributor {
+			skipContributorPmap[p] = true
+		}
+
+		log.Debugf("projects to skip contributor: %+v\n", skipContributorPmap)
+	},
 }
 
 var projectAlertOotCmd = &cobra.Command{
@@ -757,6 +774,12 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 				continue
 			}
 
+			_, skipc := skipContributorPmap[info.ProjectID]
+			if m.Role == acl.Contributor.String() && skipc {
+				log.Debugf("[%s] skip alert to contributor %s", info.ProjectID, m.UserID)
+				continue
+			}
+
 			u, err := ipdb.GetUser(m.UserID)
 			switch {
 			case err != nil:
@@ -779,8 +802,10 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		for _, u := range recipients {
 
-			// only apply `alertSkipPI` option if there are more than 1 alert recipient
-			if len(recipients) > 1 && alertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator {
+			// only apply `alertSkipPI` option if
+			// - the PI is not the project owner, and
+			// - there are more than 1 alert recipient
+			if alertSkipPI && u.Function == pdb.UserFunctionPrincipalInvestigator && u.ID != prj.Owner && len(recipients) > 1 {
 				log.Debugf("[%s] skip alert PI: %s", info.ProjectID, u.ID)
 				continue
 			}
@@ -901,6 +926,12 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		if m.Role != acl.Manager.String() && m.Role != acl.Contributor.String() {
 			log.Debugf("[%s] skip alert %s due to user role %s", info.ProjectID, m.UserID, m.Role)
+			continue
+		}
+
+		_, skipc := skipContributorPmap[info.ProjectID]
+		if m.Role == acl.Contributor.String() && skipc {
+			log.Debugf("[%s] skip alert to contributor %s", info.ProjectID, m.UserID)
 			continue
 		}
 

@@ -11,6 +11,7 @@ ifndef GO111MODULE
 endif
 
 VERSION ?= "master"
+BRANCH ?= "master"
 
 .PHONY: build
 
@@ -55,7 +56,7 @@ release:
 	VERSION=$(VERSION) rpmbuild --undefine=_disable_source_fetch -bb build/rpm/centos7.spec
 
 github-release:
-	scripts/gh-release.sh $(VERSION) false
+	scripts/gh-release.sh $(VERSION) $(BRANCH) false
 
 clean:
 	@rm -rf $(GOPATH)/bin/pacs_* $(GOPATH)/bin/prj_* $(GOPATH)/bin/lab_* $(GOPATH)/bin/pdb*

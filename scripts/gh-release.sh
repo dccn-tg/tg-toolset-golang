@@ -28,27 +28,29 @@ function get_script_dir() {
 }
 
 function new_release_post_data() {
-    t=1
-    p=2
+    t=$1
+    b=$2
+    p=$3
     cat <<EOF
 {
-    "tag_name": "${tag}",
-    "tag_commitish": "master",
-    "name": "${tag}",
-    "body": "Release ${tag}",
+    "tag_name": "${t}",
+    "target_commitish": "${b}",
+    "name": "${t}",
+    "body": "Release ${t}",
     "draft": false,
-    "prerelease": $2
+    "prerelease": ${p}
 }
 EOF
 }
 
-if [ $# -ne 2 ]; then
-    echo "$0 <release_number> <is_prerelease>"
+if [ $# -ne 3 ]; then
+    echo "$0 <release_number> <branch> <is_prerelease>"
     exit 1
 fi
 
 rnum=$1
-pre=$2
+branch=$2
+pre=$3
 gh_token=""
 
 # follow the good naming convention for github tag
@@ -89,7 +91,7 @@ done
 # create a new tag with current master branch
 # if the $id of the release is not available.
 if [ ! "$id" ]; then
-    response=$(curl -H "Authorization: token $gh_token" -X POST --data "$(new_release_post_data ${tag} ${pre})" $GH_RELE)
+    response=$(curl -H "Authorization: token $gh_token" -X POST --data "$(new_release_post_data ${tag} ${branch} ${pre})" $GH_RELE)
     eval $(echo "$response" | grep -m 1 "id.:" | grep -w id | tr : = | tr -cd '[[:alnum:]]=')
     [ "$id" ] || { echo "release tag not created successfully: ${tag}"; exit 1; }
 fi
