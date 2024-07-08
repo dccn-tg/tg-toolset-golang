@@ -35,7 +35,7 @@ If this project has finished please take care the data is securely archived, rem
 
 More information on project expiration and quota :
 
-  - ProjectExpirationProcedure, see https://intranet.donders.ru.nl/uploads/media/20190624-ProjectExpirationProcedure-Rev3.pdf
+  - ProjectExpirationProcedure, see https://intranet.donders.ru.nl/uploads/media/DCCN_SOP_Expired_Project_Handling_v2.5_Jun_2024.pdf
   - Quota on central storage, see https://intranet.donders.ru.nl/index.php?id=quota
 
 In case of any questions, please send an e-mail to the Project Database Administration (Sabita Raktoe).
@@ -67,7 +67,7 @@ Data access to the project storage is going to be removed.
 {{ end }}
 More information on project expiration and quota :
 
-  - ProjectExpirationProcedure, see https://intranet.donders.ru.nl/uploads/media/20190624-ProjectExpirationProcedure-Rev3.pdf
+  - ProjectExpirationProcedure, see https://intranet.donders.ru.nl/uploads/media/DCCN_SOP_Expired_Project_Handling_v2.5_Jun_2024.pdf
   - Quota on central storage, see https://intranet.donders.ru.nl/index.php?id=quota
 
 In case of any questions, please send an e-mail to the Project Database Administration (Sabita Raktoe).
@@ -93,7 +93,7 @@ It is the end of the grace period after the project expiration and thus data acc
 
 More information on project expiration and quota :
 
-  - ProjectExpirationProcedure, see https://intranet.donders.ru.nl/uploads/media/20190624-ProjectExpirationProcedure-Rev3.pdf
+  - ProjectExpirationProcedure, see https://intranet.donders.ru.nl/uploads/media/DCCN_SOP_Expired_Project_Handling_v2.5_Jun_2024.pdf
   - Quota on central storage, see https://intranet.donders.ru.nl/index.php?id=quota
 
 In case of any questions, please send an e-mail to the Project Database Administration (Sabita Raktoe).
@@ -130,7 +130,7 @@ Please consider to clean up the project directory (i.e. /project/{{.ProjectID}} 
 
 If more quota is needed, please see the procedure described in the "Exceptional quota requests" section of the following intranet page: https://intranet.donders.ru.nl/index.php?id=quota
 
-If you have further questions, don't hesitate to contact the TG helpdesk <helpdesk@fcdonders.ru.nl>.
+If you have further questions, don't hesitate to contact the TG helpdesk <helpdesk@donders.ru.nl>.
 
 Best regards, {{.SenderName}}
 `
@@ -159,7 +159,7 @@ For more information about the project storage, please refer to the intranet pag
 
     https://intranet.donders.ru.nl/index.php?id=4733
 
-Should you have any questions, please don't hesitate to contact the TG helpdesk <helpdesk@fcdonders.ru.nl>.
+Should you have any questions, please don't hesitate to contact the TG helpdesk <helpdesk@donders.ru.nl>.
 
 Best regards, {{.SenderName}}
 `
