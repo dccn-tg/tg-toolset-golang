@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-/** An template file example:
+/** An template string example:
 
 ```
 Storage of your project {{.ProjectID}} has been initalized!
@@ -64,14 +64,35 @@ var funcMap = template.FuncMap{
 // provided.
 func ComposeMessageFromTemplateFile(tempfile string, data interface{}) (string, string, error) {
 
-	var buf bytes.Buffer
 	t, err := template.New(filepath.Base(tempfile)).Funcs(funcMap).ParseFiles([]string{tempfile}...)
 
 	if err != nil {
 		return "", "", err
 	}
 
-	err = t.Execute(&buf, data)
+	return resolveMailContent(t, data)
+}
+
+// ComposeMessageFromTemplate composes subject and body of a message using the template string `str` and the `data`
+// provided.
+func ComposeMessageFromTemplate(str string, data interface{}) (string, string, error) {
+
+	t, err := template.New("message").Funcs(funcMap).Parse(str)
+
+	if err != nil {
+		return "", "", err
+	}
+
+	return resolveMailContent(t, data)
+}
+
+// resolveMailContent executes the parsed template `t` with `data`, and returns
+// mail subject and body.
+func resolveMailContent(t *template.Template, data interface{}) (string, string, error) {
+
+	var buf bytes.Buffer
+
+	err := t.Execute(&buf, data)
 	if err != nil {
 		return "", "", err
 	}
