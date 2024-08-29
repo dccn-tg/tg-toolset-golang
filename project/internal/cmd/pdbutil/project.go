@@ -44,6 +44,7 @@ var (
 	alertSenderEmail     string   = "helpdesk@donders.ru.nl"
 	alertCarbonCopy      string   = "rene.debruin@donders.ru.nl"
 	alertSkipContributor []string = []string{}
+	alertMailerTemplate  string   = "template.txt"
 
 	skipContributorPmap map[string]bool = make(map[string]bool)
 
@@ -139,6 +140,9 @@ func init() {
 
 	projectAlertCmd.PersistentFlags().StringVarP(&alertCarbonCopy, "cc", "", alertCarbonCopy,
 		"alert carbon copy `email`")
+
+	projectAlertCmd.PersistentFlags().StringVarP(&alertMailerTemplate, "template", "", alertMailerTemplate,
+		"`path` of the mail template file")
 
 	projectAlertCmd.PersistentFlags().BoolVarP(&alertDryrun, "dryrun", "", alertDryrun,
 		"print out alerts and recipients without really sent them")
@@ -813,28 +817,24 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			data.RecipientName = u.DisplayName()
 
 			// compose alert subject and body
-			var subject, body string
 			switch alertMode {
 			case "p4w":
 				data.ExpiringInDays = 28
-				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
 			case "p2w":
 				data.ExpiringInDays = 14
-				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
 			case "p1w":
 				data.ExpiringInDays = 7
-				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
 			case "now":
 				data.ExpiringInDays = 0
-				subject, body, err = mailer.ComposeProjectExpiringAlert(data)
 			case "g2m":
 				data.ExpiringInMonths = -2
-				subject, body, err = mailer.ComposeProjectEndOfGracePeriodAlert(data)
 			default:
 				// ignore operation if alertMode is not a defined mode
 				msg := fmt.Sprintf("ignore unknown alert mode %s", alertMode)
 				return lastAlert, &pdb.OpsIgnored{Message: msg}
 			}
+
+			subject, body, err := mailer.ComposeMessageFromTemplateFile(alertMailerTemplate, data)
 
 			if err != nil {
 				log.Debugf("[%s] skip alert %s due to failure generating alert: %s", info.ProjectID, u.ID, err)
@@ -964,7 +964,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		data.RecipientName = u.DisplayName()
 
-		subject, body, err := mailer.ComposeProjectOutOfQuotaAlert(data)
+		subject, body, err := mailer.ComposeMessageFromTemplateFile(alertMailerTemplate, data)
 
 		if err != nil {
 			log.Debugf("[%s] skip alert %s due to failure generating alert: %s", info.ProjectID, u.ID, err)
@@ -1221,7 +1221,7 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 				continue
 			}
 
-			subject, body, err := mailer.ComposeProjectProvisionedAlert(data)
+			subject, body, err := mailer.ComposeMessageFromTemplateFile(alertMailerTemplate, data)
 
 			if err != nil {
 				log.Debugf("[%s] skip notify %s due to failure generating alert: %s", pid, u.ID, err)

@@ -34,7 +34,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 
 	data.RecipientName = manager.DisplayName()
 
-	subject, body, err := ComposeProjectProvisionedAlert(data)
+	subject, body, err := ComposeMessageFromTemplateFile(os.Getenv("TEST_MAILER_TEMPLATE_NEW"), data)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
@@ -73,7 +73,8 @@ func TestNotifyProjectExpiring(t *testing.T) {
 	data.RecipientName = manager.DisplayName()
 	for _, days := range []int{28, 14, 7, 0} {
 		data.ExpiringInDays = days
-		subject, body, err := ComposeProjectExpiringAlert(data)
+
+		subject, body, err := ComposeMessageFromTemplateFile(os.Getenv("TEST_MAILER_TEMPLATE_OOT"), data)
 
 		t.Logf("subject: %s", subject)
 		t.Logf("body: %s", body)
@@ -113,7 +114,8 @@ func TestNotifyProjectEndOfGracePeriod(t *testing.T) {
 
 	data.RecipientName = manager.DisplayName()
 	data.ExpiringInMonths = -2
-	subject, body, err := ComposeProjectEndOfGracePeriodAlert(data)
+
+	subject, body, err := ComposeMessageFromTemplateFile(os.Getenv("TEST_MAILER_TEMPLATE_EOG"), data)
 
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
@@ -153,7 +155,8 @@ func TestNotifyProjectOutOfQuota(t *testing.T) {
 
 	data.RecipientName = manager.DisplayName()
 
-	subject, body, err := ComposeProjectOutOfQuotaAlert(data)
+	subject, body, err := ComposeMessageFromTemplateFile(os.Getenv("TEST_MAILER_TEMPLATE_OOQ"), data)
+
 	if err != nil {
 		t.Errorf("%s", err)
 	}
