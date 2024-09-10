@@ -804,6 +804,13 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			SenderName:     alertSender,
 		}
 
+		// add condituional carbon-copies for every email send to a recipient
+		cclist := []string{alertCarbonCopy}
+
+		if strings.HasPrefix(info.ProjectID, "24") {
+			cclist = append(cclist, "DCC-DataOfficer@donders.ru.nl")
+		}
+
 		for _, u := range recipients {
 
 			// only apply `alertSkipPI` option if
@@ -843,7 +850,7 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 			if alertDryrun {
 				log.Infof("[%s] alert %s", info.ProjectID, u.Email)
-			} else if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}, alertCarbonCopy); err != nil {
+			} else if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}, cclist...); err != nil {
 				log.Errorf("[%s] fail to sent oot alert to %s: %s", info.ProjectID, u.Email, err)
 			}
 
