@@ -2,6 +2,7 @@ query getProjects {
 	projects {
 		number,
 		title,
+		kind,
 		owner {
 			username
 			displayName
@@ -17,6 +18,7 @@ query getProject($number: ID!) {
     project(id: $number) {
 		number,
 		title,
+		kind,
 		owner {
 			username
 			displayName

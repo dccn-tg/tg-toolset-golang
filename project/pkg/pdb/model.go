@@ -58,6 +58,7 @@ type DataProjectInfo struct {
 type Project struct {
 	ID     string        `json:"projectID"`
 	Name   string        `json:"projectName"`
+	Kind   ProjectKind   `json:"projectKind"`
 	Owner  string        `json:"owner"`
 	Status ProjectStatus `json:"status"`
 	Start  time.Time     `json:"start"`
@@ -74,6 +75,16 @@ const (
 	ProjectStatusActive
 	// ProjectStatusInactive refers to inactive project.
 	ProjectStatusInactive
+)
+
+// ProjectKind defines PDB project type, either Research or Dataset.
+type ProjectKind int
+
+const (
+	// Research.
+	Research ProjectKind = iota
+	// Dataset
+	Dataset
 )
 
 // User defines the data structure of a user in the project database.

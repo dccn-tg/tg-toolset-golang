@@ -25,6 +25,17 @@ func projectStatusEnum(status api.ProjectStatus) ProjectStatus {
 	}
 }
 
+// projectKindEnum converts the project kind string returned from the core-api
+// to `ProjectKind` enum.
+func projectKindEnum(kind api.ProjectKind) ProjectKind {
+	switch kind {
+	case api.ProjectKindDataset:
+		return Dataset
+	default:
+		return Research
+	}
+}
+
 // userStatusEnum converts the user status string returned from the core-api
 // to `UserStatus` enum.
 func userStatusEnum(status api.UserStatus) UserStatus {
@@ -118,6 +129,7 @@ func (v2 V2) GetProjects(activeOnly bool) ([]*Project, error) {
 		projects = append(projects, &Project{
 			ID:     p.Number,
 			Name:   p.Title,
+			Kind:   projectKindEnum(p.Kind),
 			Owner:  p.Owner.Username,
 			Status: projectStatusEnum(p.Status),
 			Start:  p.Start,
@@ -140,6 +152,7 @@ func (v2 V2) GetProject(projectID string) (*Project, error) {
 	return &Project{
 		ID:     resp.Project.Number,
 		Name:   resp.Project.Title,
+		Kind:   projectKindEnum(resp.Project.Kind),
 		Owner:  resp.Project.Owner.Username,
 		Status: projectStatusEnum(resp.Project.Status),
 		Start:  resp.Project.Start,

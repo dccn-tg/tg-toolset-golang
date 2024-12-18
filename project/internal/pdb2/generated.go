@@ -22,6 +22,13 @@ const (
 	BookingEventStatusCancelednotintime BookingEventStatus = "CanceledNotInTime"
 )
 
+type ProjectKind string
+
+const (
+	ProjectKindResearch ProjectKind = "Research"
+	ProjectKindDataset  ProjectKind = "Dataset"
+)
+
 type ProjectStatus string
 
 const (
@@ -568,6 +575,7 @@ func (v *getLabsResponse) GetLabs() []getLabsLabsLab { return v.Labs }
 type getProjectProject struct {
 	Number string                     `json:"number"`
 	Title  string                     `json:"title"`
+	Kind   ProjectKind                `json:"kind"`
 	Owner  getProjectProjectOwnerUser `json:"owner"`
 	Status ProjectStatus              `json:"status"`
 	Start  time.Time                  `json:"start"`
@@ -579,6 +587,9 @@ func (v *getProjectProject) GetNumber() string { return v.Number }
 
 // GetTitle returns getProjectProject.Title, and is useful for accessing the field via an interface.
 func (v *getProjectProject) GetTitle() string { return v.Title }
+
+// GetKind returns getProjectProject.Kind, and is useful for accessing the field via an interface.
+func (v *getProjectProject) GetKind() ProjectKind { return v.Kind }
 
 // GetOwner returns getProjectProject.Owner, and is useful for accessing the field via an interface.
 func (v *getProjectProject) GetOwner() getProjectProjectOwnerUser { return v.Owner }
@@ -652,6 +663,7 @@ func (v *getProjectResponse) GetProject() getProjectProject { return v.Project }
 type getProjectsProjectsProject struct {
 	Number string                              `json:"number"`
 	Title  string                              `json:"title"`
+	Kind   ProjectKind                         `json:"kind"`
 	Owner  getProjectsProjectsProjectOwnerUser `json:"owner"`
 	Status ProjectStatus                       `json:"status"`
 	Start  time.Time                           `json:"start"`
@@ -663,6 +675,9 @@ func (v *getProjectsProjectsProject) GetNumber() string { return v.Number }
 
 // GetTitle returns getProjectsProjectsProject.Title, and is useful for accessing the field via an interface.
 func (v *getProjectsProjectsProject) GetTitle() string { return v.Title }
+
+// GetKind returns getProjectsProjectsProject.Kind, and is useful for accessing the field via an interface.
+func (v *getProjectsProjectsProject) GetKind() ProjectKind { return v.Kind }
 
 // GetOwner returns getProjectsProjectsProject.Owner, and is useful for accessing the field via an interface.
 func (v *getProjectsProjectsProject) GetOwner() getProjectsProjectsProjectOwnerUser { return v.Owner }
@@ -953,6 +968,7 @@ query getProject ($number: ID!) {
 	project(id: $number) {
 		number
 		title
+		kind
 		owner {
 			username
 			displayName
@@ -1036,6 +1052,7 @@ query getProjects {
 	projects {
 		number
 		title
+		kind
 		owner {
 			username
 			displayName
