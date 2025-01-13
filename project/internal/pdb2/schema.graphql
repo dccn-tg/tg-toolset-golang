@@ -1,5 +1,3 @@
-directive @oneOf on INPUT_OBJECT
-
 type Account {
 	active: Boolean!
 	expiresOn: DateTime
@@ -124,8 +122,8 @@ input BookingEventFilter {
 	subject: NullableStringFilter
 	session: NullableStringFilter
 	remark: NullableStringFilter
-	resource: BookableResourceFilter
 	booking: BookingFilter
+	resource: BookableResourceFilter
 }
 
 input BookingEventOrdering {
@@ -296,6 +294,7 @@ input CreateOrganisationalUnitInput {
 }
 
 input CreateProjectInput {
+	kind: ProjectKind!
 	fundingSource: ID!
 	title: String!
 	status: ProjectStatus
@@ -360,9 +359,14 @@ input CreateUserInput {
 	phone: String
 	phoneExt: String
 	status: UserStatus
+	universalPrincipalName: String
+	employeeNumber: String
+	comments: String
 	room: String
 	billingCategory: ID
 	desk: Int
+	primaryOrganisationalUnit: ID
+	billingOrganisationalUnit: ID
 }
 
 input CurrentQuotaRuleFilter {
@@ -394,6 +398,7 @@ input DateTimeRangeFilter {
 }
 
 type DeleteAccountOutput {
+	account: Account!
 	storageTaskId: ID
 }
 
@@ -440,6 +445,8 @@ type Experiment {
 	sessionQuotaMiB: Int!
 	project: Project!
 	modality: Modality!
+	labTimeRequested: Int!
+	labTimeUsed(start: DateTime, end: DateTime): Int!
 	bookings(filterBy: BookingFilter, orderBy: BookingOrdering): [Booking!]!
 }
 
@@ -658,8 +665,8 @@ enum ModalityOrderingField {
 type Mutation {
 	createAccount(username: ID!, data: CreateAccountInput!): CreateAccountOutput!
 	updateAccount(username: ID!, data: UpdateAccountInput!): UpdateAccountOutput!
-	deleteAccount(username: ID!): DeleteAccountOutput!
-	activateLabAccount(username: ID!, expiresOn: DateTime): ActivateLabAccountOutput!
+	deleteAccount(username: ID!): DeleteAccountOutput
+	activateLabAccount(username: ID!, expiresOn: NaiveDate): ActivateLabAccountOutput!
 	createBooking(data: CreateBookingInput!): Booking!
 	updateBooking(id: ID!, data: UpdateBookingInput!): Booking!
 	deleteBooking(id: ID!): Booking!
@@ -675,6 +682,7 @@ type Mutation {
 	updateExperiment(id: ID!, data: UpdateExperimentInput!): Experiment!
 	deleteExperiment(id: ID!): Experiment!
 	addExperimenterToProject(project: ID!, user: ID!): Boolean!
+	removeExperimenterFromProject(project: ID!, user: ID!): Boolean!
 	createFundingSource(id: ID!, data: CreateFundingSourceInput!): FundingSource!
 	updateFundingSource(id: ID!, data: UpdateFundingSourceInput!): FundingSource!
 	deleteFundingSource(id: ID!): FundingSource!
@@ -683,6 +691,7 @@ type Mutation {
 	deleteGroup(id: ID!): Group!
 	addOrUpdateGroupMember(group: ID!, member: ID!, role: GroupMemberRole): GroupMember! @deprecated(reason: "Use `addUserToGroup` and `updateGroup` instead")
 	addUserToGroup(group: ID!, user: ID!): Boolean!
+	removeUserFromGroup(group: ID!, user: ID!): Boolean!
 	createLab(id: ID!, data: CreateLabInput!): Lab!
 	updateLab(id: ID!, data: UpdateLabInput!): Lab!
 	deleteLab(id: ID!): Lab!
@@ -694,7 +703,11 @@ type Mutation {
 	updateOrganisationalUnit(id: ID!, data: UpdateOrganisationalUnitInput!): OrganisationalUnit!
 	deleteOrganisationalUnit(id: ID!): OrganisationalUnit!
 	addGroupToOrganisationalUnit(ou: ID!, group: ID!): Boolean!
+	removeGroupFromOrganisationalUnit(ou: ID!, group: ID!): Boolean!
 	addLabToOrganisationalUnit(ou: ID!, lab: ID!): Boolean!
+	removeLabFromOrganisationalUnit(ou: ID!, lab: ID!): Boolean!
+	addUserToOrganisationalUnit(ou: ID!, user: ID!): Boolean!
+	removeUserFromOrganisationalUnit(ou: ID!, user: ID!): Boolean!
 	createOrganizationalUnit(id: ID!, data: CreateOrganisationalUnitInput!): OrganisationalUnit! @deprecated(reason: "Use `createOrganisationalUnit` instead")
 	updateOrganizationalUnit(id: ID!, data: UpdateOrganisationalUnitInput!): OrganisationalUnit! @deprecated(reason: "Use `updateOrganisationalUnit` instead")
 	deleteOrganizationalUnit(id: ID!): OrganisationalUnit! @deprecated(reason: "Use `deleteOrganisationalUnit` instead")
@@ -804,9 +817,8 @@ enum OrganisationalUnitOrderingField {
 }
 
 input OrganisationalUnitUserFilter {
-	primary: BoolFilter
-	user: UserFilter
 	ou: OrganisationalUnitFilter
+	user: UserFilter
 }
 
 input OrganisationalUnitUserOrdering {
@@ -817,7 +829,6 @@ input OrganisationalUnitUserOrdering {
 enum OrganisationalUnitUserOrderingField {
 	Ou
 	User
-	Primary
 }
 
 """
@@ -851,6 +862,7 @@ enum PendingProjectMemberUpdate {
 
 type Project {
 	id: ID!
+	kind: ProjectKind!
 	number: String!
 	createdAt: DateTime!
 	updatedAt: DateTime!
@@ -898,6 +910,7 @@ type ProjectEdge {
 
 input ProjectFilter {
 	id: IdFilter
+	kind: ProjectKindFilter
 	createdAt: DateTimeFilter
 	updatedAt: DateTimeFilter
 	title: StringFilter
@@ -907,8 +920,19 @@ input ProjectFilter {
 	timeRange: DateTimeRangeFilter
 	overrulingQuotaGiB: NullableIntegerFilter
 	overrulingQuotaUpdatedAt: NullableDateTimeFilter
-	fundingSource: FundingSourceFilter
 	owner: UserFilter
+	fundingSource: FundingSourceFilter
+}
+
+enum ProjectKind {
+	Research
+	Dataset
+}
+
+input ProjectKindFilter {
+	equals: ProjectKind
+	notEquals: ProjectKind
+	in: [ProjectKind!]
 }
 
 type ProjectMember {
@@ -945,6 +969,7 @@ input ProjectOrdering {
 
 enum ProjectOrderingField {
 	Id
+	Kind
 	CreatedAt
 	UpdatedAt
 	FundingSource
@@ -1176,6 +1201,7 @@ input UpdateOrganisationalUnitInput {
 }
 
 input UpdateProjectInput {
+	kind: ProjectKind
 	fundingSource: ID
 	title: String
 	status: ProjectStatus
@@ -1217,9 +1243,14 @@ input UpdateUserInput {
 	phone: String
 	phoneExt: String
 	status: UserStatus
+	universalPrincipalName: String
+	employeeNumber: String
+	comments: String
 	room: String
 	billingCategory: ID
 	desk: Int
+	primaryOrganisationalUnit: ID
+	billingOrganisationalUnit: ID
 }
 
 type User {
@@ -1239,14 +1270,19 @@ type User {
 	phone: String
 	phoneExt: String
 	desk: Int
+	universalPrincipalName: String
+	employeeNumber: String
+	comments: String
 	room: Room
 	account: Account
+	primaryGroup: Group
 	labAccount: LabAccount
 	groups(orderBy: GroupMemberOrdering): [GroupMember!]!
 	projects(orderBy: ProjectMemberOrdering): [ProjectMember!]!
 	billingCategory: UserBillingCategory!
 	experimenterOf(filterBy: ProjectFilter, orderBy: ProjectOrdering): [Project!]!
-	primaryOrganisationalUnit: OrganisationalUnit!
+	billingOrganisationalUnit: OrganisationalUnit
+	primaryOrganisationalUnit: OrganisationalUnit
 	organisationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]!
 	organizationalUnits(filterBy: OrganisationalUnitUserFilter, orderBy: OrganisationalUnitUserOrdering): [OrganisationalUnitMember!]! @deprecated(reason: "Use `organisationalUnits` and `primaryOrganisationalUnit` instead")
 }
@@ -1315,9 +1351,14 @@ input UserFilter {
 	phone: NullableStringFilter
 	phoneExt: NullableStringFilter
 	status: UserStatusFilter
+	universalPrincipalName: NullableStringFilter
+	employeeNumber: NullableStringFilter
+	comments: NullableStringFilter
 	desk: NullableIntegerFilter
-	room: RoomFilter
 	billingCategory: UserBillingCategoryFilter
+	billingOrganisationalUnit: OrganisationalUnitFilter
+	primaryOrganisationalUnit: OrganisationalUnitFilter
+	room: RoomFilter
 }
 
 enum UserFunction {
@@ -1362,9 +1403,14 @@ enum UserOrderingField {
 	Phone
 	PhoneExt
 	Status
+	UniversalPrincipalName
+	EmployeeNumber
+	Comments
 	Room
 	BillingCategory
 	Desk
+	PrimaryOrganisationalUnit
+	BillingOrganisationalUnit
 }
 
 enum UserStatus {
@@ -1380,7 +1426,9 @@ input UserStatusFilter {
 	in: [UserStatus!]
 }
 
+directive @deprecated(reason: String = "No longer supported") on FIELD_DEFINITION | ARGUMENT_DEFINITION | INPUT_FIELD_DEFINITION | ENUM_VALUE
 directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+directive @oneOf on INPUT_OBJECT
 directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 schema {
 	query: Query
