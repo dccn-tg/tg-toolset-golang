@@ -2,6 +2,7 @@ package mailer
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
@@ -9,6 +10,16 @@ import (
 )
 
 var cc = "rene.debruin@donders.ru.nl"
+
+func setProtocol() MailerProtocol {
+	p := os.Getenv("TEST_MAIL_PROTOCOL")
+	switch strings.ToLower(p) {
+	case "graph":
+		return Graph
+	default:
+		return SMTP
+	}
+}
 
 func TestNotifyProjectProvisioned(t *testing.T) {
 
@@ -24,7 +35,10 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	m := New(conf.SMTP)
+	m, err := New(conf.Mailer, setProtocol())
+	if err != nil {
+		t.Errorf("%s", err)
+	}
 
 	data := ProjectAlertTemplateData{
 		ProjectID:    "3010000.01",
@@ -61,7 +75,10 @@ func TestNotifyProjectExpiring(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	m := New(conf.SMTP)
+	m, err := New(conf.Mailer, setProtocol())
+	if err != nil {
+		t.Errorf("%s", err)
+	}
 
 	data := ProjectAlertTemplateData{
 		ProjectID:      "3010000.01",
@@ -103,7 +120,10 @@ func TestNotifyProjectEndOfGracePeriod(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	m := New(conf.SMTP)
+	m, err := New(conf.Mailer, setProtocol())
+	if err != nil {
+		t.Errorf("%s", err)
+	}
 
 	data := ProjectAlertTemplateData{
 		ProjectID:      "3010000.01",
@@ -144,7 +164,10 @@ func TestNotifyProjectOutOfQuota(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	m := New(conf.SMTP)
+	m, err := New(conf.Mailer, setProtocol())
+	if err != nil {
+		t.Errorf("%s", err)
+	}
 
 	data := ProjectAlertTemplateData{
 		ProjectID:       "3010000.01",

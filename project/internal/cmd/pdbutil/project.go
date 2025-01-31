@@ -518,7 +518,7 @@ var projectAlertOotSend = &cobra.Command{
 					log.Debugf("[%s] last oot alert: %+v", prj.ID, lastAlert)
 
 					// check and send alert
-					lastAlert, err = ootAlert(ipdb, prj, info, lastAlert, conf.SMTP)
+					lastAlert, err = ootAlert(ipdb, prj, info, lastAlert, conf.Mailer)
 
 					// do nothing to the db for dryrun
 					if alertDryrun {
@@ -699,7 +699,7 @@ var projectAlertOoqSend = &cobra.Command{
 					log.Debugf("[%s] last ooq alert: %+v", prj.ID, lastAlert)
 
 					// check and send alert
-					lastAlert, err = ooqAlert(ipdb, prj, info, lastAlert, conf.SMTP)
+					lastAlert, err = ooqAlert(ipdb, prj, info, lastAlert, conf.Mailer)
 
 					// do nothing to the db for dryrun
 					if alertDryrun {
@@ -745,7 +745,7 @@ var projectAlertOoqSend = &cobra.Command{
 // If the alert email is sent, it returns the time at which the email were sent.
 //
 // If the alert sending is ignored, the returned error is `OpsIgnored`.
-func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OotLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OotLastAlert, error) {
+func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OotLastAlert, mailerConfig config.MailerConfiguration) (pdb.OotLastAlert, error) {
 
 	now := time.Now()
 	next := lastAlert.Timestamp.AddDate(0, 0, 3)
@@ -756,7 +756,10 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	if now.After(next) {
 		// send the email
 		// initializing mailer
-		m := mailer.New(smtpConfig)
+		m, err := mailer.New(mailerConfig, mailer.SMTP)
+		if err != nil {
+			return lastAlert, err
+		}
 
 		// gather user information of project owner
 		recipients := make(map[string]*pdb.User)
@@ -871,7 +874,7 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 // If the alert email is sent, it returns the time at which the emails were sent.
 //
 // If the alert sending is ignored by design, the returned error is `OpsIgnored`.
-func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert, smtpConfig config.SMTPConfiguration) (pdb.OoqLastAlert, error) {
+func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAlert pdb.OoqLastAlert, mailerConfig config.MailerConfiguration) (pdb.OoqLastAlert, error) {
 
 	var uratio int
 
@@ -913,7 +916,10 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 	}
 
 	// initializing mailer
-	m := mailer.New(smtpConfig)
+	m, err := mailer.New(mailerConfig, mailer.SMTP)
+	if err != nil {
+		return lastAlert, err
+	}
 
 	// gather user information of project owner
 	recipients := make(map[string]*pdb.User)
@@ -1214,7 +1220,12 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 			SenderName:   alertSender,
 		}
 
-		m := mailer.New(conf.SMTP)
+		m, err := mailer.New(conf.Mailer, mailer.SMTP)
+
+		if err != nil {
+			log.Errorf("[%s] cannot initialize mailer to send notification: %s", pid, err)
+		}
+
 		for _, manager := range managers {
 
 			log.Debugf("[%s] sending notification to manager %s", pid, manager)

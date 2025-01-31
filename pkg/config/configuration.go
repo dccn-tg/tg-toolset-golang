@@ -18,7 +18,7 @@ type Configuration struct {
 	NetAppCLI     NetAppCLIConfiguration
 	Repository    RepositoryConfiguration
 	VolumeManager VolumeManagerConfiguration
-	SMTP          SMTPConfiguration
+	Mailer        MailerConfiguration
 }
 
 // LoadConfig reads configuration file `cpath` and returns the
