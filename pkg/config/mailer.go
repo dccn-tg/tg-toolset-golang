@@ -16,8 +16,9 @@ type SMTPConfiguration struct {
 }
 
 type GraphConfiguration struct {
-	TenantID          string `mapstructure:"tenant_id"`
-	ApplicationID     string `mapstructure:"application_id"`
-	ClientSecret      string `mapstructure:"client_secret"`
-	ClientCertificate string `mapstructure:"client_certificate"`
+	TenantID              string `mapstructure:"tenant_id"`
+	ApplicationID         string `mapstructure:"application_id"`
+	ClientSecret          string `mapstructure:"client_secret"`
+	ClientCertificate     string `mapstructure:"client_certificate"`
+	ClientCertificatePass string `mapstructure:"client_certificate_pass"`
 }

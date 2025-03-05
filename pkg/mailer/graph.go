@@ -36,7 +36,7 @@ func (m GraphMailer) initClientWithCert() (*msgraph.GraphServiceClient, error) {
 	certFile.Read(certBytes)
 	certFile.Close()
 
-	certs, key, err := azidentity.ParseCertificates(certBytes, nil)
+	certs, key, err := azidentity.ParseCertificates(certBytes, []byte(m.config.ClientCertificatePass))
 	if err != nil {
 		return nil, err
 	}
