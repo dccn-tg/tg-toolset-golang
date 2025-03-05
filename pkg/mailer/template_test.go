@@ -12,7 +12,7 @@ import (
 var cc = "rene.debruin@donders.ru.nl"
 
 func setProtocol() MailerProtocol {
-	p := os.Getenv("TEST_MAIL_PROTOCOL")
+	p := os.Getenv("TEST_MAILER_PROTOCOL")
 	switch strings.ToLower(p) {
 	case "graph":
 		return Graph

@@ -26,7 +26,7 @@ func TestGraphMailer(t *testing.T) {
 	subject := "test msgraph mail sending"
 	body := "A test message here"
 
-	if err := m.SendMail(os.Getenv("TG_TOOLSET_GRAPH_UPN"), subject, body, emails); err != nil {
+	if err := m.SendMail(os.Getenv("TEST_MAILER_GRAPH_UPN"), subject, body, emails); err != nil {
 		t.Errorf("%s", err)
 	}
 }
