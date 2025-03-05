@@ -7,7 +7,7 @@ import (
 	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
 )
 
-func TestMsGraphMailer(t *testing.T) {
+func TestGraphMailer(t *testing.T) {
 
 	emails := []string{
 		"h.lee@donders.ru.nl",
