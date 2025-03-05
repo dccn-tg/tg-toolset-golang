@@ -56,7 +56,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
+	if err := m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
 		t.Errorf("%s", err)
 	}
 }
@@ -100,7 +100,7 @@ func TestNotifyProjectExpiring(t *testing.T) {
 			t.Errorf("%s", err)
 		}
 
-		if m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
+		if err := m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
 			t.Errorf("%s", err)
 		}
 	}
@@ -144,7 +144,7 @@ func TestNotifyProjectEndOfGracePeriod(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	if m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
+	if err := m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
 		t.Errorf("%s", err)
 	}
 
@@ -187,7 +187,7 @@ func TestNotifyProjectOutOfQuota(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
+	if err := m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
 		t.Errorf("%s", err)
 	}
 }

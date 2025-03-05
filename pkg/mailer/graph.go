@@ -158,7 +158,7 @@ func (m GraphMailer) SendMail(from, subject, body string, to []string, cc ...str
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	return client.Me().SendMail().Post(
+	return client.Users().ByUserId(m.config.SenderUserPrincipalName).SendMail().Post(
 		ctx,
 		requestBody,
 		nil,

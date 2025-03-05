@@ -54,7 +54,8 @@ mailer:
     auth_plain_user: ""
     auth_plain_pass: ""
   graph:
-  	tenant_id:
+    sender_upn:
+    tenant_id:
     application_id:
     client_certificate:
     client_certificate_pass:
