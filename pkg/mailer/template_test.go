@@ -2,6 +2,7 @@ package mailer
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/dccn-tg/tg-toolset-golang/pkg/config"
@@ -9,6 +10,16 @@ import (
 )
 
 var cc = "rene.debruin@donders.ru.nl"
+
+func setProtocol() MailerProtocol {
+	p := os.Getenv("TEST_MAILER_PROTOCOL")
+	switch strings.ToLower(p) {
+	case "graph":
+		return Graph
+	default:
+		return SMTP
+	}
+}
 
 func TestNotifyProjectProvisioned(t *testing.T) {
 
@@ -24,7 +35,10 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	m := New(conf.SMTP)
+	m, err := New(conf.Mailer, setProtocol())
+	if err != nil {
+		t.Errorf("%s", err)
+	}
 
 	data := ProjectAlertTemplateData{
 		ProjectID:    "3010000.01",
@@ -42,7 +56,7 @@ func TestNotifyProjectProvisioned(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
+	if err := m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
 		t.Errorf("%s", err)
 	}
 }
@@ -61,7 +75,10 @@ func TestNotifyProjectExpiring(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	m := New(conf.SMTP)
+	m, err := New(conf.Mailer, setProtocol())
+	if err != nil {
+		t.Errorf("%s", err)
+	}
 
 	data := ProjectAlertTemplateData{
 		ProjectID:      "3010000.01",
@@ -83,7 +100,7 @@ func TestNotifyProjectExpiring(t *testing.T) {
 			t.Errorf("%s", err)
 		}
 
-		if m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
+		if err := m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
 			t.Errorf("%s", err)
 		}
 	}
@@ -103,7 +120,10 @@ func TestNotifyProjectEndOfGracePeriod(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	m := New(conf.SMTP)
+	m, err := New(conf.Mailer, setProtocol())
+	if err != nil {
+		t.Errorf("%s", err)
+	}
 
 	data := ProjectAlertTemplateData{
 		ProjectID:      "3010000.01",
@@ -124,7 +144,7 @@ func TestNotifyProjectEndOfGracePeriod(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	if m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
+	if err := m.SendMail("sabita.raktoe@donders.ru.nl", subject, body, []string{manager.Email}, cc); err != nil {
 		t.Errorf("%s", err)
 	}
 
@@ -144,7 +164,10 @@ func TestNotifyProjectOutOfQuota(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	m := New(conf.SMTP)
+	m, err := New(conf.Mailer, setProtocol())
+	if err != nil {
+		t.Errorf("%s", err)
+	}
 
 	data := ProjectAlertTemplateData{
 		ProjectID:       "3010000.01",
@@ -164,7 +187,7 @@ func TestNotifyProjectOutOfQuota(t *testing.T) {
 	t.Logf("subject: %s", subject)
 	t.Logf("body: %s", body)
 
-	if m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
+	if err := m.SendMail("no-reply@donders.ru.nl", subject, body, []string{manager.Email}); err != nil {
 		t.Errorf("%s", err)
 	}
 }
