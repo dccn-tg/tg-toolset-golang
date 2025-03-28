@@ -10,7 +10,7 @@ import (
 func TestSMTPMailer(t *testing.T) {
 
 	emails := []string{
-		"h.lee@donders.ru.nl",
+		os.Getenv("TEST_MAILER_TO_ADDRESS"),
 	}
 
 	conf, err := config.LoadConfig(os.Getenv("TG_TOOLSET_CONFIG"))
