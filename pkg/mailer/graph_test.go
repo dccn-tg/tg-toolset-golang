@@ -34,7 +34,7 @@ func TestGraphMailer(t *testing.T) {
 	body = `<head>TEST</head>
 <body>
 <h1>HTML message</h1>
-<p>This is a html paragraph</p>
+<p color="red">This is a html paragraph</p>
 </body>`
 
 	if err := m.SendHtmlMail(os.Getenv("TEST_MAILER_GRAPH_UPN"), subject, body, emails); err != nil {
