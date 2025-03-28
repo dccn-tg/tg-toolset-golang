@@ -34,7 +34,7 @@ func TestSMTPMailer(t *testing.T) {
 	body = `<head>TEST</head>
 <body>
 <h1>HTML message</h1>
-<p color="red">This is a html paragraph</p>
+<p style="color:red;">This is a html paragraph</p>
 </body>`
 
 	if err := m.SendHtmlMail("no-reply@donders.ru.nl", subject, body, emails); err != nil {
