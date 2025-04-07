@@ -38,13 +38,15 @@ var (
 	alertDbPath          string = "alert.db"
 	alertTestProjectID   string
 	alertSkipPI          bool     = false
-	alertDryrun          bool     = false
 	alertMode            string   = "p4w"
-	alertSender          string   = "DCCN TG Helpdesk"
-	alertSenderEmail     string   = "helpdesk@donders.ru.nl"
-	alertCarbonCopy      string   = "rene.debruin@donders.ru.nl"
 	alertSkipContributor []string = []string{}
-	alertMailerTemplate  string   = "template.txt"
+
+	dryrun         bool   = false
+	sender         string = "DCCN TG Helpdesk"
+	senderEmail    string = "helpdesk@donders.ru.nl"
+	ccEmail        string = "rene.debruin@donders.ru.nl"
+	toEmail        string = "rene.debruin@donders.ru.nl"
+	mailerTemplate string = "template.txt"
 
 	skipContributorPmap map[string]bool = make(map[string]bool)
 
@@ -126,10 +128,10 @@ func init() {
 	projectAlertCmd.PersistentFlags().StringVarP(&alertTestProjectID, "test", "t", alertTestProjectID,
 		"`id` of project for testing ooq alert")
 
-	projectAlertCmd.PersistentFlags().StringVarP(&alertSender, "sender", "", alertSender,
+	projectAlertCmd.PersistentFlags().StringVarP(&sender, "sender", "", sender,
 		"`name` of the alert sender")
 
-	projectAlertCmd.PersistentFlags().StringVarP(&alertSenderEmail, "from", "f", alertSenderEmail,
+	projectAlertCmd.PersistentFlags().StringVarP(&senderEmail, "from", "f", senderEmail,
 		"`email` of the alert sender")
 
 	projectAlertCmd.PersistentFlags().BoolVarP(&alertSkipPI, "skip-pi", "", alertSkipPI,
@@ -138,14 +140,32 @@ func init() {
 	projectAlertCmd.PersistentFlags().StringSliceVarP(&alertSkipContributor, "skip-contributor", "", alertSkipContributor,
 		"specify a list of comma-separated projects of which the contributors are skipped for alert")
 
-	projectAlertCmd.PersistentFlags().StringVarP(&alertCarbonCopy, "cc", "", alertCarbonCopy,
+	projectAlertCmd.PersistentFlags().StringVarP(&ccEmail, "cc", "", ccEmail,
 		"alert carbon copy `email`")
 
-	projectAlertCmd.PersistentFlags().StringVarP(&alertMailerTemplate, "template", "", alertMailerTemplate,
+	projectAlertCmd.PersistentFlags().StringVarP(&mailerTemplate, "template", "", mailerTemplate,
 		"`path` of the mail template file")
 
-	projectAlertCmd.PersistentFlags().BoolVarP(&alertDryrun, "dryrun", "", alertDryrun,
+	projectAlertCmd.PersistentFlags().BoolVarP(&dryrun, "dryrun", "", dryrun,
 		"print out alerts and recipients without really sent them")
+
+	projectReportCmd.PersistentFlags().StringVarP(&sender, "sender", "", sender,
+		"`name` of the report sender")
+
+	projectReportCmd.PersistentFlags().StringVarP(&senderEmail, "from", "f", senderEmail,
+		"`email` of the report sender")
+
+	projectReportCmd.PersistentFlags().StringVarP(&toEmail, "to", "", toEmail,
+		"report recipient `email`")
+
+	projectReportCmd.PersistentFlags().StringVarP(&ccEmail, "cc", "", ccEmail,
+		"report carbon copy `email`")
+
+	projectReportCmd.PersistentFlags().StringVarP(&mailerTemplate, "template", "", mailerTemplate,
+		"`path` of the mail template file")
+
+	projectReportCmd.PersistentFlags().BoolVarP(&dryrun, "dryrun", "", dryrun,
+		"print out report without really sent it by email")
 
 	projectAlertOotCmd.PersistentFlags().StringVarP(&alertMode, "mode", "m", alertMode,
 		fmt.Sprintf("alert `mode`. Supported modes: %s", strings.Join(supportedAlertModes, ",")))
@@ -158,7 +178,7 @@ func init() {
 
 	projectAlertCmd.AddCommand(projectAlertOoqCmd, projectAlertOotCmd)
 
-	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd, projectAlertCmd)
+	projectCmd.AddCommand(projectActionCmd, projectCreateCmd, projectUpdateCmd, projectAlertCmd, projectReportCmd)
 
 	rootCmd.AddCommand(projectCmd)
 }
@@ -361,6 +381,51 @@ var projectActionExecCmd = &cobra.Command{
 	},
 }
 
+var projectReportCmd = &cobra.Command{
+	Use:   "report",
+	Short: "Generate report on user accessible projects expired more than 2 months ago",
+	Long:  ``,
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ipdb := loadPdb()
+		conf := loadConfig()
+
+		projects, err := ipdb.GetProjects(true)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("retriving storage usage for %d projects", len(projects))
+
+		// initialize filergateway client
+		fgw, err := filergateway.NewClient(conf)
+		if err != nil {
+			return err
+		}
+
+		rprjs := make([]*pdb.Project, 0)
+		for _, project := range projects {
+			if project.End.Before(now.AddDate(0, -2, 0)) {
+
+				// get members from filer gateway
+				info, err := fgw.GetProject(project.ID)
+				if err != nil {
+					log.Errorf("[%s] cannot get project storage info: %s", project.ID, err)
+					continue
+				}
+				log.Debugf("[%s] project storage info: %+v", project.ID, info)
+
+				// project expired before the report date; but still has members
+				if len(info.Members) > 0 {
+					rprjs = append(rprjs, project)
+				}
+			}
+		}
+
+		return report(rprjs, conf.SMTP)
+	},
+}
+
 var projectAlertCmd = &cobra.Command{
 	Use:   "alert",
 	Short: "Utility for sending project-related alerts",
@@ -521,7 +586,7 @@ var projectAlertOotSend = &cobra.Command{
 					lastAlert, err = ootAlert(ipdb, prj, info, lastAlert, conf.SMTP)
 
 					// do nothing to the db for dryrun
-					if alertDryrun {
+					if dryrun {
 						continue
 					}
 
@@ -702,7 +767,7 @@ var projectAlertOoqSend = &cobra.Command{
 					lastAlert, err = ooqAlert(ipdb, prj, info, lastAlert, conf.SMTP)
 
 					// do nothing to the db for dryrun
-					if alertDryrun {
+					if dryrun {
 						continue
 					}
 
@@ -801,11 +866,11 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 			ProjectID:      info.ProjectID,
 			ProjectTitle:   prj.Name,
 			ProjectEndDate: prj.End.Format(dateLayout),
-			SenderName:     alertSender,
+			SenderName:     sender,
 		}
 
 		// add condituional carbon-copies for every email send to a recipient
-		cclist := []string{alertCarbonCopy}
+		cclist := []string{ccEmail}
 
 		if strings.HasPrefix(info.ProjectID, "24") {
 			cclist = append(cclist, "DCC-DataOfficer@donders.ru.nl")
@@ -841,16 +906,16 @@ func ootAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 				return lastAlert, &pdb.OpsIgnored{Message: msg}
 			}
 
-			subject, body, err := mailer.ComposeMessageFromTemplateFile(alertMailerTemplate, data)
+			subject, body, err := mailer.ComposeMessageFromTemplateFile(mailerTemplate, data)
 
 			if err != nil {
 				log.Debugf("[%s] skip alert %s due to failure generating alert: %s", info.ProjectID, u.ID, err)
 				continue
 			}
 
-			if alertDryrun {
+			if dryrun {
 				log.Infof("[%s] alert %s", info.ProjectID, u.Email)
-			} else if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}, cclist...); err != nil {
+			} else if err := m.SendMail(senderEmail, subject, body, []string{u.Email}, cclist...); err != nil {
 				log.Errorf("[%s] fail to sent oot alert to %s: %s", info.ProjectID, u.Email, err)
 			}
 
@@ -959,7 +1024,7 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 		ProjectID:       info.ProjectID,
 		ProjectTitle:    prj.Name,
 		QuotaUsageRatio: uratio,
-		SenderName:      alertSender,
+		SenderName:      sender,
 	}
 	for _, u := range recipients {
 
@@ -971,16 +1036,16 @@ func ooqAlert(ipdb pdb.PDB, prj *pdb.Project, info *pdb.DataProjectInfo, lastAle
 
 		data.RecipientName = u.DisplayName()
 
-		subject, body, err := mailer.ComposeMessageFromTemplateFile(alertMailerTemplate, data)
+		subject, body, err := mailer.ComposeMessageFromTemplateFile(mailerTemplate, data)
 
 		if err != nil {
 			log.Debugf("[%s] skip alert %s due to failure generating alert: %s", info.ProjectID, u.ID, err)
 			continue
 		}
 
-		if alertDryrun {
+		if dryrun {
 			log.Infof("[%s] alert %s on usage ratio: %d", info.ProjectID, u.Email, uratio)
-		} else if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
+		} else if err := m.SendMail(senderEmail, subject, body, []string{u.Email}); err != nil {
 			log.Errorf("[%s] fail to sent ooq alert to %s: %s", info.ProjectID, u.Email, err)
 		}
 
@@ -1211,7 +1276,7 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 		data := mailer.ProjectAlertTemplateData{
 			ProjectID:    pid,
 			ProjectTitle: p.Name,
-			SenderName:   alertSender,
+			SenderName:   sender,
 		}
 
 		m := mailer.New(conf.SMTP)
@@ -1228,17 +1293,28 @@ func actionExec(pid string, act *pdb.DataProjectUpdate) error {
 				continue
 			}
 
-			subject, body, err := mailer.ComposeMessageFromTemplateFile(alertMailerTemplate, data)
+			subject, body, err := mailer.ComposeMessageFromTemplateFile(mailerTemplate, data)
 
 			if err != nil {
 				log.Debugf("[%s] skip notify %s due to failure generating alert: %s", pid, u.ID, err)
 				continue
 			}
 
-			if err := m.SendMail(alertSenderEmail, subject, body, []string{u.Email}); err != nil {
+			if err := m.SendMail(senderEmail, subject, body, []string{u.Email}); err != nil {
 				log.Errorf("[%s] fail notifying manager %s: %s", pid, m, err)
 			}
 		}
+	}
+
+	return nil
+}
+
+func report(projects []*pdb.Project, smtpConfig config.SMTPConfiguration) error {
+
+	//subject, body, err := mailer.ComposeMessageFromTemplateFile(reportMailerTemplate, data)
+
+	for _, prj := range projects {
+		log.Infof("%s (%s) - %s", prj.ID, prj.End.Format(dateLayout), prj.Name)
 	}
 
 	return nil
