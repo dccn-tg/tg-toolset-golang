@@ -52,16 +52,15 @@ var (
 
 	// ootAlertDate calculates the project expiry alerting dates for:
 	// - "p4w": 28-day in advance
-	// - "p23": 14-day in advance
+	// - "p2w": 14-day in advance
 	// - "now": on the expiration date
-	// - "g1m": 30-day grace time
-	// - "g2m": 60-day gracen time
+	// - "g2m": 60-day grace time
 	ootAlertDate map[string]string = map[string]string{
 		"p4w": now.AddDate(0, 0, 28).Format(dateLayout),
 		"p2w": now.AddDate(0, 0, 14).Format(dateLayout),
 		"p1w": now.AddDate(0, 0, 7).Format(dateLayout),
 		"now": now.Format(dateLayout),
-		"g2m": now.AddDate(0, -2, 0).Format(dateLayout),
+		"g2m": now.AddDate(0, 0, -60).Format(dateLayout),
 	}
 )
 
