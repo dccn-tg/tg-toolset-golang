@@ -13,9 +13,15 @@ type SMTPMailer struct {
 	config config.SMTPConfiguration
 }
 
-// SendMail sends out a email with given `from`, `to`, `subject` and `body` content
-// using the SMTP server configuration provided by `config`.
-func (m SMTPMailer) SendMail(from, subject, body string, to []string, cc ...string) error {
+type contentType string
+
+const (
+	plain contentType = "text/plain; charset=\"utf-8\""
+	html  contentType = "text/html; charset=\"utf-8\""
+)
+
+// composeSend composes the message body with a given body `contentType` and send the mail.
+func (m SMTPMailer) composeSend(from, subject, body string, contentType contentType, to []string, cc ...string) error {
 
 	// SMTP server address
 	addr := fmt.Sprintf("%s:%d", m.config.Host, m.config.Port)
@@ -26,7 +32,7 @@ func (m SMTPMailer) SendMail(from, subject, body string, to []string, cc ...stri
 	header["Cc"] = strings.Join(cc, ";")
 	header["Subject"] = subject
 	header["MIME-Version"] = "1.0"
-	header["Content-Type"] = "text/plain; charset=\"utf-8\""
+	header["Content-Type"] = string(contentType)
 	header["Content-Transfer-Encoding"] = "base64"
 
 	message := ""
@@ -43,4 +49,31 @@ func (m SMTPMailer) SendMail(from, subject, body string, to []string, cc ...stri
 
 	// no SMTP authentication
 	return smtp.SendMail(addr, nil, from, append(to, cc...), []byte(message))
+}
+
+// SendMail sends out a email with given `from`, `to`, `subject` and plain-text `body` content
+// using the SMTP server configuration provided by `config`.
+func (m SMTPMailer) SendMail(from, subject, body string, to []string, cc ...string) error {
+	return m.composeSend(
+		from,
+		subject,
+		body,
+		plain,
+		to,
+		cc...,
+	)
+}
+
+// SendHtmlMail sends out a email with given `from`, `to`, `subject` and html-text `body` content
+// using the SMTP server configuration provided by `config`.
+func (m SMTPMailer) SendHtmlMail(from, subject, body string, to []string, cc ...string) error {
+
+	return m.composeSend(
+		from,
+		subject,
+		body,
+		html,
+		to,
+		cc...,
+	)
 }
