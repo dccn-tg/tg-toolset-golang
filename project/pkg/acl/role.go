@@ -77,6 +77,7 @@ type Roler interface {
 // fileserver on which the roler performs actions.
 var RolerMap = map[string]Roler{
 	"/project":         NetAppRoler{},
+	"/rrd":             NetAppRoler{},
 	"/groupshare":      NetAppRoler{},
 	"/project_freenas": FreeNasRoler{},
 	"/project_cephfs":  CephFsRoler{},
