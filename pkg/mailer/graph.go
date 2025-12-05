@@ -81,6 +81,7 @@ func (m GraphMailer) initClientWithSecret() (*msgraph.GraphServiceClient, error)
 // composeMessage construct the msgraph send mail request body
 func (m GraphMailer) composeMessage(
 	from, subject, body string,
+	contentType graphmodels.BodyType,
 	to, cc []string,
 ) *graphusers.ItemSendMailPostRequestBody {
 
@@ -90,7 +91,6 @@ func (m GraphMailer) composeMessage(
 
 	// message body
 	itemBody := graphmodels.NewItemBody()
-	contentType := graphmodels.TEXT_BODYTYPE
 	itemBody.SetContentType(&contentType)
 	itemBody.SetContent(&body)
 	message.SetBody(itemBody)
@@ -133,8 +133,12 @@ func (m GraphMailer) composeMessage(
 	return requestBody
 }
 
-// SentMail sends out an email via the MS-Graph interface using the client credential.
-func (m GraphMailer) SendMail(from, subject, body string, to []string, cc ...string) error {
+// composeSend composes mail body and send out the message via the MS-Graph interface using the client credential.
+func (m GraphMailer) composeSend(
+	from, subject, body string,
+	contentType graphmodels.BodyType,
+	to []string, cc ...string,
+) error {
 
 	client, err := m.initClientWithCert()
 	if err != nil {
@@ -150,6 +154,7 @@ func (m GraphMailer) SendMail(from, subject, body string, to []string, cc ...str
 		from,
 		subject,
 		body,
+		contentType,
 		to,
 		cc,
 	)
@@ -162,5 +167,29 @@ func (m GraphMailer) SendMail(from, subject, body string, to []string, cc ...str
 		ctx,
 		requestBody,
 		nil,
+	)
+}
+
+// SendMail sends out a email with given `from`, `to`, `subject` and plain-text `body` content
+func (m GraphMailer) SendMail(from, subject, body string, to []string, cc ...string) error {
+	return m.composeSend(
+		from,
+		subject,
+		body,
+		graphmodels.TEXT_BODYTYPE,
+		to,
+		cc...,
+	)
+}
+
+// SendHtmlMail sends out a email with given `from`, `to`, `subject` and html-text `body` content
+func (m GraphMailer) SendHtmlMail(from, subject, body string, to []string, cc ...string) error {
+	return m.composeSend(
+		from,
+		subject,
+		body,
+		graphmodels.HTML_BODYTYPE,
+		to,
+		cc...,
 	)
 }

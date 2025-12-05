@@ -29,4 +29,5 @@ func New(config config.MailerConfiguration, protocol MailerProtocol) (Mailer, er
 // Mailer implements varias email notifications.
 type Mailer interface {
 	SendMail(from, subject, body string, to []string, cc ...string) error
+	SendHtmlMail(from, subject, body string, to []string, cc ...string) error
 }

@@ -10,7 +10,7 @@ import (
 func TestGraphMailer(t *testing.T) {
 
 	emails := []string{
-		"h.lee@donders.ru.nl",
+		os.Getenv("TEST_MAILER_TO_ADDRESS"),
 	}
 
 	conf, err := config.LoadConfig(os.Getenv("TG_TOOLSET_CONFIG"))
@@ -23,10 +23,22 @@ func TestGraphMailer(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	subject := "test msgraph mail sending"
+	subject := "test msgraph plain-text mail"
 	body := "A test message here"
 
 	if err := m.SendMail(os.Getenv("TEST_MAILER_GRAPH_UPN"), subject, body, emails); err != nil {
 		t.Errorf("%s", err)
 	}
+
+	subject = "test msgraph html-text mail"
+	body = `<head>TEST</head>
+<body>
+<h1>HTML message</h1>
+<p style="color:red;">This is a html paragraph</p>
+</body>`
+
+	if err := m.SendHtmlMail(os.Getenv("TEST_MAILER_GRAPH_UPN"), subject, body, emails); err != nil {
+		t.Errorf("%s", err)
+	}
+
 }
