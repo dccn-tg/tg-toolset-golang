@@ -197,6 +197,30 @@ type DicomTagsSeries struct {
 	StationName                       string
 }
 
+// Instance is the data structure of the Orthanc attributes for a DICOM imange instance.
+//
+// Note that the LastUpdate is in UTC.
+type Instance struct {
+	ID            string
+	IndexInSeries int
+	FileUuid      string
+	FileSize      int
+	LastUpdate    DateTime
+	ReceptionDate DateTime
+	MainDicomTags DicomTagsInstance
+}
+
+// DicomTagsInstance is the data structure of a few DICOM-header attributes extracted by Orthanc for a DICOM instance.
+type DicomTagsInstance struct {
+	AcquisitionNumber    string
+	ImageComment         string
+	InstanceNumber       string
+	NumberOfFrames       string
+	SOPInstanceUID       string
+	InstanceCreationDate Date
+	InstanceCreationTime Time
+}
+
 // Orthanc defines the object for connecting to the Orthanc service.
 type Orthanc struct {
 	PrefixURL string
@@ -314,6 +338,14 @@ func (o Orthanc) GetStudy(id string) (study Study, err error) {
 func (o Orthanc) GetSeries(id string) (series Series, err error) {
 	series = Series{}
 	err = o.getJSON(fmt.Sprintf("series/%s", id), &series)
+	return
+}
+
+// GetInstance retrieves the DICOM instance information from the Orthanc server,
+// and returns the Series data object.
+func (o Orthanc) GetInstance(id string) (instance Instance, err error) {
+	instance = Instance{}
+	err = o.getJSON(fmt.Sprintf("instances/%s", id), &instance)
 	return
 }
 
