@@ -47,6 +47,7 @@ const worklistTemplate = `(0010,0010) PN  [{{.PatientName}}]
 (0008,0090) PN  [{{.Physician}}]
 (0032,1060) LO  [{{.ProjectTitle}}]
 (0040,1001) SH  [{{.SessionID}}]
+(0008,0050) SH  [{{.SessionID}}]
 (0040,0100) SQ
 (fffe,e000) -
 (0008,0060) CS  [MR]
