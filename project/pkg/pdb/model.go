@@ -112,16 +112,16 @@ func (u User) DisplayName() string {
 type UserFunction int
 
 const (
-	// UserFunctionUnknown for unknown/unexpected user function.
-	UserFunctionUnknown UserFunction = iota - 1
+	// UserFunctionNil for unknown/unexpected user function.
+	UserFunctionNil UserFunction = iota - 1
 	// UserFunctionPrincipalInvestigator for users with the principle investigators function.
 	UserFunctionPrincipalInvestigator
 	// UserFunctionStudent for users that are students.
 	UserFunctionStudent
 	// UserFunctionStudentAssistant for users that are student assistants.
 	UserFunctionStudentAssistant
-	// UserFunctionPhD for users that are PhD students.
-	UserFunctionPhD
+	// UserFunctionPhdCandidate for users that are PhD candidates.
+	UserFunctionPhdCandidate
 	// UserFunctionPostdoc for users that are Postdocs.
 	UserFunctionPostdoc
 	// UserFunctionResearchSupport for reseache support.

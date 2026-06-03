@@ -60,7 +60,7 @@ func userFunctionEnum(id string) UserFunction {
 	case "student":
 		return UserFunctionStudent
 	case "phd-candidate":
-		return UserFunctionPhD
+		return UserFunctionPhdCandidate
 	case "postdoc":
 		return UserFunctionPostdoc
 	case "principal-investigator":
@@ -80,7 +80,7 @@ func userFunctionEnum(id string) UserFunction {
 	case "student-assistant":
 		return UserFunctionStudentAssistant
 	default:
-		return UserFunctionUnknown
+		return UserFunctionNil
 	}
 }
 
