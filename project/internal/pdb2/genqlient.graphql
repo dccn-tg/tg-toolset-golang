@@ -48,7 +48,10 @@ query getUsers() {
 		lastName,
 		email,
 		status,
-		function,
+		function {
+			id,
+			name
+		},
 	}
 }
 
@@ -66,7 +69,10 @@ query getUserByEmail($email: String) {
 		lastName,
 		email,
 		status,
-		function,
+		function {
+			id,
+			name
+		},
 	}
 }
 
@@ -78,7 +84,10 @@ query getUser($username: ID!) {
 		lastName,
 		email,
 		status,
-		function,
+		function {
+			id,
+			name
+		},
 	}
 }
 
@@ -137,7 +146,10 @@ query getBookingEvents($start: DateTime!, $end: DateTime!, $resources: [ID!]) {
 				lastName
 				email
 				status
-				function
+				function {
+					id,
+					name
+				}
 			}
 		}
 		resource {

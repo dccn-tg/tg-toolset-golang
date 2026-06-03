@@ -18,21 +18,6 @@ type ActivateLabAccountOutput {
 	password: String!
 }
 
-input BookableResourceFilter {
-	lab: LabFilter
-	room: RoomFilter
-}
-
-input BookableResourceOrdering {
-	field: BookableResourceOrderingField!
-	direction: OrderingDirection
-}
-
-enum BookableResourceOrderingField {
-	Lab
-	Room
-}
-
 type Booking {
 	id: ID!
 	createdAt: DateTime!
@@ -82,6 +67,7 @@ type BookingEvent {
 	session: String
 	remark: String
 	booking: Booking!
+	budget: Budget
 	resource: Resource!
 }
 
@@ -122,8 +108,9 @@ input BookingEventFilter {
 	subject: NullableStringFilter
 	session: NullableStringFilter
 	remark: NullableStringFilter
+	budget: BudgetFilter
+	resource: ResourceFilter
 	booking: BookingFilter
-	resource: BookableResourceFilter
 }
 
 input BookingEventOrdering {
@@ -136,7 +123,7 @@ enum BookingEventOrderingField {
 	CreatedAt
 	UpdatedAt
 	Booking
-	Resource
+	Budget
 	Start
 	End
 	Status
@@ -191,6 +178,39 @@ input BoolFilter {
 	notEquals: Boolean
 }
 
+type Budget {
+	id: ID!
+	number: String!
+	name: String!
+	start: DateTime!
+	end: DateTime!
+	piBudget: Boolean!
+	owner: User
+	projectPrefixes(filterBy: ProjectPrefixFilter, orderBy: ProjectPrefixOrdering): [ProjectPrefix!]!
+}
+
+input BudgetFilter {
+	id: IdFilter
+	name: StringFilter
+	start: DateTimeFilter
+	end: DateTimeFilter
+	piBudget: BoolFilter
+	owner: UserFilter
+}
+
+input BudgetOrdering {
+	field: BudgetOrderingField!
+	direction: OrderingDirection
+}
+
+enum BudgetOrderingField {
+	Id
+	Name
+	Start
+	End
+	Owner
+	PiBudget
+}
 
 type Building {
 	id: ID!
@@ -216,6 +236,30 @@ enum BuildingOrderingField {
 	Id
 	Name
 	Address
+}
+
+type Certificate {
+	id: ID!
+	name: String!
+	modality: Modality
+	users(filterBy: UserFilter, orderBy: UserOrdering): [User!]!
+}
+
+input CertificateFilter {
+	id: IdFilter
+	name: StringFilter
+	modality: ModalityFilter
+}
+
+input CertificateOrdering {
+	field: CertificateOrderingField!
+	direction: OrderingDirection
+}
+
+enum CertificateOrderingField {
+	Id
+	Name
+	Modality
 }
 
 input CreateAccountInput {
@@ -244,15 +288,29 @@ input CreateBookingInput_Event {
 	start: DateTime!
 	end: DateTime!
 	resource: ResourceID!
+	budget: ID!
 	status: BookingEventStatus
 	subject: String
 	session: String
 	remark: String
 }
 
+input CreateBudgetInput {
+	name: String!
+	start: DateTime!
+	end: DateTime!
+	owner: ID
+	piBudget: Boolean
+}
+
 input CreateBuildingInput {
 	name: String!
 	address: String!
+}
+
+input CreateCertificateInput {
+	name: String!
+	modality: ID
 }
 
 input CreateExperimentInput {
@@ -263,6 +321,10 @@ input CreateExperimentInput {
 	modality: ID!
 	quotaRuleVersion: Int
 	withStructuralMri: Boolean
+}
+
+input CreateFunctionInput {
+	name: String!
 }
 
 input CreateFundingSourceInput {
@@ -294,15 +356,19 @@ input CreateOrganisationalUnitInput {
 }
 
 input CreateProjectInput {
-	kind: ProjectKind!
-	fundingSource: ID!
+	kind: ProjectKind
+	prefix: ID
 	title: String!
+	pilot: Boolean
 	status: ProjectStatus
 	owner: ID!
 	start: DateTime!
 	end: DateTime!
+	acquisitionEnd: DateTime
 	overrulingQuotaGiB: Int
+	fundingSource: ID @deprecated(reason: "Use `prefix` instead")
 	members: [CreateProjectInput_Member!]
+	rrdMembers: [CreateProjectInput_Member!]
 	experiments: [CreateProjectInput_Experiment!]
 	experimenters: [ID!]
 	ethicalApprovals: [CreateProjectInput_EthicalApproval!]
@@ -325,6 +391,10 @@ input CreateProjectInput_Experiment {
 input CreateProjectInput_Member {
 	user: ID!
 	role: ProjectMemberRole!
+}
+
+input CreateProjectPrefixInput {
+	name: String!
 }
 
 input CreateProjectProposalInput {
@@ -353,12 +423,12 @@ input CreateUserInput {
 	middleName: String
 	lastName: String
 	overrideName: String
-	function: UserFunction
 	email: String
 	emailExt: String
 	phone: String
 	phoneExt: String
 	status: UserStatus
+	function: ID
 	universalPrincipalName: String
 	employeeNumber: String
 	comments: String
@@ -457,8 +527,8 @@ input ExperimentFilter {
 	sessionDurationMinutes: IntegerFilter
 	quotaRuleVersion: IntegerFilter
 	withStructuralMri: BoolFilter
-	modality: ModalityFilter
 	project: ProjectFilter
+	modality: ModalityFilter
 }
 
 input ExperimentOrdering {
@@ -498,12 +568,32 @@ enum FilerTaskType {
 	Project
 }
 
+type Function {
+	id: ID!
+	name: String!
+}
+
+input FunctionFilter {
+	id: IdFilter
+	name: StringFilter
+}
+
+input FunctionOrdering {
+	field: FunctionOrderingField!
+	direction: OrderingDirection
+}
+
+enum FunctionOrderingField {
+	Id
+	Name
+}
 
 type FundingSource {
-	id: ID!
-	number: String!
-	name: String!
-	projects(filterBy: ProjectFilter, orderBy: ProjectOrdering): [Project!]!
+	id: ID! @deprecated(reason: "Use `id` on `ProjectPrefix` instead")
+	number: String! @deprecated(reason: "Use `number` on `ProjectPrefix` instead")
+	name: String! @deprecated(reason: "Use `name` on `ProjectPrefix` instead")
+	projects(filterBy: ProjectFilter, orderBy: ProjectOrdering): [Project!]! @deprecated(reason: "Use `projects` on `ProjectPrefix` instead")
+	budgets(filterBy: BudgetFilter, orderBy: BudgetOrdering): [Budget!]! @deprecated(reason: "Use `budgets` on `ProjectPrefix` instead")
 }
 
 input FundingSourceFilter {
@@ -512,13 +602,8 @@ input FundingSourceFilter {
 }
 
 input FundingSourceOrdering {
-	field: FundingSourceOrderingField!
+	field: ProjectPrefixOrderingField!
 	direction: OrderingDirection
-}
-
-enum FundingSourceOrderingField {
-	Id
-	Name
 }
 
 type Group {
@@ -583,13 +668,11 @@ input GroupStatusFilter {
 	in: [GroupStatus!]
 }
 
-
 input IdFilter {
 	equals: ID
 	notEquals: ID
 	in: [ID!]
 }
-
 
 input IntegerFilter {
 	equals: Int
@@ -672,6 +755,9 @@ type Mutation {
 	deleteBooking(id: ID!): Booking!
 	updateBookingEvent(id: ID!, data: UpdateBookingEventInput!): BookingEvent!
 	deleteBookingEvent(id: ID!): BookingEvent!
+	createBudget(id: ID!, data: CreateBudgetInput!): Budget!
+	updateBudget(id: ID!, data: UpdateBudgetInput!): Budget!
+	deleteBudget(id: ID!): Budget!
 	createBuilding(id: ID!, data: CreateBuildingInput!): Building!
 	updateBuilding(id: ID!, data: UpdateBuildingInput!): Building!
 	deleteBuilding(id: ID!): Building!
@@ -683,9 +769,12 @@ type Mutation {
 	deleteExperiment(id: ID!): Experiment!
 	addExperimenterToProject(project: ID!, user: ID!): Boolean!
 	removeExperimenterFromProject(project: ID!, user: ID!): Boolean!
-	createFundingSource(id: ID!, data: CreateFundingSourceInput!): FundingSource!
-	updateFundingSource(id: ID!, data: UpdateFundingSourceInput!): FundingSource!
-	deleteFundingSource(id: ID!): FundingSource!
+	createFunction(id: ID!, data: CreateFunctionInput!): Function!
+	updateFunction(id: ID!, data: UpdateFunctionInput!): Function!
+	deleteFunction(id: ID!): Function!
+	createFundingSource(id: ID!, data: CreateFundingSourceInput!): FundingSource! @deprecated(reason: "Use `createProjectPrefix` instead")
+	updateFundingSource(id: ID!, data: UpdateFundingSourceInput!): FundingSource! @deprecated(reason: "Use `updateProjectPrefix` instead")
+	deleteFundingSource(id: ID!): FundingSource! @deprecated(reason: "Use `deleteProjectPrefix` instead")
 	createGroup(id: ID!, data: CreateGroupInput!): Group!
 	updateGroup(id: ID!, data: UpdateGroupInput!): Group!
 	deleteGroup(id: ID!): Group!
@@ -718,6 +807,11 @@ type Mutation {
 	deleteProject(id: ID!): Project!
 	addUserToProject(project: ID!, user: ID!, role: ProjectMemberRole!): ProjectMember!
 	removeUserFromProject(project: ID!, user: ID!): ProjectMember
+	addBudgetToProjectPrefix(projectPrefix: ID!, budget: ID!): Boolean!
+	removeBudgetFromProjectPrefix(projectPrefix: ID!, budget: ID!): Boolean!
+	createProjectPrefix(id: ID!, data: CreateProjectPrefixInput!): ProjectPrefix!
+	updateProjectPrefix(id: ID!, data: UpdateProjectPrefixInput!): ProjectPrefix!
+	deleteProjectPrefix(id: ID!): ProjectPrefix!
 	createProjectProposal(id: ID!, data: CreateProjectProposalInput!): ProjectProposal!
 	updateProjectProposal(id: ID!, data: UpdateProjectProposalInput!): ProjectProposal!
 	deleteProjectProposal(id: ID!): ProjectProposal!
@@ -729,6 +823,12 @@ type Mutation {
 	createUserBillingCategory(id: ID!, data: CreateUserBillingCategoryInput!): UserBillingCategory!
 	updateUserBillingCategory(id: ID!, data: UpdateUserBillingCategoryInput!): UserBillingCategory!
 	deleteUserBillingCategory(id: ID!): UserBillingCategory!
+	createCertificate(id: ID!, data: CreateCertificateInput!): Certificate!
+	updateCertificate(id: ID!, data: UpdateCertificateInput!): Certificate!
+	deleteCertificate(id: ID!): Certificate!
+	addCertificateToUser(user: ID!, certificate: ID!, acquisitionDate: NaiveDate): Boolean!
+	updateUserCertificate(user: ID!, certificate: ID!, acquisitionDate: NaiveDate): UserCertificate!
+	removeCertificateFromUser(user: ID!, certificate: ID!): Boolean!
 }
 
 """
@@ -741,6 +841,11 @@ Format: %Y-%m-%d
 * `2000-02-24`
 """
 scalar NaiveDate
+
+enum NameStyle {
+	Default
+	Lexicographical
+}
 
 input NullableBoolFilter {
 	null: Boolean
@@ -817,8 +922,8 @@ enum OrganisationalUnitOrderingField {
 }
 
 input OrganisationalUnitUserFilter {
-	ou: OrganisationalUnitFilter
 	user: UserFilter
+	ou: OrganisationalUnitFilter
 }
 
 input OrganisationalUnitUserOrdering {
@@ -868,12 +973,15 @@ type Project {
 	updatedAt: DateTime!
 	start: DateTime!
 	end: DateTime!
+	acquisitionEnd: DateTime
 	title: String!
 	status: ProjectStatus!
+	pilot: Boolean!
 	overrulingQuotaGiB: Int
 	overrulingQuotaUpdatedAt: DateTime
 	owner: User!
-	fundingSource: FundingSource!
+	prefix: ProjectPrefix!
+	fundingSource: FundingSource! @deprecated(reason: "Use `prefix` instead")
 	experiments(filterBy: ExperimentFilter, orderBy: ExperimentOrdering): [Experiment!]!
 	experimenters(filterBy: UserFilter, orderBy: UserOrdering): [User!]!
 	ethicalApprovals(filterBy: EthicalApprovalFilter, orderBy: EthicalApprovalOrdering): [EthicalApproval!]!
@@ -914,14 +1022,16 @@ input ProjectFilter {
 	createdAt: DateTimeFilter
 	updatedAt: DateTimeFilter
 	title: StringFilter
+	pilot: BoolFilter
 	status: ProjectStatusFilter
 	start: DateTimeFilter
 	end: DateTimeFilter
+	acquisitionEnd: NullableDateTimeFilter
 	timeRange: DateTimeRangeFilter
 	overrulingQuotaGiB: NullableIntegerFilter
 	overrulingQuotaUpdatedAt: NullableDateTimeFilter
+	prefix: ProjectPrefixFilter
 	owner: UserFilter
-	fundingSource: FundingSourceFilter
 }
 
 enum ProjectKind {
@@ -972,14 +1082,39 @@ enum ProjectOrderingField {
 	Kind
 	CreatedAt
 	UpdatedAt
-	FundingSource
+	Prefix
 	Title
+	Pilot
 	Status
 	Owner
 	Start
 	End
+	AcquisitionEnd
 	OverrulingQuotaGiB
 	OverrulingQuotaUpdatedAt
+}
+
+type ProjectPrefix {
+	id: ID!
+	number: String!
+	name: String!
+	projects(filterBy: ProjectFilter, orderBy: ProjectOrdering): [Project!]!
+	budgets(filterBy: BudgetFilter, orderBy: BudgetOrdering): [Budget!]!
+}
+
+input ProjectPrefixFilter {
+	id: IdFilter
+	name: StringFilter
+}
+
+input ProjectPrefixOrdering {
+	field: ProjectPrefixOrderingField!
+	direction: OrderingDirection
+}
+
+enum ProjectPrefixOrderingField {
+	Id
+	Name
 }
 
 type ProjectProposal {
@@ -1005,13 +1140,17 @@ type Query {
 	bookingEvents(id: [ID!], filterBy: BookingEventFilter, orderBy: BookingEventOrdering): [BookingEvent!]!
 	bookingEventsConnection(after: String, before: String, first: Int, last: Int, filterBy: BookingEventFilter, orderBy: BookingEventOrdering): BookingEventConnection!
 	bookingEvent(id: ID!): BookingEvent
+	budget(id: ID!): Budget
+	budgets(id: [ID!], filterBy: BudgetFilter, orderBy: BudgetOrdering): [Budget!]!
 	buildings(id: [ID!], filterBy: BuildingFilter, orderBy: BuildingOrdering): [Building!]!
 	building(id: ID!): Building
 	experiments(id: [ID!], filterBy: ExperimentFilter, orderBy: ExperimentOrdering): [Experiment!]!
 	experiment(id: ID!): Experiment
 	filerTaskStatus(type: FilerTaskType!, id: ID!): FilerTaskStatusOutput
-	fundingSource(number: ID!): FundingSource
-	fundingSources(number: [ID!], filterBy: FundingSourceFilter, orderBy: FundingSourceOrdering): [FundingSource!]!
+	functions(id: [ID!], filterBy: FunctionFilter, orderBy: FunctionOrdering): [Function!]!
+	function(id: ID!): Function
+	fundingSource(number: ID!): FundingSource @deprecated(reason: "Use `projectPrefix` instead")
+	fundingSources(number: [ID!], filterBy: FundingSourceFilter, orderBy: FundingSourceOrdering): [FundingSource!]! @deprecated(reason: "Use `projectPrefixes` instead")
 	groups(id: [ID!], filterBy: GroupFilter, orderBy: GroupOrdering): [Group!]!
 	group(id: ID!): Group
 	labs(id: [ID!], filterBy: LabFilter, orderBy: LabOrdering): [Lab!]!
@@ -1025,7 +1164,9 @@ type Query {
 	project(id: ID!): Project
 	projectsOwnedBy(user: ID!, orderBy: ProjectOrdering): [Project!]! @deprecated
 	projectsExperimenterOf(user: ID!, orderBy: ProjectOrdering): [Project!]! @deprecated
-	bookableResources(id: [ResourceID!], filterBy: BookableResourceFilter, orderBy: BookableResourceOrdering): [Resource!]!
+	projectPrefix(id: ID!): ProjectPrefix
+	projectPrefixes(id: [ID!], filterBy: ProjectPrefixFilter, orderBy: ProjectPrefixOrdering): [ProjectPrefix!]!
+	bookableResources(id: [ResourceID!], filterBy: ResourceFilter, orderBy: ResourceOrdering): [Resource!]!
 	rooms(id: [ID!], filterBy: RoomFilter, orderBy: RoomOrdering): [Room!]!
 	roomsConnection(after: String, before: String, first: Int, last: Int, filterBy: RoomFilter, orderBy: RoomOrdering): RoomConnection!
 	room(id: ID!): Room
@@ -1034,13 +1175,30 @@ type Query {
 	user(id: ID!): User
 	userBillingCategories(id: [ID!], filterBy: UserBillingCategoryFilter, orderBy: UserBillingCategoryOrdering): [UserBillingCategory!]!
 	userBillingCategory(id: ID!): UserBillingCategory
+	certificates(id: [ID!], filterBy: CertificateFilter, orderBy: CertificateOrdering): [Certificate!]!
+	certificate(id: ID!): Certificate
 }
 
 union Resource = Lab | Room
 
+input ResourceFilter {
+	room: RoomFilter
+	lab: LabFilter
+}
+
 input ResourceID @oneOf {
 	lab: ID
 	room: ID
+}
+
+input ResourceOrdering {
+	field: ResourceOrderingField!
+	direction: OrderingDirection
+}
+
+enum ResourceOrderingField {
+	Lab
+	Room
 }
 
 type Room {
@@ -1118,7 +1276,6 @@ type Storage {
 	usageMiB: Int!
 }
 
-
 input StringFilter {
 	equals: String
 	notEquals: String
@@ -1142,13 +1299,14 @@ type UpdateAccountOutput {
 }
 
 input UpdateBookingEventInput {
-	resource: ResourceID
+	budget: ID
 	start: DateTime
 	end: DateTime
 	status: BookingEventStatus
 	subject: String
 	session: String
 	remark: String
+	resource: ResourceID
 }
 
 input UpdateBookingInput {
@@ -1159,9 +1317,22 @@ input UpdateBookingInput {
 	experiment: ID
 }
 
+input UpdateBudgetInput {
+	name: String
+	start: DateTime
+	end: DateTime
+	owner: ID
+	piBudget: Boolean
+}
+
 input UpdateBuildingInput {
 	name: String
 	address: String
+}
+
+input UpdateCertificateInput {
+	name: String
+	modality: ID
 }
 
 input UpdateExperimentInput {
@@ -1172,6 +1343,10 @@ input UpdateExperimentInput {
 	modality: ID
 	quotaRuleVersion: Int
 	withStructuralMri: Boolean
+}
+
+input UpdateFunctionInput {
+	name: String
 }
 
 input UpdateFundingSourceInput {
@@ -1202,14 +1377,20 @@ input UpdateOrganisationalUnitInput {
 
 input UpdateProjectInput {
 	kind: ProjectKind
-	fundingSource: ID
+	prefix: ID
 	title: String
+	pilot: Boolean
 	status: ProjectStatus
 	owner: ID
 	start: DateTime
 	end: DateTime
+	acquisitionEnd: DateTime
 	overrulingQuotaGiB: Int
 	experimenters: [ID!]
+}
+
+input UpdateProjectPrefixInput {
+	name: String
 }
 
 input UpdateProjectProposalInput {
@@ -1237,12 +1418,12 @@ input UpdateUserInput {
 	middleName: String
 	lastName: String
 	overrideName: String
-	function: UserFunction
 	email: String
 	emailExt: String
 	phone: String
 	phoneExt: String
 	status: UserStatus
+	function: ID
 	universalPrincipalName: String
 	employeeNumber: String
 	comments: String
@@ -1261,10 +1442,9 @@ type User {
 	status: UserStatus!
 	firstName: String
 	middleName: String
-	lastName: String
+	lastName(style: NameStyle! = Default): String
 	overrideName: String
-	displayName: String!
-	function: UserFunction!
+	displayName(style: NameStyle! = Default): String!
 	email: String
 	emailExt: String
 	phone: String
@@ -1279,12 +1459,14 @@ type User {
 	labAccount: LabAccount
 	groups(orderBy: GroupMemberOrdering): [GroupMember!]!
 	projects(orderBy: ProjectMemberOrdering): [ProjectMember!]!
+	function: Function
 	billingCategory: UserBillingCategory!
 	experimenterOf(filterBy: ProjectFilter, orderBy: ProjectOrdering): [Project!]!
 	billingOrganisationalUnit: OrganisationalUnit
 	primaryOrganisationalUnit: OrganisationalUnit
 	organisationalUnits(filterBy: OrganisationalUnitFilter, orderBy: OrganisationalUnitOrdering): [OrganisationalUnit!]!
 	organizationalUnits(filterBy: OrganisationalUnitUserFilter, orderBy: OrganisationalUnitUserOrdering): [OrganisationalUnitMember!]! @deprecated(reason: "Use `organisationalUnits` and `primaryOrganisationalUnit` instead")
+	certificates(filterBy: UserCertificateFilter, orderBy: UserCertificateOrdering): [UserCertificate!]!
 }
 
 type UserBillingCategory {
@@ -1309,6 +1491,29 @@ enum UserBillingCategoryOrderingField {
 	Id
 	Name
 	Description
+}
+
+type UserCertificate {
+	acquisitionDate: NaiveDate
+	user: User!
+	certificate: Certificate!
+}
+
+input UserCertificateFilter {
+	acquisitionDate: NullableDateTimeFilter
+	user: UserFilter
+	certificate: CertificateFilter
+}
+
+input UserCertificateOrdering {
+	field: UserCertificateOrderingField!
+	direction: OrderingDirection
+}
+
+enum UserCertificateOrderingField {
+	User
+	Certificate
+	AcquisitionDate
 }
 
 type UserConnection {
@@ -1344,8 +1549,6 @@ input UserFilter {
 	middleName: NullableStringFilter
 	lastName: NullableStringFilter
 	overrideName: NullableStringFilter
-	displayName: StringFilter
-	function: UserFunctionFilter
 	email: NullableStringFilter
 	emailExt: NullableStringFilter
 	phone: NullableStringFilter
@@ -1355,32 +1558,11 @@ input UserFilter {
 	employeeNumber: NullableStringFilter
 	comments: NullableStringFilter
 	desk: NullableIntegerFilter
-	billingCategory: UserBillingCategoryFilter
 	billingOrganisationalUnit: OrganisationalUnitFilter
-	primaryOrganisationalUnit: OrganisationalUnitFilter
+	function: FunctionFilter
 	room: RoomFilter
-}
-
-enum UserFunction {
-	Trainee
-	PhdStudent
-	PostdoctoralResearcher
-	PrincipalInvestigator
-	ResearchStaff
-	ResearchAssistant
-	OtherResearcher
-	StaffScientist
-	SupportingStaff
-	SeniorResearcher
-	ResearchFellow
-	StudentAssistant
-	Unknown
-}
-
-input UserFunctionFilter {
-	equals: UserFunction
-	notEquals: UserFunction
-	in: [UserFunction!]
+	billingCategory: UserBillingCategoryFilter
+	primaryOrganisationalUnit: OrganisationalUnitFilter
 }
 
 input UserOrdering {
@@ -1396,13 +1578,12 @@ enum UserOrderingField {
 	MiddleName
 	LastName
 	OverrideName
-	DisplayName
-	Function
 	Email
 	EmailExt
 	Phone
 	PhoneExt
 	Status
+	Function
 	UniversalPrincipalName
 	EmployeeNumber
 	Comments
@@ -1426,9 +1607,21 @@ input UserStatusFilter {
 	in: [UserStatus!]
 }
 
+"""
+Marks an element of a GraphQL schema as no longer supported.
+"""
 directive @deprecated(reason: String = "No longer supported") on FIELD_DEFINITION | ARGUMENT_DEFINITION | INPUT_FIELD_DEFINITION | ENUM_VALUE
+"""
+Directs the executor to include this field or fragment only when the `if` argument is true.
+"""
 directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Indicates that an Input Object is a OneOf Input Object (and thus requires exactly one of its field be provided)
+"""
 directive @oneOf on INPUT_OBJECT
+"""
+Directs the executor to skip this field or fragment when the `if` argument is true.
+"""
 directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 schema {
 	query: Query

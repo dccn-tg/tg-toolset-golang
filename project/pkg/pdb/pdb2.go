@@ -55,26 +55,30 @@ func userStatusEnum(status api.UserStatus) UserStatus {
 
 // userFunctionEnum converts the user function string returned from the core-api
 // to `UserFunction` enum.
-func userFunctionEnum(status api.UserFunction) UserFunction {
-	switch status {
-	case api.UserFunctionPrincipalinvestigator:
-		return UserFunctionPrincipalInvestigator
-	case api.UserFunctionResearchassistant:
-		return UserFunctionResearchAssistant
-	case api.UserFunctionResearchstaff:
-		return UserFunctionResearchStaff
-	case api.UserFunctionStaffscientist:
-		return UserFunctionStaffScientist
-	case api.UserFunctionPostdoctoralresearcher:
-		return UserFunctionPostdoc
-	case api.UserFunctionPhdstudent:
+func userFunctionEnum(id string) UserFunction {
+	switch id {
+	case "student":
+		return UserFunctionStudent
+	case "phd-candidate":
 		return UserFunctionPhD
-	case api.UserFunctionSupportingstaff:
-		return UserFunctionSupportingStaff
-	case api.UserFunctionOtherresearcher:
-		return UserFunctionOtherResearcher
-	case api.UserFunctionTrainee:
-		return UserFunctionTrainee
+	case "postdoc":
+		return UserFunctionPostdoc
+	case "principal-investigator":
+		return UserFunctionPrincipalInvestigator
+	case "research-staff":
+		return UserFunctionResearchStaff
+	case "research-assistant":
+		return UserFunctionResearchAssistant
+	case "guest-researcher":
+		return UserFunctionGuestResearcher
+	case "staff-scientist":
+		return UserFunctionStaffScientist
+	case "professional-staff":
+		return UserFunctionProfessionalStaff
+	case "senior-researcher":
+		return UserFunctionSeniorResearcher
+	case "student-assistant":
+		return UserFunctionStudentAssistant
 	default:
 		return UserFunctionUnknown
 	}
@@ -207,7 +211,7 @@ func (v2 V2) GetUser(uid string) (*User, error) {
 		Lastname:   resp.User.LastName,
 		Email:      resp.User.Email,
 		Status:     userStatusEnum(resp.User.Status),
-		Function:   userFunctionEnum(resp.User.Function),
+		Function:   userFunctionEnum(resp.User.Function.Id),
 	}, nil
 }
 
@@ -231,7 +235,7 @@ func (v2 V2) GetUserByEmail(email string) (*User, error) {
 		Lastname:   resp.Users[0].LastName,
 		Email:      resp.Users[0].Email,
 		Status:     userStatusEnum(resp.Users[0].Status),
-		Function:   userFunctionEnum(resp.Users[0].Function),
+		Function:   userFunctionEnum(resp.Users[0].Function.Id),
 	}, nil
 }
 
@@ -346,7 +350,7 @@ func (v2 V2) getLabBookingEvents(lab Lab, from, to time.Time, forWorklist bool) 
 					Lastname:   b.Booking.Owner.LastName,
 					Email:      b.Booking.Owner.Email,
 					Status:     userStatusEnum(b.Booking.Owner.Status),
-					Function:   userFunctionEnum(b.Booking.Owner.Function),
+					Function:   userFunctionEnum(b.Booking.Owner.Function.Id),
 				},
 				Lab:       strings.ToUpper(rsrc.Id), // used resource ID as the Lab for PDB1 compatibility
 				Modality:  b.Booking.Experiment.Modality.ShortName,
