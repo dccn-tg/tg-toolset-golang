@@ -36,24 +36,6 @@ const (
 	ProjectStatusInactive ProjectStatus = "Inactive"
 )
 
-type UserFunction string
-
-const (
-	UserFunctionTrainee                UserFunction = "Trainee"
-	UserFunctionPhdstudent             UserFunction = "PhdStudent"
-	UserFunctionPostdoctoralresearcher UserFunction = "PostdoctoralResearcher"
-	UserFunctionPrincipalinvestigator  UserFunction = "PrincipalInvestigator"
-	UserFunctionResearchstaff          UserFunction = "ResearchStaff"
-	UserFunctionResearchassistant      UserFunction = "ResearchAssistant"
-	UserFunctionOtherresearcher        UserFunction = "OtherResearcher"
-	UserFunctionStaffscientist         UserFunction = "StaffScientist"
-	UserFunctionSupportingstaff        UserFunction = "SupportingStaff"
-	UserFunctionSeniorresearcher       UserFunction = "SeniorResearcher"
-	UserFunctionResearchfellow         UserFunction = "ResearchFellow"
-	UserFunctionStudentassistant       UserFunction = "StudentAssistant"
-	UserFunctionUnknown                UserFunction = "Unknown"
-)
-
 type UserStatus string
 
 const (
@@ -284,13 +266,13 @@ func (v *getBookingEventsBookingEventsBookingEventBookingExperimentModality) Get
 
 // getBookingEventsBookingEventsBookingEventBookingOwnerUser includes the requested fields of the GraphQL type User.
 type getBookingEventsBookingEventsBookingEventBookingOwnerUser struct {
-	Username   string       `json:"username"`
-	FirstName  string       `json:"firstName"`
-	MiddleName string       `json:"middleName"`
-	LastName   string       `json:"lastName"`
-	Email      string       `json:"email"`
-	Status     UserStatus   `json:"status"`
-	Function   UserFunction `json:"function"`
+	Username   string                                                            `json:"username"`
+	FirstName  string                                                            `json:"firstName"`
+	MiddleName string                                                            `json:"middleName"`
+	LastName   string                                                            `json:"lastName"`
+	Email      string                                                            `json:"email"`
+	Status     UserStatus                                                        `json:"status"`
+	Function   getBookingEventsBookingEventsBookingEventBookingOwnerUserFunction `json:"function"`
 }
 
 // GetUsername returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.Username, and is useful for accessing the field via an interface.
@@ -322,8 +304,24 @@ func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetStatus() 
 }
 
 // GetFunction returns getBookingEventsBookingEventsBookingEventBookingOwnerUser.Function, and is useful for accessing the field via an interface.
-func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetFunction() UserFunction {
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUser) GetFunction() getBookingEventsBookingEventsBookingEventBookingOwnerUserFunction {
 	return v.Function
+}
+
+// getBookingEventsBookingEventsBookingEventBookingOwnerUserFunction includes the requested fields of the GraphQL type Function.
+type getBookingEventsBookingEventsBookingEventBookingOwnerUserFunction struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns getBookingEventsBookingEventsBookingEventBookingOwnerUserFunction.Id, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUserFunction) GetId() string {
+	return v.Id
+}
+
+// GetName returns getBookingEventsBookingEventsBookingEventBookingOwnerUserFunction.Name, and is useful for accessing the field via an interface.
+func (v *getBookingEventsBookingEventsBookingEventBookingOwnerUserFunction) GetName() string {
+	return v.Name
 }
 
 // getBookingEventsBookingEventsBookingEventBookingProject includes the requested fields of the GraphQL type Project.
@@ -725,13 +723,13 @@ func (v *getUserByEmailResponse) GetUsers() []getUserByEmailUsersUser { return v
 
 // getUserByEmailUsersUser includes the requested fields of the GraphQL type User.
 type getUserByEmailUsersUser struct {
-	Username   string       `json:"username"`
-	FirstName  string       `json:"firstName"`
-	MiddleName string       `json:"middleName"`
-	LastName   string       `json:"lastName"`
-	Email      string       `json:"email"`
-	Status     UserStatus   `json:"status"`
-	Function   UserFunction `json:"function"`
+	Username   string                          `json:"username"`
+	FirstName  string                          `json:"firstName"`
+	MiddleName string                          `json:"middleName"`
+	LastName   string                          `json:"lastName"`
+	Email      string                          `json:"email"`
+	Status     UserStatus                      `json:"status"`
+	Function   getUserByEmailUsersUserFunction `json:"function"`
 }
 
 // GetUsername returns getUserByEmailUsersUser.Username, and is useful for accessing the field via an interface.
@@ -753,7 +751,19 @@ func (v *getUserByEmailUsersUser) GetEmail() string { return v.Email }
 func (v *getUserByEmailUsersUser) GetStatus() UserStatus { return v.Status }
 
 // GetFunction returns getUserByEmailUsersUser.Function, and is useful for accessing the field via an interface.
-func (v *getUserByEmailUsersUser) GetFunction() UserFunction { return v.Function }
+func (v *getUserByEmailUsersUser) GetFunction() getUserByEmailUsersUserFunction { return v.Function }
+
+// getUserByEmailUsersUserFunction includes the requested fields of the GraphQL type Function.
+type getUserByEmailUsersUserFunction struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns getUserByEmailUsersUserFunction.Id, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUserFunction) GetId() string { return v.Id }
+
+// GetName returns getUserByEmailUsersUserFunction.Name, and is useful for accessing the field via an interface.
+func (v *getUserByEmailUsersUserFunction) GetName() string { return v.Name }
 
 // getUserResponse is returned by getUser on success.
 type getUserResponse struct {
@@ -765,13 +775,13 @@ func (v *getUserResponse) GetUser() getUserUser { return v.User }
 
 // getUserUser includes the requested fields of the GraphQL type User.
 type getUserUser struct {
-	Username   string       `json:"username"`
-	FirstName  string       `json:"firstName"`
-	MiddleName string       `json:"middleName"`
-	LastName   string       `json:"lastName"`
-	Email      string       `json:"email"`
-	Status     UserStatus   `json:"status"`
-	Function   UserFunction `json:"function"`
+	Username   string              `json:"username"`
+	FirstName  string              `json:"firstName"`
+	MiddleName string              `json:"middleName"`
+	LastName   string              `json:"lastName"`
+	Email      string              `json:"email"`
+	Status     UserStatus          `json:"status"`
+	Function   getUserUserFunction `json:"function"`
 }
 
 // GetUsername returns getUserUser.Username, and is useful for accessing the field via an interface.
@@ -793,7 +803,19 @@ func (v *getUserUser) GetEmail() string { return v.Email }
 func (v *getUserUser) GetStatus() UserStatus { return v.Status }
 
 // GetFunction returns getUserUser.Function, and is useful for accessing the field via an interface.
-func (v *getUserUser) GetFunction() UserFunction { return v.Function }
+func (v *getUserUser) GetFunction() getUserUserFunction { return v.Function }
+
+// getUserUserFunction includes the requested fields of the GraphQL type Function.
+type getUserUserFunction struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns getUserUserFunction.Id, and is useful for accessing the field via an interface.
+func (v *getUserUserFunction) GetId() string { return v.Id }
+
+// GetName returns getUserUserFunction.Name, and is useful for accessing the field via an interface.
+func (v *getUserUserFunction) GetName() string { return v.Name }
 
 // getUsersResponse is returned by getUsers on success.
 type getUsersResponse struct {
@@ -805,13 +827,13 @@ func (v *getUsersResponse) GetUsers() []getUsersUsersUser { return v.Users }
 
 // getUsersUsersUser includes the requested fields of the GraphQL type User.
 type getUsersUsersUser struct {
-	Username   string       `json:"username"`
-	FirstName  string       `json:"firstName"`
-	MiddleName string       `json:"middleName"`
-	LastName   string       `json:"lastName"`
-	Email      string       `json:"email"`
-	Status     UserStatus   `json:"status"`
-	Function   UserFunction `json:"function"`
+	Username   string                    `json:"username"`
+	FirstName  string                    `json:"firstName"`
+	MiddleName string                    `json:"middleName"`
+	LastName   string                    `json:"lastName"`
+	Email      string                    `json:"email"`
+	Status     UserStatus                `json:"status"`
+	Function   getUsersUsersUserFunction `json:"function"`
 }
 
 // GetUsername returns getUsersUsersUser.Username, and is useful for accessing the field via an interface.
@@ -833,7 +855,19 @@ func (v *getUsersUsersUser) GetEmail() string { return v.Email }
 func (v *getUsersUsersUser) GetStatus() UserStatus { return v.Status }
 
 // GetFunction returns getUsersUsersUser.Function, and is useful for accessing the field via an interface.
-func (v *getUsersUsersUser) GetFunction() UserFunction { return v.Function }
+func (v *getUsersUsersUser) GetFunction() getUsersUsersUserFunction { return v.Function }
+
+// getUsersUsersUserFunction includes the requested fields of the GraphQL type Function.
+type getUsersUsersUserFunction struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns getUsersUsersUserFunction.Id, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUserFunction) GetId() string { return v.Id }
+
+// GetName returns getUsersUsersUserFunction.Name, and is useful for accessing the field via an interface.
+func (v *getUsersUsersUserFunction) GetName() string { return v.Name }
 
 // The query or mutation executed by getBookingEvents.
 const getBookingEvents_Operation = `
@@ -876,7 +910,10 @@ query getBookingEvents ($start: DateTime!, $end: DateTime!, $resources: [ID!]) {
 				lastName
 				email
 				status
-				function
+				function {
+					id
+					name
+				}
 			}
 		}
 		resource {
@@ -1097,7 +1134,10 @@ query getUser ($username: ID!) {
 		lastName
 		email
 		status
-		function
+		function {
+			id
+			name
+		}
 	}
 }
 `
@@ -1138,7 +1178,10 @@ query getUserByEmail ($email: String) {
 		lastName
 		email
 		status
-		function
+		function {
+			id
+			name
+		}
 	}
 }
 `
@@ -1183,7 +1226,10 @@ query getUsers {
 		lastName
 		email
 		status
-		function
+		function {
+			id
+			name
+		}
 	}
 }
 `

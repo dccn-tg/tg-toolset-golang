@@ -112,34 +112,32 @@ func (u User) DisplayName() string {
 type UserFunction int
 
 const (
-	// UserFunctionOther for other functions not indicated below.
-	UserFunctionOther UserFunction = iota - 1
+	// UserFunctionNil for unknown/unexpected user function.
+	UserFunctionNil UserFunction = iota - 1
 	// UserFunctionPrincipalInvestigator for users with the principle investigators function.
 	UserFunctionPrincipalInvestigator
-	// UserFunctionTrainee for users that are trainees.
-	UserFunctionTrainee
-	// UserFunctionPhD for users that are PhD students.
-	UserFunctionPhD
+	// UserFunctionStudent for users that are students.
+	UserFunctionStudent
+	// UserFunctionStudentAssistant for users that are student assistants.
+	UserFunctionStudentAssistant
+	// UserFunctionPhdCandidate for users that are PhD candidates.
+	UserFunctionPhdCandidate
 	// UserFunctionPostdoc for users that are Postdocs.
 	UserFunctionPostdoc
 	// UserFunctionResearchSupport for reseache support.
 	UserFunctionResearchSupport
-	// UserFunctionOtherSupport for other support staffs.
-	UserFunctionOtherSupport
-	// UserFunctionSupportingStaff for supporting staffs.
-	UserFunctionSupportingStaff
+	// UserFunctionProfessionalStaff for professional staffs.
+	UserFunctionProfessionalStaff
 	// UserFunctionResearchStaff for research staffs.
 	UserFunctionResearchStaff
 	// UserFunctionResearchAssistant for research assistant.
 	UserFunctionResearchAssistant
 	// UserFunctionStaffScientist for ataff scientist.
 	UserFunctionStaffScientist
-	// UserFunctionOtherResearcher for general researchers.
-	UserFunctionOtherResearcher
+	// UserFunctionGuestResearcher for guest researchers.
+	UserFunctionGuestResearcher
 	// UserFunctionSeniorResearcher for senior researchers.
 	UserFunctionSeniorResearcher
-	// UserFunctionUnknown for unknown/unexpected user function.
-	UserFunctionUnknown
 )
 
 // UserStatus defines PDB user status.

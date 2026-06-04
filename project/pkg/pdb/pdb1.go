@@ -710,7 +710,7 @@ func parseUserFunction(f string) UserFunction {
 	case "pi", "Principal Investigator":
 		return UserFunctionPrincipalInvestigator
 	default:
-		return UserFunctionOther
+		return UserFunctionNil
 	}
 }
 
