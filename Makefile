@@ -32,6 +32,9 @@ build_project:
 build:
 	GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go install github.com/dccn-tg/tg-toolset-golang/...
 
+static-binaries:
+	GOPATH=$(GOPATH) GOOS=$(GOOS) CGO_ENABLED=0 GO111MODULE=$(GO111MODULE) go build -o lab_bookings dataflow/cmd/lab_bookings/main.go
+
 test_mailer:
 	@GOPATH=$(GOPATH) GOOS=$(GOOS) GO111MODULE=$(GO111MODULE) go test -v github.com/dccn-tg/tg-toolset-golang/pkg/mailer/...
 
